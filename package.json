@@ -1,0 +1,21 @@
+{
+  "name": "confidential-token",
+  "packageManager": "yarn@4.12.0",
+  "devDependencies": {
+    "hardhat": "^2.27.1"
+  },
+  "scripts": {
+    "compile": "yarn hardhat compile",
+    "cleanCompile": "yarn hardhat clean && yarn compile",
+    "cspell": "yarn exec cspell .",
+    "eslint": "yarn exec eslint .",
+    "fullCheck": "yarn compile && yarn lint && yarn tsc && yarn eslint",
+    "hooks": "git config core.hooksPath .githooks",
+    "lint": "yarn solhint 'contracts/**/*.sol'",
+    "no-hooks": "git config core.hooksPath .git/hooks",
+    "slither": "yarn cleanCompile && slither . --compile-force-framework hardhat --ignore-compile",
+    "test": "yarn tsc && npx hardhat test",
+    "tsc": "yarn exec tsc --noEmit",
+    "docgen": "yarn hardhat docgen"
+  }
+}
