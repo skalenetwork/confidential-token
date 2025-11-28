@@ -2,7 +2,9 @@
   "name": "confidential-token",
   "packageManager": "yarn@4.12.0",
   "devDependencies": {
-    "hardhat": "^2.27.1"
+    "hardhat": "^2.27.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   },
   "scripts": {
     "compile": "yarn hardhat compile",
