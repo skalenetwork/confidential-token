@@ -1,7 +1,16 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-ethers";
+import "solidity-docgen";
 
 const config: HardhatUserConfig = {
+  docgen: {
+    outputDir: "docs",
+    pages: "files",
+    templates: "./docs/templates",
+    exclude: [
+      "test"
+    ]
+  },
   networks: {
     custom: {
       url: process.env.ENDPOINT || "http://localhost:8545",
