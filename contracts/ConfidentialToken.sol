@@ -22,6 +22,10 @@
 pragma solidity ^0.8.24;
 
 
+/// @title ConfidentialToken
+/// @author Dmytro Stebaiev
+/// @notice ERC20-like token with encrypted balances
 contract ConfidentialToken {
+    /// @notice Temporary public balance for testing purposes
     uint256 public balance;
 }

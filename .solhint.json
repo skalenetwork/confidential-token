@@ -25,6 +25,7 @@
     "no-unused-import": "error",
     "no-unused-vars": "error",
     "not-rely-on-time": "error",
-    "ordering": "error"
+    "ordering": "error",
+    "use-natspec": "error"
   }
 }
