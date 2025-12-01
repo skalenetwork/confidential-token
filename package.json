@@ -31,6 +31,7 @@
     "docgen": "yarn hardhat docgen"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "5.4.0",
     "@skalenetwork/upgrade-tools": "^2.0.2"
   }
 }

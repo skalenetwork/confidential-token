@@ -1822,6 +1822,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@openzeppelin/contracts@npm:5.4.0":
+  version: 5.4.0
+  resolution: "@openzeppelin/contracts@npm:5.4.0"
+  checksum: 10c0/7e05646dee4905fea4493f0fb2ad208abaff84b9f5ef1b9e1a5fc61d0e74d9bc30759bdf0d09a08049cfef6a290623330d83469eadc990a7bba6c2cd09a27e1d
+  languageName: node
+  linkType: hard
+
 "@pnpm/config.env-replace@npm:^1.1.0":
   version: 1.1.0
   resolution: "@pnpm/config.env-replace@npm:1.1.0"
@@ -3075,6 +3082,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:^9.39.1"
     "@nomicfoundation/hardhat-ethers": "npm:^3.1.2"
+    "@openzeppelin/contracts": "npm:5.4.0"
     "@skalenetwork/upgrade-tools": "npm:^2.0.2"
     "@types/node": "npm:^24.10.1"
     cspell: "npm:^9.3.2"
