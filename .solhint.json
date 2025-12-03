@@ -10,6 +10,7 @@
     "gas-custom-errors": "error",
     "gas-increment-by-one": "error",
     "gas-length-in-loops": "error",
+    "gas-small-strings": "error",
     "gas-strict-inequalities": "error",
     "imports-order": "error",
     "immutable-vars-naming": "error",

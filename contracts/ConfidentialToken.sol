@@ -40,24 +40,28 @@ contract ConfidentialToken is EIP3009, ERC20Permit {
 
     error ValueIsEncrypted();
 
+    /// @notice Sets the values for {name} and {symbol}.
+    /// @param name_     Name of the token
+    /// @param symbol_   Symbol of the token
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) ERC20Permit(name_) {
     }
 
-    function balanceOf(address account) public view override returns (uint256) {
+    /// @inheritdoc ERC20
+    function balanceOf(address account) public pure override returns (uint256 balance) {
+        account = account; // TODO: remove
         revert ValueIsEncrypted();
     }
 
     // Internal functions
 
-    function _update(address from, address to, uint256 value) internal override {
-        revert NotImplemented();
-    }
-
-    function _approve(address owner, address spender, uint256 value, bool emitEvent) internal override {
-        revert NotImplemented();
-    }
-
-    function _spendAllowance(address owner, address spender, uint256 value) internal override {
+    /// @notice Transfers a `value` amount of tokens from `from` to `to`
+    /// @notice or alternatively mints (or burns) if `from` (or `to`) is the zero address.
+    /// @param from  Address to transfer tokens from
+    /// @param to    Address to transfer tokens to
+    /// @param value Amount of tokens to be transferred
+    function _update(address from, address to, uint256 value) internal pure override {
+        from = to; // TODO: remove
+        value = value; // TODO: remove
         revert NotImplemented();
     }
 }
