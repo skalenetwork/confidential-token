@@ -32,11 +32,12 @@
 
 pragma solidity ^0.8.24;
 
-import { IERC20Internal } from "./IERC20Internal.sol";
-import { EIP712Domain } from "./EIP712Domain.sol";
-import { EIP712 } from "./EIP712.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
-abstract contract EIP3009 is IERC20Internal, EIP712Domain {
+import { EIP712Utils } from "./EIP712Utils.sol";
+
+abstract contract EIP3009 is ERC20, EIP712 {
     // keccak256("TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)")
     bytes32
         public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = 0x7c7c6cdb67a18743f49ec6fa9b35f50d52ed05cbed4cc592e13b44501c1a2267;
@@ -186,7 +187,7 @@ abstract contract EIP3009 is IERC20Internal, EIP712Domain {
             nonce
         );
         require(
-            EIP712.recover(this.DOMAIN_SEPARATOR(), v, r, s, data) == authorizer,
+            EIP712Utils.recover(_domainSeparatorV4(), v, r, s, data) == authorizer,
             _INVALID_SIGNATURE_ERROR
         );
 
@@ -220,7 +221,7 @@ abstract contract EIP3009 is IERC20Internal, EIP712Domain {
             nonce
         );
         require(
-            EIP712.recover(this.DOMAIN_SEPARATOR(), v, r, s, data) == from,
+            EIP712Utils.recover(_domainSeparatorV4(), v, r, s, data) == from,
             _INVALID_SIGNATURE_ERROR
         );
 

@@ -27,9 +27,6 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { EIP3009 } from "./eip3009/EIP3009.sol";
-import { EIP712 } from "./eip3009/EIP712.sol";
-import { EIP712Domain } from "./eip3009/EIP712Domain.sol";
-import { IERC20Internal } from "./eip3009/IERC20Internal.sol";
 
 import { NotImplemented } from "./errors.sol";
 
@@ -41,16 +38,13 @@ contract ConfidentialToken is EIP3009, ERC20Permit {
     using Address for address;
     using Math for uint256;
 
-    // TODO:
-    // Potentially we could override or remove
-    // function balanceOf(address account) external view returns (uint256);
+    error ValueIsEncrypted();
 
-    // TODO:
-    // Potentially we could override or remove
-    // function allowance(address owner, address spender) external view returns (uint256);
+    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) ERC20Permit(name_) {
+    }
 
-    function DOMAIN_SEPARATOR() external view override(EIP712Domain, ERC20Permit) returns (bytes32) {
-        return ERC20Permit.DOMAIN_SEPARATOR();
+    function balanceOf(address account) public view override returns (uint256) {
+        revert ValueIsEncrypted();
     }
 
     // Internal functions
@@ -59,7 +53,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit {
         revert NotImplemented();
     }
 
-    function _approve(address owner, address spender, uint256 value, bool emitEvent) internal override(ERC20, IERC20Internal) {
+    function _approve(address owner, address spender, uint256 value, bool emitEvent) internal override {
         revert NotImplemented();
     }
 

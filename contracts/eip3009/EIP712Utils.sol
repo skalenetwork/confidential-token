@@ -39,7 +39,7 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
  * @title EIP712
  * @notice A library that provides EIP712 helper functions
  */
-library EIP712 {
+library EIP712Utils {
 
     /**
      * @notice Recover signer's address from a EIP712 signature
