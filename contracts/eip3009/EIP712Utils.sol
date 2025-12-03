@@ -36,7 +36,8 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
- * @title EIP712
+ * @title EIP712Utils
+ * @author Dmytro Stebaiev
  * @notice A library that provides EIP712 helper functions
  */
 library EIP712Utils {
@@ -48,7 +49,7 @@ library EIP712Utils {
      * @param r                 r of the signature
      * @param s                 s of the signature
      * @param typeHashAndData   Type hash concatenated with data
-     * @return Signer's address
+     * @return signer Signer's address
      */
     function recover(
         bytes32 domainSeparator,
@@ -56,7 +57,7 @@ library EIP712Utils {
         bytes32 r,
         bytes32 s,
         bytes memory typeHashAndData
-    ) internal pure returns (address) {
+    ) internal pure returns (address signer) {
         bytes32 digest = MessageHashUtils.toTypedDataHash(
             domainSeparator,
             keccak256(typeHashAndData)
