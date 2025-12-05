@@ -13,6 +13,7 @@
         ".yarn",
         "artifacts",
         "cache",
+        "cspell.json",
         "venv",
         "typechain-types",
         "slither.config.json",
@@ -20,5 +21,11 @@
         "coverage.json",
         "package.json",
         "lib"
-    ]
+    ],
+    "overrides": [
+    {
+        "filename": "**/EIP3009.md",
+        "words": ["typehash"]
+    }
+  ]
 }
