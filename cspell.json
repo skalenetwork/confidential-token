@@ -2,13 +2,14 @@
     "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
     "version": "0.2",
     "dictionaryDefinitions": [
-        { "name": "skale-terms", "path": "./dictionary/skale-terms.txt"},
-        { "name": "libraries", "path": "./dictionary/libraries.txt"},
-        { "name": "domain-terms", "path": "./dictionary/domain-terms.txt"},
-        { "name": "names", "path": "./dictionary/names.txt"},
-        { "name": "solidity", "path": "./dictionary/solidity.txt"}
+        { "name": "skale-terms", "path": "./dictionary/skale-terms.txt" },
+        { "name": "libraries", "path": "./dictionary/libraries.txt" },
+        { "name": "domain-terms", "path": "./dictionary/domain-terms.txt" },
+        { "name": "names", "path": "./dictionary/names.txt" },
+        { "name": "solidity", "path": "./dictionary/solidity.txt" },
+        { "name": "python", "path": "./dictionary/python.txt" }
     ],
-    "dictionaries": ["domain-terms", "libraries", "names", "skale-terms", "solidity"],
+    "dictionaries": ["domain-terms", "libraries", "names", "skale-terms", "solidity", "python"],
     "ignorePaths": [
         ".yarn",
         "artifacts",
@@ -26,6 +27,10 @@
     {
         "filename": "**/EIP3009.md",
         "words": ["typehash"]
+    },
+    {
+        "filename": "licenses/LICENSE_COINBASE",
+        "words": ["SECZ"]
     }
   ]
 }
