@@ -52,6 +52,9 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
     /// @notice Address of the DecryptAndExecute precompiled contract
     address public decryptAndExecuteAddress;
 
+    /// @notice Address of the EncryptTE precompiled contract
+    address public encryptTEaddress;
+
     /// @notice Emitted when tokens are transferred, including mints and burns
     event Transferred();
 
@@ -131,7 +134,6 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
         uint256 updatedToBalance = toBalance;
 
         if (from == address(0)) {
-            // Overflow check required: The rest of the code assumes that totalSupply never overflows
             _totalSupply += value;
         } else {
             if (fromBalance < value) {
@@ -145,6 +147,9 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
         } else {
             updatedToBalance = toBalance + value;
         }
+
+        _thresholdBalances[from] = Precompiled.encryptTE(encryptTEaddress, abi.encode(updatedFromBalance));
+        _thresholdBalances[to] = Precompiled.encryptTE(encryptTEaddress, abi.encode(updatedToBalance));
 
         emit Transferred();
     }

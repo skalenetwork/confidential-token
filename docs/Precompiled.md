@@ -26,3 +26,9 @@ function decryptAndExecute(address decryptAndExecuteAddress, bytes[] encryptedAr
 | encryptedArguments | bytes[] | The encrypted arguments to pass to the precompiled contract |
 | plaintextArguments | bytes[] | The plaintext arguments to pass to the precompiled contract |
 
+### encryptTE
+
+```solidity
+function encryptTE(address encryptTEaddress, bytes text) internal view returns (bytes cipherText)
+```
+

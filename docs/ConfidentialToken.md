@@ -12,6 +12,12 @@ Address of the DecryptAndExecute precompiled contract
 address decryptAndExecuteAddress
 ```
 
+### encryptTEaddress
+
+```solidity
+address encryptTEaddress
+```
+
 ### Transferred
 
 Emitted when tokens are transferred, including mints and burns

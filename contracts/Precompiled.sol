@@ -50,6 +50,17 @@ library Precompiled {
         );
     }
 
+    /// @notice Calls the EncryptTE precompiled contract
+    /// @param encryptTEaddress The address of the EncryptTE precompiled contract
+    /// @param text The plaintext data to encrypt
+    /// @return cipherText The encrypted data returned by the precompiled contract
+    function encryptTE(address encryptTEaddress, bytes memory text) internal view returns (bytes memory cipherText) {
+        return _callPrecompiled(
+            encryptTEaddress,
+            text
+        );
+    }
+
     // Private
 
     /**
