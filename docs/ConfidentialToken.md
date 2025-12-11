@@ -14,6 +14,8 @@ address decryptAndExecuteAddress
 
 ### encryptTEaddress
 
+Address of the EncryptTE precompiled contract
+
 ```solidity
 address encryptTEaddress
 ```

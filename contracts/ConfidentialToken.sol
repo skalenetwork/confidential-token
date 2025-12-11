@@ -21,6 +21,7 @@
 
 pragma solidity ^0.8.24;
 
+import { AccessManaged } from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
@@ -28,14 +29,16 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { EIP3009 } from "./eip3009/EIP3009.sol";
 
+import { ZeroAddress } from "./errors.sol";
 import { IBiteSupplicant } from "./interfaces/bite/IBiteSupplicant.sol";
+import { IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 import { Precompiled } from "./Precompiled.sol";
 
 
 /// @title ConfidentialToken
 /// @author Dmytro Stebaiev
 /// @notice ERC20-like token with encrypted balances
-contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
+contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidentialToken {
     using Address for address;
     using Math for uint256;
 
@@ -49,14 +52,22 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
     /// @dev Can't reuse totalSupply from ERC20 because the field is private there
     uint256 private _totalSupply;
 
-    /// @notice Address of the DecryptAndExecute precompiled contract
-    address public decryptAndExecuteAddress;
+    /// @notice Address of the submitCTX precompiled contract
+    address public submitCTXAddress;
 
     /// @notice Address of the EncryptTE precompiled contract
     address public encryptTEaddress;
 
     /// @notice Emitted when tokens are transferred, including mints and burns
     event Transferred();
+
+    /// @notice Emitted when SubmitCTX precompiled contract address is changed
+    /// @param newAddress New address of the SubmitCTX precompiled contract
+    event SubmitCTXAddressChanged(address indexed newAddress);
+
+    /// @notice Emitted when EncryptTE precompiled contract address is changed
+    /// @param newAddress New address of the EncryptTE precompiled contract
+    event EncryptTEAddressChanged(address indexed newAddress);
 
     error ValueIsEncrypted();
     error AccessViolation();
@@ -66,15 +77,23 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
     /// @notice Sets the values for {name} and {symbol}.
     /// @param name_     Name of the token
     /// @param symbol_   Symbol of the token
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) ERC20Permit(name_) {
-    }
+    /// @param initialAuthority Address of AccessManager initial authority
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        address initialAuthority
+    )
+        ERC20(name_, symbol_)
+        ERC20Permit(name_)
+        AccessManaged(initialAuthority)
+    {}
 
     /// @inheritdoc IBiteSupplicant
     function onDecrypt(
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
     ) external override {
-        require(msg.sender == decryptAndExecuteAddress, AccessViolation()); // TODO: clarify this
+        require(msg.sender == submitCTXAddress, AccessViolation()); // TODO: clarify this
         require(decryptedArguments.length == 2, DecryptionBadFormat());
         require(decryptedArguments[0].length == 32, DecryptionBadFormat());
         require(decryptedArguments[1].length == 32, DecryptionBadFormat());
@@ -94,6 +113,20 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
             toBalance: toBalance,
             value: value
         });
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function setSubmitCTXAddress(address newAddress) external override restricted {
+        require(newAddress != address(0), ZeroAddress());
+        submitCTXAddress = newAddress;
+        emit SubmitCTXAddressChanged(newAddress);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function setEncryptTEAddress(address newAddress) external override restricted {
+        require(newAddress != address(0), ZeroAddress());
+        encryptTEaddress = newAddress;
+        emit EncryptTEAddressChanged(newAddress);
     }
 
     // Public functions
@@ -188,7 +221,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
         plaintextArguments[0] = abi.encode(from, to, value);
 
         Precompiled.decryptAndExecute(
-            decryptAndExecuteAddress,
+            submitCTXAddress,
             encryptedArguments,
             plaintextArguments
         );

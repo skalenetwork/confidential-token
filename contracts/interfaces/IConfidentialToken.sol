@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- *   errors.sol - confidential-token
+ *   IConfidentialToken.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Dmytro Stebaiev
  *
@@ -21,6 +21,18 @@
 
 pragma solidity ^0.8.24;
 
+import { IBiteSupplicant } from "./bite/IBiteSupplicant.sol";
 
-error NotImplemented();
-error ZeroAddress();
+
+/// @title IConfidentialToken
+/// @author Dmytro Stebaiev
+/// @notice Interface of the ConfidentialToken contract
+interface IConfidentialToken is IBiteSupplicant {
+    /// @notice Sets the address of the EncryptTE precompiled contract
+    /// @param newAddress New address of the EncryptTE precompiled contract
+    function setEncryptTEAddress(address newAddress) external;
+
+    /// @notice Sets the address of the SubmitCTX precompiled contract
+    /// @param newAddress New address of the SubmitCTX precompiled contract
+    function setSubmitCTXAddress(address newAddress) external;
+}

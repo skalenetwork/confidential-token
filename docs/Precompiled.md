@@ -28,7 +28,22 @@ function decryptAndExecute(address decryptAndExecuteAddress, bytes[] encryptedAr
 
 ### encryptTE
 
+Calls the EncryptTE precompiled contract
+
 ```solidity
 function encryptTE(address encryptTEaddress, bytes text) internal view returns (bytes cipherText)
 ```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptTEaddress | address | The address of the EncryptTE precompiled contract |
+| text | bytes | The plaintext data to encrypt |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| cipherText | bytes | The encrypted data returned by the precompiled contract |
 
