@@ -31,6 +31,10 @@
     {
         "filename": "licenses/LICENSE_COINBASE",
         "words": ["SECZ"]
+    },
+    {
+        "filename": "docs/**/*.md",
+        "words": ["ECIES"]
     }
   ]
 }

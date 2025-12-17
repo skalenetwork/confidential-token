@@ -6,3 +6,9 @@
 error NotImplemented()
 ```
 
+## ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+

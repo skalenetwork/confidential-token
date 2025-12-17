@@ -4,12 +4,20 @@
 
 ERC20-like token with encrypted balances
 
-### decryptAndExecuteAddress
+### publicKeys
 
-Address of the DecryptAndExecute precompiled contract
+Mapping of holder addresses to their public keys
 
 ```solidity
-address decryptAndExecuteAddress
+mapping(address => struct PublicKey) publicKeys
+```
+
+### submitCTXAddress
+
+Address of the submitCTX precompiled contract
+
+```solidity
+address submitCTXAddress
 ```
 
 ### encryptTEaddress
@@ -27,6 +35,48 @@ Emitted when tokens are transferred, including mints and burns
 ```solidity
 event Transferred()
 ```
+
+### SubmitCTXAddressChanged
+
+Emitted when SubmitCTX precompiled contract address is changed
+
+```solidity
+event SubmitCTXAddressChanged(address newAddress)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newAddress | address | New address of the SubmitCTX precompiled contract |
+
+### EncryptTEAddressChanged
+
+Emitted when EncryptTE precompiled contract address is changed
+
+```solidity
+event EncryptTEAddressChanged(address newAddress)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newAddress | address | New address of the EncryptTE precompiled contract |
+
+### PublicKeyRegistered
+
+Emitted when a public key is registered
+
+```solidity
+event PublicKeyRegistered(address holder)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| holder | address | Address of the holder whose public key is registered |
 
 ### ValueIsEncrypted
 
@@ -57,7 +107,7 @@ error InsufficientBalance()
 Sets the values for {name} and {symbol}.
 
 ```solidity
-constructor(string name_, string symbol_) public
+constructor(string name_, string symbol_, address initialAuthority) public
 ```
 
 #### Parameters
@@ -66,6 +116,7 @@ constructor(string name_, string symbol_) public
 | ---- | ---- | ----------- |
 | name_ | string | Name of the token |
 | symbol_ | string | Symbol of the token |
+| initialAuthority | address | Address of AccessManager initial authority |
 
 ### onDecrypt
 
@@ -81,6 +132,70 @@ function onDecrypt(bytes[] decryptedArguments, bytes[] plaintextArguments) exter
 | ---- | ---- | ----------- |
 | decryptedArguments | bytes[] | The decrypted arguments |
 | plaintextArguments | bytes[] | The plaintext arguments |
+
+### registerPublicKey
+
+Registers the public key of any address
+
+```solidity
+function registerPublicKey(struct PublicKey publicKey) external
+```
+
+**dev:** _The address is calculated from the public key_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| publicKey | struct PublicKey | The public key to register |
+
+### setSubmitCTXAddress
+
+Sets the address of the SubmitCTX precompiled contract
+
+```solidity
+function setSubmitCTXAddress(address newAddress) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newAddress | address | New address of the SubmitCTX precompiled contract |
+
+### setEncryptTEAddress
+
+Sets the address of the EncryptTE precompiled contract
+
+```solidity
+function setEncryptTEAddress(address newAddress) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newAddress | address | New address of the EncryptTE precompiled contract |
+
+### encryptedBalanceOf
+
+Gets the encrypted balance of a holder
+
+```solidity
+function encryptedBalanceOf(address holder) external view returns (bytes encryptedBalance)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| holder | address | The address of the holder |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedBalance | bytes | The encrypted balance of the holder |
 
 ### totalSupply
 

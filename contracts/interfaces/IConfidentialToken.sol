@@ -21,6 +21,7 @@
 
 pragma solidity ^0.8.24;
 
+import { PublicKey } from "../types.sol";
 import { IBiteSupplicant } from "./bite/IBiteSupplicant.sol";
 
 
@@ -28,6 +29,11 @@ import { IBiteSupplicant } from "./bite/IBiteSupplicant.sol";
 /// @author Dmytro Stebaiev
 /// @notice Interface of the ConfidentialToken contract
 interface IConfidentialToken is IBiteSupplicant {
+    /// @notice Registers the public key of any address
+    /// @dev The address is calculated from the public key
+    /// @param publicKey The public key to register
+    function registerPublicKey(PublicKey memory publicKey) external;
+
     /// @notice Sets the address of the EncryptTE precompiled contract
     /// @param newAddress New address of the EncryptTE precompiled contract
     function setEncryptTEAddress(address newAddress) external;
@@ -35,4 +41,9 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Sets the address of the SubmitCTX precompiled contract
     /// @param newAddress New address of the SubmitCTX precompiled contract
     function setSubmitCTXAddress(address newAddress) external;
+
+    /// @notice Gets the encrypted balance of a holder
+    /// @param holder The address of the holder
+    /// @return encryptedBalance The encrypted balance of the holder
+    function encryptedBalanceOf(address holder) external view returns (bytes memory encryptedBalance);
 }
