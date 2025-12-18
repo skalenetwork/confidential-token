@@ -45,8 +45,18 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     using Address for address;
     using Math for uint256;
 
+    /// @notice Address of the EncryptTE precompiled contract
+    address public encryptTEaddress;
+
     /// @notice Mapping of holder addresses to their public keys
     mapping(address holder => PublicKey publicKey) public publicKeys;
+
+    /// @notice Address of the submitCTX precompiled contract
+    address public submitCTXAddress;
+
+    /// @notice Version of the contract
+    /// @dev Is used to get proper ABI
+    string public version;
 
     /// @notice Encrypted with BITE Threshold Key (T_Key) - Used for contract logic
     mapping(address holder => bytes encryptedBalance) private _thresholdBalances;
@@ -57,12 +67,6 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @notice Total supply of the token
     /// @dev Can't reuse totalSupply from ERC20 because the field is private there
     uint256 private _totalSupply;
-
-    /// @notice Address of the submitCTX precompiled contract
-    address public submitCTXAddress;
-
-    /// @notice Address of the EncryptTE precompiled contract
-    address public encryptTEaddress;
 
     /// @notice Emitted when tokens are transferred, including mints and burns
     event Transferred();
@@ -87,16 +91,20 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @notice Sets the values for {name} and {symbol}.
     /// @param name_     Name of the token
     /// @param symbol_   Symbol of the token
+    /// @param version_  Version of the contract
     /// @param initialAuthority Address of AccessManager initial authority
     constructor(
         string memory name_,
         string memory symbol_,
+        string memory version_,
         address initialAuthority
     )
         ERC20(name_, symbol_)
         ERC20Permit(name_)
         AccessManaged(initialAuthority)
-    {}
+    {
+        version = version_;
+    }
 
     /// @inheritdoc IBiteSupplicant
     function onDecrypt(

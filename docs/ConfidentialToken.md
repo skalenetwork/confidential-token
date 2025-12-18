@@ -4,6 +4,14 @@
 
 ERC20-like token with encrypted balances
 
+### encryptTEaddress
+
+Address of the EncryptTE precompiled contract
+
+```solidity
+address encryptTEaddress
+```
+
 ### publicKeys
 
 Mapping of holder addresses to their public keys
@@ -20,12 +28,10 @@ Address of the submitCTX precompiled contract
 address submitCTXAddress
 ```
 
-### encryptTEaddress
-
-Address of the EncryptTE precompiled contract
+### version
 
 ```solidity
-address encryptTEaddress
+string version
 ```
 
 ### Transferred
@@ -107,7 +113,7 @@ error InsufficientBalance()
 Sets the values for {name} and {symbol}.
 
 ```solidity
-constructor(string name_, string symbol_, address initialAuthority) public
+constructor(string name_, string symbol_, string version_, address initialAuthority) public
 ```
 
 #### Parameters
@@ -116,6 +122,7 @@ constructor(string name_, string symbol_, address initialAuthority) public
 | ---- | ---- | ----------- |
 | name_ | string | Name of the token |
 | symbol_ | string | Symbol of the token |
+| version_ | string |  |
 | initialAuthority | address | Address of AccessManager initial authority |
 
 ### onDecrypt
