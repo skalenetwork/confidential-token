@@ -30,6 +30,8 @@
 // /licenses/LICENSE_COINBASE
 // ----------------------------------------------------------------------------
 
+// cspell:words typehash
+
 pragma solidity ^0.8.24;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -262,9 +264,11 @@ abstract contract EIP3009 is ERC20, EIP712 {
         // Time specific logic is used
         // to implement EIP-3009
         // solhint-disable not-rely-on-time
+        // slither-disable-start timestamp
         require(block.timestamp > validAfter, AuthorizationIsNotYetValid(validAfter));
         require(block.timestamp < validBefore, AuthorizationIsExpired(validBefore));
         // solhint-enable not-rely-on-time
+        // slither-disable-end timestamp
         require(!_authorizationStates[from][nonce], AuthorizationUsedError(from, nonce));
 
         bytes memory data = abi.encode(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- *   errors.sol - confidential-token
+ *   types.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Dmytro Stebaiev
  *
@@ -22,5 +22,7 @@
 pragma solidity ^0.8.24;
 
 
-error NotImplemented();
-error ZeroAddress();
+struct PublicKey {
+    bytes32 x;
+    bytes32 y;
+}

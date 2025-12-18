@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- *   errors.sol - confidential-token
+ *   AccessManager.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Dmytro Stebaiev
  *
@@ -21,6 +21,6 @@
 
 pragma solidity ^0.8.24;
 
-
-error NotImplemented();
-error ZeroAddress();
+// It's used in the deploy script
+// solhint-disable-next-line no-unused-import
+import { AccessManager } from "@openzeppelin/contracts/access/manager/AccessManager.sol";

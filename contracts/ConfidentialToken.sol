@@ -19,8 +19,11 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// cspell:words ECIES
+
 pragma solidity ^0.8.24;
 
+import { AccessManaged } from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
@@ -28,16 +31,32 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { EIP3009 } from "./eip3009/EIP3009.sol";
 
+import { ZeroAddress } from "./errors.sol";
 import { IBiteSupplicant } from "./interfaces/bite/IBiteSupplicant.sol";
+import { IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 import { Precompiled } from "./Precompiled.sol";
+import { PublicKey } from "./types.sol";
 
 
 /// @title ConfidentialToken
 /// @author Dmytro Stebaiev
 /// @notice ERC20-like token with encrypted balances
-contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
+contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidentialToken {
     using Address for address;
     using Math for uint256;
+
+    /// @notice Address of the EncryptTE precompiled contract
+    address public encryptTEaddress;
+
+    /// @notice Mapping of holder addresses to their public keys
+    mapping(address holder => PublicKey publicKey) public publicKeys;
+
+    /// @notice Address of the submitCTX precompiled contract
+    address public submitCTXAddress;
+
+    /// @notice Version of the contract
+    /// @dev Is used to get proper ABI
+    string public version;
 
     /// @notice Encrypted with BITE Threshold Key (T_Key) - Used for contract logic
     mapping(address holder => bytes encryptedBalance) private _thresholdBalances;
@@ -49,11 +68,20 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
     /// @dev Can't reuse totalSupply from ERC20 because the field is private there
     uint256 private _totalSupply;
 
-    /// @notice Address of the DecryptAndExecute precompiled contract
-    address public decryptAndExecuteAddress;
-
     /// @notice Emitted when tokens are transferred, including mints and burns
     event Transferred();
+
+    /// @notice Emitted when SubmitCTX precompiled contract address is changed
+    /// @param newAddress New address of the SubmitCTX precompiled contract
+    event SubmitCTXAddressChanged(address indexed newAddress);
+
+    /// @notice Emitted when EncryptTE precompiled contract address is changed
+    /// @param newAddress New address of the EncryptTE precompiled contract
+    event EncryptTEAddressChanged(address indexed newAddress);
+
+    /// @notice Emitted when a public key is registered
+    /// @param holder Address of the holder whose public key is registered
+    event PublicKeyRegistered(address indexed holder);
 
     error ValueIsEncrypted();
     error AccessViolation();
@@ -63,7 +91,19 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
     /// @notice Sets the values for {name} and {symbol}.
     /// @param name_     Name of the token
     /// @param symbol_   Symbol of the token
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) ERC20Permit(name_) {
+    /// @param version_  Version of the contract
+    /// @param initialAuthority Address of AccessManager initial authority
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        string memory version_,
+        address initialAuthority
+    )
+        ERC20(name_, symbol_)
+        ERC20Permit(name_)
+        AccessManaged(initialAuthority)
+    {
+        version = version_;
     }
 
     /// @inheritdoc IBiteSupplicant
@@ -71,7 +111,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
     ) external override {
-        require(msg.sender == decryptAndExecuteAddress, AccessViolation()); // TODO: clarify this
+        require(msg.sender == submitCTXAddress, AccessViolation()); // TODO: clarify this
         require(decryptedArguments.length == 2, DecryptionBadFormat());
         require(decryptedArguments[0].length == 32, DecryptionBadFormat());
         require(decryptedArguments[1].length == 32, DecryptionBadFormat());
@@ -91,6 +131,34 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
             toBalance: toBalance,
             value: value
         });
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function registerPublicKey(PublicKey calldata publicKey) external override restricted {
+        address holder = _publicKeyToAddress(publicKey);
+        if (!_knownPublicKey(holder)) {
+            publicKeys[holder] = publicKey;
+            emit PublicKeyRegistered(holder);
+        }
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function setSubmitCTXAddress(address newAddress) external override restricted {
+        require(newAddress != address(0), ZeroAddress());
+        submitCTXAddress = newAddress;
+        emit SubmitCTXAddressChanged(newAddress);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function setEncryptTEAddress(address newAddress) external override restricted {
+        require(newAddress != address(0), ZeroAddress());
+        encryptTEaddress = newAddress;
+        emit EncryptTEAddressChanged(newAddress);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function encryptedBalanceOf(address holder) external view override returns (bytes memory encryptedBalance) {
+        return _userBalances[holder];
     }
 
     // Public functions
@@ -131,7 +199,6 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
         uint256 updatedToBalance = toBalance;
 
         if (from == address(0)) {
-            // Overflow check required: The rest of the code assumes that totalSupply never overflows
             _totalSupply += value;
         } else {
             if (fromBalance < value) {
@@ -144,6 +211,27 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
             _totalSupply -= value;
         } else {
             updatedToBalance = toBalance + value;
+        }
+
+        _thresholdBalances[from] = Precompiled.encryptTE(encryptTEaddress, abi.encode(updatedFromBalance));
+        _thresholdBalances[to] = Precompiled.encryptTE(encryptTEaddress, abi.encode(updatedToBalance));
+
+        if (_knownPublicKey(from)) {
+            PublicKey memory fromPublicKey = publicKeys[from];
+            _userBalances[from] = Precompiled.encryptECIES(
+                encryptTEaddress,
+                abi.encode(updatedFromBalance),
+                fromPublicKey
+            );
+        }
+
+        if (_knownPublicKey(to)) {
+            PublicKey memory toPublicKey = publicKeys[to];
+            _userBalances[to] = Precompiled.encryptECIES(
+                encryptTEaddress,
+                abi.encode(updatedToBalance),
+                toPublicKey
+            );
         }
 
         emit Transferred();
@@ -183,9 +271,35 @@ contract ConfidentialToken is EIP3009, ERC20Permit, IBiteSupplicant {
         plaintextArguments[0] = abi.encode(from, to, value);
 
         Precompiled.decryptAndExecute(
-            decryptAndExecuteAddress,
+            submitCTXAddress,
             encryptedArguments,
             plaintextArguments
         );
+    }
+
+    // Private functions
+
+    /// @notice Checks if a public key is known for a given holder address
+    /// @param holder The address of the holder
+    /// @return True if the public key is known, false otherwise
+    function _knownPublicKey(address holder) private view returns (bool) {
+        return publicKeys[holder].x != bytes32(0) || publicKeys[holder].y != bytes32(0);
+    }
+
+    /**
+     * @notice Converts a public key to an Ethereum address
+     * @dev Uses keccak256 hash of the concatenated public key components
+     * @param publicKey The public key to convert
+     * @return nodeAddress The derived Ethereum address
+     */
+    function _publicKeyToAddress(
+        PublicKey memory publicKey
+    )
+        private
+        pure
+        returns (address nodeAddress)
+    {
+        bytes32 hash = keccak256(abi.encodePacked(publicKey.x, publicKey.y));
+        return address(uint160(uint256(hash)));
     }
 }

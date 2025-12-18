@@ -19,7 +19,12 @@
     along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// cspell:words ECIES
+
 pragma solidity ^0.8.24;
+
+import { PublicKey } from "./types.sol";
+
 
 /**
  * @title Precompiled Library
@@ -46,6 +51,41 @@ library Precompiled {
             abi.encode(
                 encryptedArguments,
                 plaintextArguments
+            )
+        );
+    }
+
+    /// @notice Calls the EncryptTE precompiled contract
+    /// @param encryptTEaddress The address of the EncryptTE precompiled contract
+    /// @param text The plaintext data to encrypt
+    /// @return cipherText The encrypted data returned by the precompiled contract
+    function encryptTE(address encryptTEaddress, bytes memory text) internal view returns (bytes memory cipherText) {
+        return _callPrecompiled(
+            encryptTEaddress,
+            text
+        );
+    }
+
+    /// @notice Calls the EncryptECIES precompiled contract
+    /// @param encryptECIESaddress The address of the EncryptECIES precompiled contract
+    /// @param text The plaintext data to encrypt
+    /// @param publicKey The public key to use for encryption
+    /// @return cipherText The encrypted data returned by the precompiled contract
+    function encryptECIES(
+        address encryptECIESaddress,
+        bytes memory text,
+        PublicKey memory publicKey
+    )
+        internal
+        view
+        returns (bytes memory cipherText)
+    {
+        return _callPrecompiled(
+            encryptECIESaddress,
+            abi.encode(
+                text,
+                publicKey.x,
+                publicKey.y
             )
         );
     }
