@@ -30,9 +30,13 @@ address submitCTXAddress
 
 ### version
 
+Version of the contract
+
 ```solidity
 string version
 ```
+
+**dev:** _Is used to get proper ABI_
 
 ### Transferred
 
@@ -122,7 +126,7 @@ constructor(string name_, string symbol_, string version_, address initialAuthor
 | ---- | ---- | ----------- |
 | name_ | string | Name of the token |
 | symbol_ | string | Symbol of the token |
-| version_ | string |  |
+| version_ | string | Version of the contract |
 | initialAuthority | address | Address of AccessManager initial authority |
 
 ### onDecrypt
