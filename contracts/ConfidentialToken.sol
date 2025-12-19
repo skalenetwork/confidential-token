@@ -45,6 +45,9 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     using Address for address;
     using Math for uint256;
 
+    /// @notice Address of the EncryptECIES precompiled contract
+    address public encryptECIESAddress;
+
     /// @notice Address of the EncryptTE precompiled contract
     address public encryptTEaddress;
 
@@ -74,6 +77,10 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @notice Emitted when SubmitCTX precompiled contract address is changed
     /// @param newAddress New address of the SubmitCTX precompiled contract
     event SubmitCTXAddressChanged(address indexed newAddress);
+
+    /// @notice Emitted when EncryptECIES precompiled contract address is changed
+    /// @param newAddress New address of the EncryptECIES precompiled contract
+    event EncryptECIESAddressChanged(address indexed newAddress);
 
     /// @notice Emitted when EncryptTE precompiled contract address is changed
     /// @param newAddress New address of the EncryptTE precompiled contract
@@ -147,6 +154,13 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         require(newAddress != address(0), ZeroAddress());
         submitCTXAddress = newAddress;
         emit SubmitCTXAddressChanged(newAddress);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function setEncryptECIESAddress(address newAddress) external override restricted {
+        require(newAddress != address(0), ZeroAddress());
+        encryptECIESAddress = newAddress;
+        emit EncryptECIESAddressChanged(newAddress);
     }
 
     /// @inheritdoc IConfidentialToken

@@ -19,6 +19,8 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// cspell:words ECIES
+
 pragma solidity ^0.8.24;
 
 import { PublicKey } from "../types.sol";
@@ -33,6 +35,10 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @dev The address is calculated from the public key
     /// @param publicKey The public key to register
     function registerPublicKey(PublicKey memory publicKey) external;
+
+    /// @notice Sets the address of the EncryptECIES precompiled contract
+    /// @param newAddress New address of the EncryptECIES precompiled contract
+    function setEncryptECIESAddress(address newAddress) external;
 
     /// @notice Sets the address of the EncryptTE precompiled contract
     /// @param newAddress New address of the EncryptTE precompiled contract

@@ -4,6 +4,14 @@
 
 ERC20-like token with encrypted balances
 
+### encryptECIESAddress
+
+Address of the EncryptECIES precompiled contract
+
+```solidity
+address encryptECIESAddress
+```
+
 ### encryptTEaddress
 
 Address of the EncryptTE precompiled contract
@@ -59,6 +67,20 @@ event SubmitCTXAddressChanged(address newAddress)
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the SubmitCTX precompiled contract |
+
+### EncryptECIESAddressChanged
+
+Emitted when EncryptECIES precompiled contract address is changed
+
+```solidity
+event EncryptECIESAddressChanged(address newAddress)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newAddress | address | New address of the EncryptECIES precompiled contract |
 
 ### EncryptTEAddressChanged
 
@@ -173,6 +195,20 @@ function setSubmitCTXAddress(address newAddress) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the SubmitCTX precompiled contract |
+
+### setEncryptECIESAddress
+
+Sets the address of the EncryptECIES precompiled contract
+
+```solidity
+function setEncryptECIESAddress(address newAddress) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newAddress | address | New address of the EncryptECIES precompiled contract |
 
 ### setEncryptTEAddress
 

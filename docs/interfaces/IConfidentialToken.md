@@ -20,6 +20,20 @@ function registerPublicKey(struct PublicKey publicKey) external
 | ---- | ---- | ----------- |
 | publicKey | struct PublicKey | The public key to register |
 
+### setEncryptECIESAddress
+
+Sets the address of the EncryptECIES precompiled contract
+
+```solidity
+function setEncryptECIESAddress(address newAddress) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newAddress | address | New address of the EncryptECIES precompiled contract |
+
 ### setEncryptTEAddress
 
 Sets the address of the EncryptTE precompiled contract

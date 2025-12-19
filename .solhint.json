@@ -28,6 +28,7 @@
     "no-unused-vars": "error",
     "not-rely-on-time": "error",
     "ordering": "error",
+    "private-vars-leading-underscore": "error",
     "use-natspec": "error"
   }
 }
