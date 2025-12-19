@@ -7,7 +7,7 @@
     "@nomicfoundation/hardhat-ethers": "^3.1.2",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
-    "@types/node": "^24.10.1",
+    "@types/node": "^25.0.3",
     "chai": "^6.2.1",
     "chalk": "^4",
     "cspell": "^9.4.0",
