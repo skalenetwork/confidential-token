@@ -45,6 +45,8 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     using Address for address;
     using Math for uint256;
 
+    // TODO: add default addresses for precompiled contracts
+
     /// @notice Address of the EncryptECIES precompiled contract
     address public encryptECIESAddress;
 

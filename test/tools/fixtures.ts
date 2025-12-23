@@ -1,0 +1,55 @@
+import {
+    loadFixture
+} from "@nomicfoundation/hardhat-network-helpers";
+import { deploy } from "../../migrations/deploy";
+import { ethers } from "hardhat";
+
+// cspell:words ECIES
+
+// Auxiliary functions
+
+const deployBiteMocks = async () => {
+    const biteFactory = await ethers.getContractFactory("BiteMock");
+    const bite = await biteFactory.deploy();
+    const encryptECIESFactory = await ethers.getContractFactory("EncryptECIESMock");
+    const encryptECIES = await encryptECIESFactory.deploy(bite);
+    const encryptTEFactory = await ethers.getContractFactory("EncryptTEMock");
+    const encryptTE = await encryptTEFactory.deploy(bite);
+    const submitCTXFactory = await ethers.getContractFactory("SubmitCTXMock");
+    const submitCTX = await submitCTXFactory.deploy(bite);
+    return {
+        bite,
+        encryptECIES,
+        encryptTE,
+        submitCTX
+    }
+}
+
+// Fixtures
+
+const deployFixture = async () => {
+    const tokenName = "Confidential Token";
+    const tokenSymbol = "CTK";
+    const version = "testing";
+    const [deployer] = await ethers.getSigners();
+    const contracts = await deploy(
+        tokenName,
+        tokenSymbol,
+        version,
+        deployer
+    );
+    const mocks = await deployBiteMocks();
+    await contracts.ConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
+    await contracts.ConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
+    await contracts.ConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
+    return {
+        accessManager: contracts.AccessManager,
+        owner: deployer,
+        token: contracts.ConfidentialToken,
+        ...mocks
+    }
+}
+
+// External functions
+
+export const cleanDeployment = async () => loadFixture(deployFixture);

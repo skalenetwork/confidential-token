@@ -1,8 +1,9 @@
 import { HardhatUserConfig } from "hardhat/config";
-import '@nomicfoundation/hardhat-chai-matchers'
+import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-ethers";
-import '@typechain/hardhat'
-import 'solidity-coverage'
+import "@nomicfoundation/hardhat-network-helpers";
+import "@typechain/hardhat";
+import "solidity-coverage";
 import "solidity-docgen";
 import dotenv from "dotenv"
 
