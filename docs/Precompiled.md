@@ -10,28 +10,35 @@ Library for interacting with Ethereum precompiled contracts and SKALE-specific p
 error PrecompiledCallFailed(address precompiledContract)
 ```
 
-### decryptAndExecute
+### submitCTX
 
-Calls the DecryptAndExecute precompiled contract
+Calls the SubmitCTX precompiled contract
 
 ```solidity
-function decryptAndExecute(address decryptAndExecuteAddress, bytes[] encryptedArguments, bytes[] plaintextArguments) internal view
+function submitCTX(address submitCTXAddress, uint256 gasLimit, bytes[] encryptedArguments, bytes[] plaintextArguments) internal returns (address payable callbackSender)
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| decryptAndExecuteAddress | address | The address of the DecryptAndExecute precompiled contract |
+| submitCTXAddress | address | The address of the SubmitCTX precompiled contract |
+| gasLimit | uint256 | The gas limit for the callback |
 | encryptedArguments | bytes[] | The encrypted arguments to pass to the precompiled contract |
 | plaintextArguments | bytes[] | The plaintext arguments to pass to the precompiled contract |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| callbackSender | address payable | The address that will send the callback |
 
 ### encryptTE
 
 Calls the EncryptTE precompiled contract
 
 ```solidity
-function encryptTE(address encryptTEaddress, bytes text) internal view returns (bytes cipherText)
+function encryptTE(address encryptTEaddress, bytes text) internal returns (bytes cipherText)
 ```
 
 #### Parameters
@@ -52,7 +59,7 @@ function encryptTE(address encryptTEaddress, bytes text) internal view returns (
 Calls the EncryptECIES precompiled contract
 
 ```solidity
-function encryptECIES(address encryptECIESaddress, bytes text, struct PublicKey publicKey) internal view returns (bytes cipherText)
+function encryptECIES(address encryptECIESaddress, bytes text, struct PublicKey publicKey) internal returns (bytes cipherText)
 ```
 
 #### Parameters

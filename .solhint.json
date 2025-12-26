@@ -4,6 +4,7 @@
     "foundry-test-function-naming": "off",
     "foundry-test-functions": "off",
 
+    "avoid-low-level-calls": "error",
     "duplicated-imports": "error",
     "comprehensive-interface": "error",
     "explicit-types": "error",

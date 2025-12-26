@@ -101,7 +101,7 @@ contract BiteMock is IBiteMock{
     /// @inheritdoc IBiteMock
     function sendCallback() external override {
         require(!_queue.empty(), NoCallbacksQueued());
-        address senderAddress = address(uint160(uint256(_queue.popFront())));
+        address payable senderAddress = payable(address(uint160(uint256(_queue.popFront()))));
         CallbackSender(senderAddress).sendCallback();
     }
 

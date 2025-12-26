@@ -151,6 +151,21 @@ constructor(string name_, string symbol_, string version_, address initialAuthor
 | version_ | string | Version of the contract |
 | initialAuthority | address | Address of AccessManager initial authority |
 
+### mint
+
+Mints new tokens to the specified address
+
+```solidity
+function mint(address to, uint256 amount) external payable
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| to | address | The address to mint tokens to |
+| amount | uint256 | The amount of tokens to mint |
+
 ### onDecrypt
 
 Called by the DecryptAndExecute precompiled contract after decryption
@@ -286,7 +301,7 @@ Transfers a `value` amount of tokens from `from` to `to`
 or alternatively mints (or burns) if `from` (or `to`) is the zero address.
 
 ```solidity
-function _update(address from, address to, uint256 value) internal view
+function _update(address from, address to, uint256 value) internal
 ```
 
 #### Parameters

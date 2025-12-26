@@ -31,6 +31,11 @@ import { IBiteSupplicant } from "./bite/IBiteSupplicant.sol";
 /// @author Dmytro Stebaiev
 /// @notice Interface of the ConfidentialToken contract
 interface IConfidentialToken is IBiteSupplicant {
+    /// @notice Mints new tokens to the specified address
+    /// @param to The address to mint tokens to
+    /// @param amount The amount of tokens to mint
+    function mint(address to, uint256 amount) external payable;
+
     /// @notice Registers the public key of any address
     /// @dev The address is calculated from the public key
     /// @param publicKey The public key to register

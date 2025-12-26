@@ -4,6 +4,21 @@
 
 Interface of the ConfidentialToken contract
 
+### mint
+
+Mints new tokens to the specified address
+
+```solidity
+function mint(address to, uint256 amount) external payable
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| to | address | The address to mint tokens to |
+| amount | uint256 | The amount of tokens to mint |
+
 ### registerPublicKey
 
 Registers the public key of any address

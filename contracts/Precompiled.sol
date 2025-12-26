@@ -34,32 +34,38 @@ import { PublicKey } from "./types.sol";
 library Precompiled {
     error PrecompiledCallFailed(address precompiledContract);
 
-    /// @notice Calls the DecryptAndExecute precompiled contract
-    /// @param decryptAndExecuteAddress The address of the DecryptAndExecute precompiled contract
+    /// @notice Calls the SubmitCTX precompiled contract
+    /// @param submitCTXAddress The address of the SubmitCTX precompiled contract
+    /// @param gasLimit The gas limit for the callback
     /// @param encryptedArguments The encrypted arguments to pass to the precompiled contract
     /// @param plaintextArguments The plaintext arguments to pass to the precompiled contract
-    function decryptAndExecute(
-        address decryptAndExecuteAddress,
+    /// @return callbackSender The address that will send the callback
+    function submitCTX(
+        address submitCTXAddress,
+        uint256 gasLimit,
         bytes[] memory encryptedArguments,
         bytes[] memory plaintextArguments
     )
         internal
-        view
+        returns (address payable callbackSender)
     {
-        _callPrecompiled(
-            decryptAndExecuteAddress,
+        return payable(address(bytes20(_callPrecompiled(
+            submitCTXAddress,
             abi.encode(
-                encryptedArguments,
-                plaintextArguments
+                gasLimit,
+                abi.encode(
+                    encryptedArguments,
+                    plaintextArguments
+                )
             )
-        );
+        ))));
     }
 
     /// @notice Calls the EncryptTE precompiled contract
     /// @param encryptTEaddress The address of the EncryptTE precompiled contract
     /// @param text The plaintext data to encrypt
     /// @return cipherText The encrypted data returned by the precompiled contract
-    function encryptTE(address encryptTEaddress, bytes memory text) internal view returns (bytes memory cipherText) {
+    function encryptTE(address encryptTEaddress, bytes memory text) internal returns (bytes memory cipherText) {
         return _callPrecompiled(
             encryptTEaddress,
             text
@@ -77,7 +83,6 @@ library Precompiled {
         PublicKey memory publicKey
     )
         internal
-        view
         returns (bytes memory cipherText)
     {
         return _callPrecompiled(
@@ -103,13 +108,15 @@ library Precompiled {
         bytes memory input
     )
         private
-        view
         returns (bytes memory output)
     {
         // Have to use low-level calls
         // because it's the only way to call precompiled contracts
         // slither-disable-next-line low-level-calls
-        (bool success, bytes memory out) = precompiledContract.staticcall(input);
+        (
+            bool success,
+            bytes memory out
+        ) = precompiledContract.call(input); // solhint-disable-line avoid-low-level-calls
         require(success, PrecompiledCallFailed(precompiledContract));
         return out;
     }

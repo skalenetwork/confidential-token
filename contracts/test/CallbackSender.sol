@@ -29,6 +29,8 @@ import { IBiteSupplicant } from "../interfaces/bite/IBiteSupplicant.sol";
 /// @author Dmytro Stebaiev
 /// @notice Interface for the CallbackSender contract
 interface ICallbackSender {
+    /// @notice Fallback function to receive Ether
+    receive() external payable;
     /// @notice Sends the decryption callback to the supplicant
     function sendCallback() external;
 }
@@ -56,6 +58,11 @@ contract CallbackSender is ICallbackSender{
     /// @notice Plaintext arguments to send in the callback
     bytes[] public plaintextArguments;
 
+    /// @notice Emitted when the contract is funded
+    /// @param sender Address of the sender
+    /// @param amount Amount of Ether sent
+    event AddressFunded(address indexed sender, uint256 indexed amount);
+
     /// @notice Constructor for the CallbackSender contract
     /// @param supplicant Address of the supplicant contract
     /// @param gasLimit Gas limit for the callback
@@ -73,6 +80,11 @@ contract CallbackSender is ICallbackSender{
         GAS_LIMIT = gasLimit;
         decryptedArguments = decryptedArguments_;
         plaintextArguments = plaintextArguments_;
+    }
+
+    /// @inheritdoc ICallbackSender
+    receive() external payable override {
+        emit AddressFunded(msg.sender, msg.value);
     }
 
     /// @inheritdoc ICallbackSender
