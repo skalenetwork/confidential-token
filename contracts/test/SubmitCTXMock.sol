@@ -29,8 +29,14 @@ import { PrecompiledMock } from "./PrecompiledMock.sol";
 /// @notice Mock contract for testing SubmitCTX precompile
 /// @author Dmytro Stebaiev
 contract SubmitCTXMock is PrecompiledMock {
+    // slither wants immutable variables to be named in camelCase
+    // but we together with solhint prefer UPPER_CASE for immutables
+    // slither-disable-start naming-convention
+
     /// @notice Bite mock contract
     BiteMock public immutable BITE;
+
+    // slither-disable-end naming-convention
 
     constructor(BiteMock biteAddress) {
         BITE = biteAddress;

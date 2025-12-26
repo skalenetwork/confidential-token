@@ -31,8 +31,14 @@ import { PrecompiledMock } from "./PrecompiledMock.sol";
 /// @author Dmytro Stebaiev
 /// @notice Mock contract for the EncryptECIES precompiled contract
 contract EncryptECIESMock is PrecompiledMock {
+    // slither wants immutable variables to be named in camelCase
+    // but we together with solhint prefer UPPER_CASE for immutables
+    // slither-disable-start naming-convention
+
     /// @notice Instance of the BiteMock contract
     BiteMock public immutable BITE;
+
+    // slither-disable-end naming-convention
 
     /// @notice Constructor for the EncryptECIESMock contract
     /// @param biteAddress Address of the BiteMock contract

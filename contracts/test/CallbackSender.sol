@@ -37,11 +37,18 @@ interface ICallbackSender {
 /// @author Dmytro Stebaiev
 /// @notice Contract to send decryption callbacks to a supplicant
 contract CallbackSender is ICallbackSender{
+
+    // slither wants immutable variables to be named in camelCase
+    // but we together with solhint prefer UPPER_CASE for immutables
+    // slither-disable-start naming-convention
+
     /// @notice Address of the supplicant contract
     address public immutable SUPPLICANT;
 
     /// @notice Gas limit for the callback
     uint256 public immutable GAS_LIMIT;
+
+    // slither-disable-end naming-convention
 
     /// @notice Decrypted arguments to send in the callback
     bytes[] public decryptedArguments;
