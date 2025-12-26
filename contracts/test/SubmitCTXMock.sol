@@ -30,16 +30,16 @@ import { PrecompiledMock } from "./PrecompiledMock.sol";
 /// @author Dmytro Stebaiev
 contract SubmitCTXMock is PrecompiledMock {
     /// @notice Bite mock contract
-    BiteMock public bite;
+    BiteMock public immutable BITE;
 
     constructor(BiteMock biteAddress) {
-        bite = biteAddress;
+        BITE = biteAddress;
     }
 
     function _call(bytes calldata callData) internal override returns (bytes memory result) {
         (uint256 gasLimit, bytes memory data) = abi.decode(callData, (uint256, bytes));
         (bytes[] memory encryptedArgs, bytes[] memory plaintextArgs) = abi.decode(data, (bytes[], bytes[]));
-        address callbackSender = bite.submitCTX(msg.sender, gasLimit, encryptedArgs, plaintextArgs);
+        address callbackSender = BITE.submitCTX(msg.sender, gasLimit, encryptedArgs, plaintextArgs);
         return abi.encodePacked(bytes20(uint160(callbackSender)));
     }
 }

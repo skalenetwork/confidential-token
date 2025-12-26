@@ -21,6 +21,7 @@
 
 pragma solidity ^0.8.24;
 
+import { ZeroAddress } from "../errors.sol";
 import { IBiteSupplicant } from "../interfaces/bite/IBiteSupplicant.sol";
 
 
@@ -37,10 +38,10 @@ interface ICallbackSender {
 /// @notice Contract to send decryption callbacks to a supplicant
 contract CallbackSender is ICallbackSender{
     /// @notice Address of the supplicant contract
-    address public supplicant;
+    address public immutable SUPPLICANT;
 
     /// @notice Gas limit for the callback
-    uint256 public gasLimit;
+    uint256 public immutable GAS_LIMIT;
 
     /// @notice Decrypted arguments to send in the callback
     bytes[] public decryptedArguments;
@@ -49,26 +50,27 @@ contract CallbackSender is ICallbackSender{
     bytes[] public plaintextArguments;
 
     /// @notice Constructor for the CallbackSender contract
-    /// @param supplicant_ Address of the supplicant contract
-    /// @param gasLimit_ Gas limit for the callback
+    /// @param supplicant Address of the supplicant contract
+    /// @param gasLimit Gas limit for the callback
     /// @param decryptedArguments_ Decrypted arguments to send in the callback
     /// @param plaintextArguments_ Plaintext arguments to send in the callback
     constructor(
-        address supplicant_,
-        uint256 gasLimit_,
+        address supplicant,
+        uint256 gasLimit,
         bytes[] memory decryptedArguments_,
         bytes[] memory plaintextArguments_
     )
     {
-        supplicant = supplicant_;
-        gasLimit = gasLimit_;
+        require(supplicant != address(0), ZeroAddress());
+        SUPPLICANT = supplicant;
+        GAS_LIMIT = gasLimit;
         decryptedArguments = decryptedArguments_;
         plaintextArguments = plaintextArguments_;
     }
 
     /// @inheritdoc ICallbackSender
     function sendCallback() external override {
-        IBiteSupplicant(supplicant).onDecrypt{ gas: gasLimit }(
+        IBiteSupplicant(SUPPLICANT).onDecrypt{ gas: GAS_LIMIT }(
             decryptedArguments,
             plaintextArguments
         );

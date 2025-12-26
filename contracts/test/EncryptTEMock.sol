@@ -30,18 +30,18 @@ import { PrecompiledMock } from "./PrecompiledMock.sol";
 /// @notice Mock contract for the EncryptTE precompiled contract
 contract EncryptTEMock is PrecompiledMock {
     /// @notice Instance of the BiteMock contract
-    BiteMock public bite;
+    BiteMock public immutable BITE;
 
     /// @notice Constructor for the EncryptTEMock contract
     /// @param biteAddress Address of the BiteMock contract
     constructor(BiteMock biteAddress) {
-        bite = biteAddress;
+        BITE = biteAddress;
     }
 
     /// @notice Internal function to simulate encryption
     /// @param data The calldata passed to the precompiled contract
     /// @return result The encrypted result
     function _call(bytes calldata data) internal view override returns (bytes memory result) {
-        return bite.encrypt(data);
+        return BITE.encrypt(data);
     }
 }
