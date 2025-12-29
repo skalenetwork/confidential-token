@@ -25,7 +25,15 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     }
   },
-  solidity: "0.8.30",
+  solidity: {
+    version: "0.8.30",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      }
+    }
+  }
 };
 
 export default config;

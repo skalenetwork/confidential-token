@@ -50,6 +50,10 @@ contract EncryptECIESMock is PrecompiledMock {
     /// @param data The calldata passed to the precompiled contract
     /// @return result The encrypted result
     function _call(bytes calldata data) internal view override returns (bytes memory result) {
-        return BITE.encrypt(data);
+        (bytes memory text) = abi.decode(
+            data,
+            (bytes)
+        );
+        return BITE.encrypt(text);
     }
 }

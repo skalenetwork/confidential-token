@@ -65,8 +65,8 @@ library Precompiled {
     /// @param encryptTEaddress The address of the EncryptTE precompiled contract
     /// @param text The plaintext data to encrypt
     /// @return cipherText The encrypted data returned by the precompiled contract
-    function encryptTE(address encryptTEaddress, bytes memory text) internal returns (bytes memory cipherText) {
-        return _callPrecompiled(
+    function encryptTE(address encryptTEaddress, bytes memory text) internal view returns (bytes memory cipherText) {
+        return _staticcallPrecompiled(
             encryptTEaddress,
             text
         );
@@ -83,9 +83,10 @@ library Precompiled {
         PublicKey memory publicKey
     )
         internal
+        view
         returns (bytes memory cipherText)
     {
-        return _callPrecompiled(
+        return _staticcallPrecompiled(
             encryptECIESaddress,
             abi.encode(
                 text,
@@ -117,6 +118,31 @@ library Precompiled {
             bool success,
             bytes memory out
         ) = precompiledContract.call(input); // solhint-disable-line avoid-low-level-calls
+        require(success, PrecompiledCallFailed(precompiledContract));
+        return out;
+    }
+
+    /**
+     * @notice Calls a precompiled contract using staticcall
+     * @param precompiledContract The address of the precompiled contract
+     * @param input The input data to pass to the precompiled contract
+     * @return output The output data from the precompiled contract
+     */
+    function _staticcallPrecompiled(
+        address precompiledContract,
+        bytes memory input
+    )
+        private
+        view
+        returns (bytes memory output)
+    {
+        // Have to use low-level calls
+        // because it's the only way to call precompiled contracts
+        // slither-disable-next-line low-level-calls
+        (
+            bool success,
+            bytes memory out
+        ) = precompiledContract.staticcall(input); // solhint-disable-line avoid-low-level-calls
         require(success, PrecompiledCallFailed(precompiledContract));
         return out;
     }

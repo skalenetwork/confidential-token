@@ -31,6 +31,9 @@ import { IBiteSupplicant } from "../interfaces/bite/IBiteSupplicant.sol";
 interface ICallbackSender {
     /// @notice Fallback function to receive Ether
     receive() external payable;
+    /// @notice Locks all ETH held by the contract
+    /// @dev Is needed to satisfy slither security warnings
+    function freeEth() external;
     /// @notice Sends the decryption callback to the supplicant
     function sendCallback() external;
 }
@@ -63,6 +66,8 @@ contract CallbackSender is ICallbackSender{
     /// @param amount Amount of Ether sent
     event AddressFunded(address indexed sender, uint256 indexed amount);
 
+    error InsufficientEth(uint256 required, uint256 available);
+
     /// @notice Constructor for the CallbackSender contract
     /// @param supplicant Address of the supplicant contract
     /// @param gasLimit Gas limit for the callback
@@ -88,7 +93,19 @@ contract CallbackSender is ICallbackSender{
     }
 
     /// @inheritdoc ICallbackSender
+    function freeEth() external override {
+        payable(address(0)).transfer(address(this).balance);
+    }
+
+    /// @inheritdoc ICallbackSender
     function sendCallback() external override {
+        require(
+            // The right side is not constant
+            // there is no gas savings
+            // solhint-disable-next-line gas-strict-inequalities
+            address(this).balance >= GAS_LIMIT * tx.gasprice,
+            InsufficientEth(GAS_LIMIT * tx.gasprice, address(this).balance)
+        );
         IBiteSupplicant(SUPPLICANT).onDecrypt{ gas: GAS_LIMIT }(
             decryptedArguments,
             plaintextArguments

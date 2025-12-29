@@ -20,7 +20,21 @@ describe("ConfidentialToken", () => {
         const [owner, recipient] = await ethers.getSigners();
         const { token, bite } = await cleanDeployment();
 
-        await token.mint(owner, amount, {value: ethers.parseEther("0.1")});
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: ethers.parseEther("1.0")
+        });
+
+        const message = "Get my public key";
+        const signature = await recipient.signMessage(message);
+        const msgHash = ethers.hashMessage(message);
+        const publicKey = ethers.SigningKey.recoverPublicKey(msgHash, signature);
+        const px = '0x' + publicKey.slice(4, 68);
+        const py = '0x' + publicKey.slice(68);
+
+        await token.registerPublicKey({x: px, y: py});
+
+        await token.mint(owner, amount);
         await bite.sendCallback();
 
         await token.transfer(recipient, amount);
