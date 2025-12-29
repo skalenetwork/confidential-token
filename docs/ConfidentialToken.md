@@ -4,6 +4,14 @@
 
 ERC20-like token with encrypted balances
 
+### callbackFee
+
+Specifies number of ETH to be sent to pay for callback execution
+
+```solidity
+uint256 callbackFee
+```
+
 ### encryptECIESAddress
 
 Address of the EncryptECIES precompiled contract
@@ -12,12 +20,12 @@ Address of the EncryptECIES precompiled contract
 address encryptECIESAddress
 ```
 
-### encryptTEaddress
+### encryptTEAddress
 
 Address of the EncryptTE precompiled contract
 
 ```solidity
-address encryptTEaddress
+address encryptTEAddress
 ```
 
 ### publicKeys
@@ -45,6 +53,51 @@ string version
 ```
 
 **dev:** _Is used to get proper ABI_
+
+### CallbackFeeChanged
+
+Emitted when callback fee is changed
+
+```solidity
+event CallbackFeeChanged(uint256 newFee)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newFee | uint256 | New callback fee |
+
+### EthBalanceToppedUp
+
+Emitted when ETH balance is topped up
+
+```solidity
+event EthBalanceToppedUp(address sender, address receiver, uint256 amount)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| sender | address | Address of the sender |
+| receiver | address | Address of the receiver |
+| amount | uint256 | Amount of ETH topped up |
+
+### EthWithdrawn
+
+Emitted when ETH is withdrawn
+
+```solidity
+event EthWithdrawn(address receiver, uint256 amount)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| receiver | address | Address of the receiver |
+| amount | uint256 | Amount of ETH withdrawn |
 
 ### Transferred
 
@@ -110,12 +163,6 @@ event PublicKeyRegistered(address holder)
 | ---- | ---- | ----------- |
 | holder | address | Address of the holder whose public key is registered |
 
-### ValueIsEncrypted
-
-```solidity
-error ValueIsEncrypted()
-```
-
 ### AccessViolation
 
 ```solidity
@@ -132,6 +179,24 @@ error DecryptionBadFormat()
 
 ```solidity
 error InsufficientBalance()
+```
+
+### InsufficientEth
+
+```solidity
+error InsufficientEth(uint256 required, uint256 available)
+```
+
+### PublicKeyIsNotRegistered
+
+```solidity
+error PublicKeyIsNotRegistered(address holder)
+```
+
+### ValueIsEncrypted
+
+```solidity
+error ValueIsEncrypted()
 ```
 
 ### constructor
@@ -151,12 +216,20 @@ constructor(string name_, string symbol_, string version_, address initialAuthor
 | version_ | string | Version of the contract |
 | initialAuthority | address | Address of AccessManager initial authority |
 
+### receive
+
+Allows the contract to receive ETH to pay for callback execution
+
+```solidity
+receive() external payable
+```
+
 ### mint
 
 Mints new tokens to the specified address
 
 ```solidity
-function mint(address to, uint256 amount) external payable
+function mint(address to, uint256 amount) external
 ```
 
 #### Parameters
@@ -196,6 +269,20 @@ function registerPublicKey(struct PublicKey publicKey) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | publicKey | struct PublicKey | The public key to register |
+
+### setCallbackFee
+
+Sets number of ETH to be sent to pay for callback execution
+
+```solidity
+function setCallbackFee(uint256 newFee) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newFee | uint256 | New callback fee |
 
 ### setSubmitCTXAddress
 
@@ -239,6 +326,21 @@ function setEncryptTEAddress(address newAddress) external
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the EncryptTE precompiled contract |
 
+### withdraw
+
+Withdraws ETH from the caller's balance
+
+```solidity
+function withdraw(uint256 amount, address receiver) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| amount | uint256 | Amount of ETH to withdraw |
+| receiver | address | Address to send the withdrawn ETH to |
+
 ### encryptedBalanceOf
 
 Gets the encrypted balance of a holder
@@ -258,6 +360,20 @@ function encryptedBalanceOf(address holder) external view returns (bytes encrypt
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | encryptedBalance | bytes | The encrypted balance of the holder |
+
+### deposit
+
+Deposits ETH to any holder balance
+
+```solidity
+function deposit(address receiver) public payable
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| receiver | address | The address of the receiver holder |
 
 ### totalSupply
 

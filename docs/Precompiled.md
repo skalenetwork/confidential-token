@@ -38,7 +38,7 @@ function submitCTX(address submitCTXAddress, uint256 gasLimit, bytes[] encrypted
 Calls the EncryptTE precompiled contract
 
 ```solidity
-function encryptTE(address encryptTEaddress, bytes text) internal returns (bytes cipherText)
+function encryptTE(address encryptTEaddress, bytes text) internal view returns (bytes cipherText)
 ```
 
 #### Parameters
@@ -59,7 +59,7 @@ function encryptTE(address encryptTEaddress, bytes text) internal returns (bytes
 Calls the EncryptECIES precompiled contract
 
 ```solidity
-function encryptECIES(address encryptECIESaddress, bytes text, struct PublicKey publicKey) internal returns (bytes cipherText)
+function encryptECIES(address encryptECIESaddress, bytes text, struct PublicKey publicKey) internal view returns (bytes cipherText)
 ```
 
 #### Parameters

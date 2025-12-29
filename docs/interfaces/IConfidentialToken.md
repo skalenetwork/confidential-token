@@ -4,12 +4,34 @@
 
 Interface of the ConfidentialToken contract
 
+### receive
+
+Allows the contract to receive ETH to pay for callback execution
+
+```solidity
+receive() external payable
+```
+
+### deposit
+
+Deposits ETH to any holder balance
+
+```solidity
+function deposit(address receiver) external payable
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| receiver | address | The address of the receiver holder |
+
 ### mint
 
 Mints new tokens to the specified address
 
 ```solidity
-function mint(address to, uint256 amount) external payable
+function mint(address to, uint256 amount) external
 ```
 
 #### Parameters
@@ -34,6 +56,20 @@ function registerPublicKey(struct PublicKey publicKey) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | publicKey | struct PublicKey | The public key to register |
+
+### setCallbackFee
+
+Sets number of ETH to be sent to pay for callback execution
+
+```solidity
+function setCallbackFee(uint256 newFee) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newFee | uint256 | New callback fee |
 
 ### setEncryptECIESAddress
 
@@ -76,6 +112,21 @@ function setSubmitCTXAddress(address newAddress) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the SubmitCTX precompiled contract |
+
+### withdraw
+
+Withdraws ETH from the caller's balance
+
+```solidity
+function withdraw(uint256 amount, address receiver) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| amount | uint256 | Amount of ETH to withdraw |
+| receiver | address | Address to send the withdrawn ETH to |
 
 ### encryptedBalanceOf
 
