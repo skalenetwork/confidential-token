@@ -162,3 +162,23 @@ function encryptedBalanceOf(address holder) external view returns (bytes encrypt
 | ---- | ---- | ----------- |
 | encryptedBalance | bytes | The encrypted balance of the holder |
 
+### ethBalanceOf
+
+Gets the ETH balance of a holder
+
+```solidity
+function ethBalanceOf(address holder) external view returns (uint256 balance)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| holder | address | The address of the holder |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| balance | uint256 | The ETH balance of the holder |
+

@@ -77,4 +77,9 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param holder The address of the holder
     /// @return encryptedBalance The encrypted balance of the holder
     function encryptedBalanceOf(address holder) external view returns (bytes memory encryptedBalance);
+
+    /// @notice Gets the ETH balance of a holder
+    /// @param holder The address of the holder
+    /// @return balance The ETH balance of the holder
+    function ethBalanceOf(address holder) external view returns (uint256 balance);
 }

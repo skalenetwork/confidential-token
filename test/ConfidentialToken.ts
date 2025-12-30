@@ -59,10 +59,37 @@ describe("ConfidentialToken", () => {
         await bite.sendCallback();
 
         (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
+        (await token.totalSupply()).should.be.equal(amount);
 
         await token.burn(amount);
         await bite.sendCallback();
 
         (await token.encryptedBalanceOf(owner)).should.be.equal("0x");
+    });
+
+    it("should be possible to set callback fee", async () => {
+        const amount = ethers.parseEther("1.0");
+        const callbackFee = ethers.parseEther("1.0");
+        const [owner] = await ethers.getSigners();
+        const { bite, token } = await cleanDeployment();
+
+        await token.setCallbackFee(callbackFee);
+        (await token.callbackFee()).should.be.equal(callbackFee);
+
+        const initialBalance = ethers.parseEther("5.0");
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: initialBalance
+        });
+        (await token.ethBalanceOf(owner)).should.be.equal(initialBalance);
+
+        await token.mint(owner, amount);
+        await bite.sendCallback();
+
+        (await token.ethBalanceOf(owner)).should.be.equal(initialBalance - callbackFee);
+
+        (await token.withdraw(initialBalance - callbackFee, owner))
+            .should.changeEtherBalance(owner, initialBalance - callbackFee);
+        (await token.ethBalanceOf(owner)).should.be.equal(0);
     });
 });

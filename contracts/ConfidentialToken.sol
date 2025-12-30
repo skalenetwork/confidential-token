@@ -260,6 +260,11 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         return _userBalances[holder];
     }
 
+    /// @inheritdoc IConfidentialToken
+    function ethBalanceOf(address holder) external view override returns (uint256 balance) {
+        return _ethBalance[holder];
+    }
+
     // Public functions
 
     /// @inheritdoc IConfidentialToken
