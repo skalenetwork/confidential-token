@@ -92,4 +92,12 @@ describe("ConfidentialToken", () => {
             .should.changeEtherBalance(owner, initialBalance - callbackFee);
         (await token.ethBalanceOf(owner)).should.be.equal(0);
     });
+
+    it("should not return token balance", async () => {
+        const { token } = await cleanDeployment();
+        const [owner] = await ethers.getSigners();
+
+        await token.balanceOf(owner)
+            .should.be.revertedWithCustomError(token, "ValueIsEncrypted");
+    })
 });
