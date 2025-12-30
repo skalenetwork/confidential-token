@@ -12,6 +12,20 @@ Allows the contract to receive ETH to pay for callback execution
 receive() external payable
 ```
 
+### burn
+
+Burns tokens from the caller's balance
+
+```solidity
+function burn(uint256 amount) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| amount | uint256 | The amount of tokens to burn |
+
 ### deposit
 
 Deposits ETH to any holder balance
