@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.4.0",
-    "@skalenetwork/upgrade-tools": "4.0.0-develop.4",
+    "@skalenetwork/upgrade-tools": "4.0.0-verification.1",
     "dotenv": "^17.2.3"
   }
 }
