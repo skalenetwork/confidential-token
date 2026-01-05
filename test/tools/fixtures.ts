@@ -50,6 +50,23 @@ const deployFixture = async () => {
     }
 }
 
+const mintedFixture = async () => {
+    const minted = ethers.parseEther("1000");
+    const ethBalance = ethers.parseEther("1.0");
+    const context = await cleanDeployment();
+    await context.owner.sendTransaction({
+        to: await ethers.resolveAddress(context.token),
+        value: ethBalance
+    });
+    await context.token.mint(context.owner, minted);
+    await context.bite.sendCallback();
+    return {
+        minted,
+        ...context
+    }
+}
+
 // External functions
 
 export const cleanDeployment = async () => loadFixture(deployFixture);
+export const withMintedTokens = async () => loadFixture(mintedFixture);
