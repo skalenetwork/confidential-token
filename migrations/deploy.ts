@@ -22,7 +22,7 @@ const getRequiredEnvironmentVariable = (name: string): string => {
     return process.env[name];
 }
 
-const deploy = async (tokenName: string, tokenSymbol: string, version: string, ownerAddress: AddressLike) => {
+export const deploy = async (tokenName: string, tokenSymbol: string, version: string, ownerAddress: AddressLike) => {
     const accessManagerFactory = await ethers.getContractFactory("AccessManager");
     const accessManager = await accessManagerFactory.deploy(ownerAddress);
     await accessManager.deploymentTransaction()!.wait();
@@ -33,7 +33,7 @@ const deploy = async (tokenName: string, tokenSymbol: string, version: string, o
         tokenName,
         tokenSymbol,
         version,
-        await ethers.resolveAddress(ownerAddress)
+        await ethers.resolveAddress(accessManager)
     );
     await confidentialToken.deploymentTransaction()!.wait();
     console.log(`Deployed ConfidentialToken at: ${await ethers.resolveAddress(confidentialToken)}`);

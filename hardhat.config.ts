@@ -1,8 +1,9 @@
 import { HardhatUserConfig } from "hardhat/config";
-import '@nomicfoundation/hardhat-chai-matchers'
+import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-ethers";
-import '@typechain/hardhat'
-import 'solidity-coverage'
+import "@nomicfoundation/hardhat-network-helpers";
+import "@typechain/hardhat";
+import "solidity-coverage";
 import "solidity-docgen";
 import dotenv from "dotenv"
 
@@ -24,7 +25,15 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     }
   },
-  solidity: "0.8.30",
+  solidity: {
+    version: "0.8.30",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      }
+    }
+  }
 };
 
 export default config;
