@@ -9,7 +9,7 @@ ConfidentialToken with minting functionality
 Constructor of the MintableConfidentialToken contract
 
 ```solidity
-constructor(string name, string symbol, string version, address initialAuthority) public
+constructor(string name, string symbol, string version_, address initialAuthority) public
 ```
 
 #### Parameters
@@ -18,7 +18,7 @@ constructor(string name, string symbol, string version, address initialAuthority
 | ---- | ---- | ----------- |
 | name | string | Name of the token |
 | symbol | string | Symbol of the token |
-| version | string | Version of the token |
+| version_ | string | Version of the token |
 | initialAuthority | address | Initial authority address |
 
 ### mint
