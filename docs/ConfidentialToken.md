@@ -243,22 +243,7 @@ function burn(uint256 value) external
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| value | uint256 |  |
-
-### mint
-
-Mints new tokens to the specified address
-
-```solidity
-function mint(address to, uint256 value) external
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| to | address | The address to mint tokens to |
-| value | uint256 |  |
+| amount | uint256 | The amount of tokens to burn |
 
 ### onDecrypt
 
