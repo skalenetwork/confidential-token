@@ -32,15 +32,15 @@ contract MintableConfidentialToken is ConfidentialToken, IMintableConfidentialTo
     /// @notice Constructor of the MintableConfidentialToken contract
     /// @param name Name of the token
     /// @param symbol Symbol of the token
-    /// @param version Version of the token
+    /// @param version_ Version of the token
     /// @param initialAuthority Initial authority address
     constructor(
         string memory name,
         string memory symbol,
-        string memory version,
+        string memory version_,
         address initialAuthority
     )
-        ConfidentialToken(name, symbol, version, initialAuthority)
+        ConfidentialToken(name, symbol, version_, initialAuthority)
     {}
 
     /// @inheritdoc IMintableConfidentialToken
