@@ -42,11 +42,6 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param receiver The address of the receiver holder
     function deposit(address receiver) external payable;
 
-    /// @notice Mints new tokens to the specified address
-    /// @param to The address to mint tokens to
-    /// @param amount The amount of tokens to mint
-    function mint(address to, uint256 amount) external;
-
     /// @notice Registers the public key of any address
     /// @dev The address is calculated from the public key
     /// @param publicKey The public key to register

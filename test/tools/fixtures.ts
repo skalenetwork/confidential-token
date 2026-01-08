@@ -1,7 +1,7 @@
 import {
     loadFixture
 } from "@nomicfoundation/hardhat-network-helpers";
-import { deploy } from "../../migrations/deploy";
+import { deployMintable } from "../../migrations/deployMintable";
 import { ethers } from "hardhat";
 
 // cspell:words ECIES
@@ -27,12 +27,12 @@ const deployBiteMocks = async () => {
 
 // Fixtures
 
-const deployFixture = async () => {
+const deployMintableFixture = async () => {
     const tokenName = "Confidential Token";
     const tokenSymbol = "CTK";
     const version = "testing";
     const [deployer] = await ethers.getSigners();
-    const contracts = await deploy(
+    const contracts = await deployMintable(
         tokenName,
         tokenSymbol,
         version,
@@ -70,5 +70,5 @@ const mintedFixture = async () => {
 
 // External functions
 
-export const cleanDeployment = async () => loadFixture(deployFixture);
+export const cleanMintableDeployment = async () => loadFixture(deployMintableFixture);
 export const withMintedTokens = async () => loadFixture(mintedFixture);

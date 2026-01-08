@@ -1,5 +1,5 @@
 import {getAbi, getVersion} from '@skalenetwork/upgrade-tools';
-import {contracts} from "../migrations/deploy";
+import {contracts} from "../migrations/deployMintable";
 import {ethers} from "hardhat";
 import {promises as fs} from 'fs';
 

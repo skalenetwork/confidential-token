@@ -22,13 +22,13 @@ const getRequiredEnvironmentVariable = (name: string): string => {
     return process.env[name];
 }
 
-export const deploy = async (tokenName: string, tokenSymbol: string, version: string, ownerAddress: AddressLike) => {
+export const deployMintable = async (tokenName: string, tokenSymbol: string, version: string, ownerAddress: AddressLike) => {
     const accessManagerFactory = await ethers.getContractFactory("AccessManager");
     const accessManager = await accessManagerFactory.deploy(ownerAddress);
     await accessManager.deploymentTransaction()!.wait();
     console.log(`Deployed AccessManager at: ${await ethers.resolveAddress(accessManager)}`);
 
-    const ConfidentialTokenFactory = await ethers.getContractFactory("ConfidentialToken");
+    const ConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
     const confidentialToken = await ConfidentialTokenFactory.deploy(
         tokenName,
         tokenSymbol,
@@ -78,7 +78,7 @@ const main = async () => {
 
     console.log("Deploy contracts");
 
-    const deployedContracts = await deploy(
+    const deployedContracts = await deployMintable(
         getRequiredEnvironmentVariable("NAME"),
         getRequiredEnvironmentVariable("SYMBOL"),
         version,

@@ -2,4 +2,4 @@
 
 set -e
 
-NAME="D2 Token" SYMBOL="D2" yarn hardhat run migrations/deploy.ts
+NAME="D2 Token" SYMBOL="D2" yarn hardhat run migrations/deployMintable.ts

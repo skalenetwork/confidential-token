@@ -154,11 +154,6 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         _burn(msg.sender, value);
     }
 
-    /// @inheritdoc IConfidentialToken
-    function mint(address to, uint256 value) external override restricted {
-        _mint(to, value);
-    }
-
     /// @inheritdoc IBiteSupplicant
     function onDecrypt(
         bytes[] calldata decryptedArguments,
