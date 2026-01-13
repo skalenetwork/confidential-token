@@ -3,6 +3,9 @@ import {
 } from "@nomicfoundation/hardhat-network-helpers";
 import { deploy } from "../../migrations/deploy";
 import { ethers } from "hardhat";
+import { feedAccounts } from "./helpers";
+import { PRIVATE_KEYS } from "./contants";
+import { Wallet } from "ethers";
 
 // cspell:words ECIES
 
@@ -42,6 +45,8 @@ const deployFixture = async () => {
     await contracts.ConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
     await contracts.ConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
     await contracts.ConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
+
+    await feedAccounts(PRIVATE_KEYS.map(key => (new Wallet(key).address)));
     return {
         accessManager: contracts.AccessManager,
         owner: deployer,

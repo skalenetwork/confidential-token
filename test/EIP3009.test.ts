@@ -1,13 +1,14 @@
 // cspell:words typehash
 
 import { ethers } from "hardhat";
-import { AddressLike, BigNumberish, Signer } from "ethers";
+import { AddressLike, BigNumberish, Wallet } from "ethers";
 import { expect } from "chai";
 import { BiteMock, ConfidentialToken } from "../typechain-types";
-import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { withMintedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
 import { balanceOf } from "./tools/helpers";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import { PRIVATE_KEYS } from "./tools/contants";
 
 const TRANSFER_WITH_AUTHORIZATION_TYPEHASH = ethers.id(
   "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
@@ -26,14 +27,15 @@ describe("EIP3009", () => {
   let bite: BiteMock;
   let domainSeparator: string;
   let deployer: HardhatEthersSigner;
-  let alice: HardhatEthersSigner;
-  let bob: HardhatEthersSigner;
-  let charlie: HardhatEthersSigner;
+  let alice: Wallet;
+  let bob: Wallet;
+  let charlie: Wallet;
   let nonce: string;
   const initialBalance = 10e6;
 
   before(async () => {
-    [deployer, alice, bob, charlie] = await ethers.getSigners();
+    [deployer] = await ethers.getSigners();
+    [alice, bob, charlie] = PRIVATE_KEYS.slice(0, 3).map((key => new Wallet(key).connect(ethers.provider)));
   });
 
   beforeEach(async () => {
@@ -65,8 +67,8 @@ describe("EIP3009", () => {
   });
 
   interface TransferParams {
-    from: HardhatEthersSigner;
-    to: HardhatEthersSigner;
+    from: Wallet;
+    to: Wallet;
     value: BigNumberish;
     validAfter: BigNumberish;
     validBefore: BigNumberish;
@@ -104,8 +106,9 @@ describe("EIP3009", () => {
       expect(await balanceOf(token, bite, from)).to.equal(10e6);
       expect(await balanceOf(token, bite, to)).to.equal(0);
 
-      expect(await token.authorizationState(from, nonce)).to.be.false;
-
+      expect(await token.authorizationState(from, nonce)).to.be.equal(false);
+      // need to top-up some ETH for gas fees
+      await token.connect(charlie).deposit(charlie.address, { value: ethers.parseEther("0.3") });
       // a third-party, Charlie (not Alice) submits the signed authorization
       const result = await token.connect(charlie).transferWithAuthorization(
         from,
@@ -1043,7 +1046,7 @@ const signTransferAuthorization = async (
   validBefore: BigNumberish,
   nonce: string,
   domainSeparator: string,
-  signer: Signer
+  signer: Wallet
 ): Promise<Signature> => {
   return signEIP712(
     domainSeparator,
@@ -1100,13 +1103,13 @@ const signEIP712 = async (
   typeHash: string,
   types: string[],
   parameters: (BigNumberish)[],
-  signer: Signer
+  signer: Wallet
 ): Promise<Signature> => {
-  const digest = ethers.id(
+  const digest = ethers.keccak256(
     "0x1901" +
       strip0x(domainSeparator) +
       strip0x(
-        ethers.id(
+        ethers.keccak256(
           ethers.AbiCoder.defaultAbiCoder().encode(
             ["bytes32", ...types],
             [typeHash, ...parameters]
@@ -1114,8 +1117,7 @@ const signEIP712 = async (
         )
       )
   );
-
-  const signature = await signer.signMessage(ethers.getBytes(digest));
+  const signature = signer.signingKey.sign(ethers.getBytes(digest));
   return ethers.Signature.from(signature);
 }
 
