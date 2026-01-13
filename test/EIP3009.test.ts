@@ -8,7 +8,7 @@ import { withMintedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
 import { balanceOf } from "./tools/helpers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { PRIVATE_KEYS } from "./tools/contants";
+import { PRIVATE_KEYS } from "./tools/constants";
 
 const TRANSFER_WITH_AUTHORIZATION_TYPEHASH = ethers.id(
   "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"

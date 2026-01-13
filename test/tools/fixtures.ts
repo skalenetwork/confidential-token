@@ -4,7 +4,7 @@ import {
 import { deploy } from "../../migrations/deploy";
 import { ethers } from "hardhat";
 import { feedAccounts } from "./helpers";
-import { PRIVATE_KEYS } from "./contants";
+import { PRIVATE_KEYS } from "./constants";
 import { Wallet } from "ethers";
 
 // cspell:words ECIES
