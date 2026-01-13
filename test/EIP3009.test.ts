@@ -7,7 +7,7 @@ import { BiteMock, ConfidentialToken } from "../typechain-types";
 import { withMintedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
 import { balanceOf } from "./tools/helpers";
-import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+//import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { PRIVATE_KEYS } from "./tools/constants";
 
 const TRANSFER_WITH_AUTHORIZATION_TYPEHASH = ethers.id(
@@ -26,7 +26,7 @@ describe("EIP3009", () => {
   let token: ConfidentialToken;
   let bite: BiteMock;
   let domainSeparator: string;
-  let deployer: HardhatEthersSigner;
+  //let deployer: HardhatEthersSigner;
   let alice: Wallet;
   let bob: Wallet;
   let charlie: Wallet;
@@ -34,7 +34,7 @@ describe("EIP3009", () => {
   const initialBalance = 10e6;
 
   before(async () => {
-    [deployer] = await ethers.getSigners();
+    //[deployer] = await ethers.getSigners();
     [alice, bob, charlie] = PRIVATE_KEYS.slice(0, 3).map((key => new Wallet(key).connect(ethers.provider)));
   });
 
@@ -109,8 +109,9 @@ describe("EIP3009", () => {
       expect(await token.authorizationState(from, nonce)).to.be.equal(false);
       // need to top-up some ETH for gas fees
       await token.connect(charlie).deposit(charlie.address, { value: ethers.parseEther("0.3") });
+
       // a third-party, Charlie (not Alice) submits the signed authorization
-      const result = await token.connect(charlie).transferWithAuthorization(
+      await token.connect(charlie).transferWithAuthorization(
         from,
         to,
         value,
