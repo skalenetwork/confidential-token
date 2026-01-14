@@ -98,8 +98,10 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @param amount Amount of ETH withdrawn
     event EthWithdrawn(address indexed receiver, uint256 indexed amount);
 
-    /// @notice Emitted when tokens are transferred, including mints and burns
-    event Transferred();
+    /// @notice Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
+    /// @param from Address tokens are moved from
+    /// @param to Address tokens are moved to
+    event Transfer(address indexed from, address indexed to);
 
     /// @notice Emitted when SubmitCTX precompiled contract address is changed
     /// @param newAddress New address of the SubmitCTX precompiled contract
@@ -208,7 +210,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     }
 
     /// @inheritdoc IConfidentialToken
-    function registerPublicKey(PublicKey calldata publicKey) external override restricted {
+    function registerPublicKey(PublicKey calldata publicKey) external override {
         address holder = _publicKeyToAddress(publicKey);
         if (!_knownPublicKey(holder)) {
             publicKeys[holder] = publicKey;
@@ -327,7 +329,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         _setBalance(from, updatedFromBalance);
         _setBalance(to, updatedToBalance);
 
-        emit Transferred();
+        emit Transfer(from, to);
     }
 
     /// @notice Transfers a `value` amount of tokens from `from` to `to`

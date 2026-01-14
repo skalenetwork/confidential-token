@@ -99,13 +99,20 @@ event EthWithdrawn(address receiver, uint256 amount)
 | receiver | address | Address of the receiver |
 | amount | uint256 | Amount of ETH withdrawn |
 
-### Transferred
+### Transfer
 
-Emitted when tokens are transferred, including mints and burns
+Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
 
 ```solidity
-event Transferred()
+event Transfer(address from, address to)
 ```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address tokens are moved from |
+| to | address | Address tokens are moved to |
 
 ### SubmitCTXAddressChanged
 
