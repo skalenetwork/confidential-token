@@ -17,3 +17,8 @@ export const feedAccounts = async (addresses: string[]) => {
         await setBalance(address, ethers.parseEther("1000"));
     }
 }
+
+export const nowPlusSeconds = async (seconds: number) => {
+    const validAfter = (await ethers.provider.getBlock("latest"))!.timestamp + seconds;
+    return validAfter;
+}
