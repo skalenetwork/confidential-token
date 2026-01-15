@@ -3,7 +3,7 @@ import { BiteMock, ConfidentialToken } from "../../typechain-types";
 import { ethers } from "hardhat";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
-export const balanceOf = async (token: ConfidentialToken, bite: BiteMock,holder: AddressLike) => {
+export const balanceOf = async (token: ConfidentialToken, bite: BiteMock, holder: AddressLike) => {
     const encryptedBalance = await token.encryptedBalanceOf(holder);
     if (encryptedBalance === "0x") {
         return 0n;
