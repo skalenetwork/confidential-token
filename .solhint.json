@@ -16,6 +16,7 @@
     "gas-strict-inequalities": "error",
     "imports-order": "error",
     "immutable-vars-naming": "error",
+    "function-max-lines": "error",
     "func-named-parameters": "error",
     "func-visibility": ["error", { "ignoreConstructors": true }],
     "gas-indexed-events": "error",
