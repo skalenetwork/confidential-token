@@ -90,13 +90,13 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @notice Emitted when ETH balance is topped up
     /// @param sender Address of the sender
     /// @param receiver Address of the receiver
-    /// @param amount Amount of ETH topped up
-    event EthBalanceToppedUp(address indexed sender, address indexed receiver, uint256 indexed amount);
+    /// @param value Amount of ETH topped up
+    event EthBalanceToppedUp(address indexed sender, address indexed receiver, uint256 indexed value);
 
     /// @notice Emitted when ETH is withdrawn
     /// @param receiver Address of the receiver
-    /// @param amount Amount of ETH withdrawn
-    event EthWithdrawn(address indexed receiver, uint256 indexed amount);
+    /// @param value Amount of ETH withdrawn
+    event EthWithdrawn(address indexed receiver, uint256 indexed value);
 
     /// @notice Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
     /// @param from Address tokens are moved from
@@ -150,13 +150,13 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     }
 
     /// @inheritdoc IConfidentialToken
-    function burn(uint256 amount) external override {
-        _burn(msg.sender, amount);
+    function burn(uint256 value) external override {
+        _burn(msg.sender, value);
     }
 
     /// @inheritdoc IConfidentialToken
-    function mint(address to, uint256 amount) external override restricted {
-        _mint(to, amount);
+    function mint(address to, uint256 value) external override restricted {
+        _mint(to, value);
     }
 
     /// @inheritdoc IBiteSupplicant
@@ -165,29 +165,15 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
-        (address from, address to, uint256 value) = abi.decode(
+        (address from, address to) = abi.decode(
             plaintextArguments[0],
-            (address, address, uint256)
+            (address, address)
         );
-        if (decryptedArguments.length == 1) {
-            // mint or burn
-            require((from == address(0)) != (to == address(0)), DecryptionBadFormat());
-        } else if (decryptedArguments.length == 2) {
-            // token transfer
-            require(
-                decryptedArguments[1].length == 32 || decryptedArguments[1].length == 0,
-                DecryptionBadFormat()
-            );
-        } else {
-            revert DecryptionBadFormat();
-        }
-        require(
-            decryptedArguments[0].length == 32 || decryptedArguments[0].length == 0,
-            DecryptionBadFormat()
-        );
+        _validateDecryptedArguments(decryptedArguments, from, to);
 
         uint256 fromBalance = 0;
         uint256 toBalance = 0;
+        uint256 value = 0;
         if (from == address(0)) {
             // mint
             toBalance = _decodeBalance(decryptedArguments[0]);
@@ -199,6 +185,8 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
             fromBalance = _decodeBalance(decryptedArguments[0]);
             toBalance = _decodeBalance(decryptedArguments[1]);
         }
+        uint256 valueIndex = decryptedArguments.length - 1;
+        value = _decodeBalance(decryptedArguments[valueIndex]);
 
         _decryptedUpdate({
             from: from,
@@ -246,14 +234,14 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     }
 
     /// @inheritdoc IConfidentialToken
-    function withdraw(uint256 amount, address receiver) external override {
-        // amount is not a constant
+    function withdraw(uint256 value, address receiver) external override {
+        // value is not a constant
         // so no ability to save some gas here
         // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[msg.sender] >= amount, InsufficientEth(amount, _ethBalance[msg.sender]));
-        _ethBalance[msg.sender] -= amount;
-        emit EthWithdrawn(receiver, amount);
-        payable(receiver).sendValue(amount);
+        require(_ethBalance[msg.sender] >= value, InsufficientEth(value, _ethBalance[msg.sender]));
+        _ethBalance[msg.sender] -= value;
+        emit EthWithdrawn(receiver, value);
+        payable(receiver).sendValue(value);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -271,9 +259,9 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
 
     /// @inheritdoc IConfidentialToken
     function deposit(address receiver) public payable override {
-        uint256 amount = msg.value;
-        _ethBalance[receiver] += amount;
-        emit EthBalanceToppedUp(msg.sender, receiver, amount);
+        uint256 value = msg.value;
+        _ethBalance[receiver] += value;
+        emit EthBalanceToppedUp(msg.sender, receiver, value);
     }
 
     /// @inheritdoc ERC20
@@ -359,6 +347,9 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
             toIndex = encryptedArgumentsLength;
             ++encryptedArgumentsLength;
         }
+        uint256 valueIndex = encryptedArgumentsLength;
+        ++encryptedArgumentsLength;
+        bytes memory encryptedValue = Precompiled.encryptTE(encryptTEAddress, abi.encodePacked(value));
 
         bytes[] memory encryptedArguments = new bytes[](encryptedArgumentsLength);
         if (from != address(0)) {
@@ -367,9 +358,10 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         if (to != address(0)) {
             encryptedArguments[toIndex] = encryptedToBalance;
         }
+        encryptedArguments[valueIndex] = encryptedValue;
 
         bytes[] memory plaintextArguments = new bytes[](1);
-        plaintextArguments[0] = abi.encode(from, to, value);
+        plaintextArguments[0] = abi.encode(from, to);
 
         address payable callback = Precompiled.submitCTX(
             submitCTXAddress,
@@ -432,5 +424,30 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     {
         bytes32 hash = keccak256(abi.encodePacked(publicKey.x, publicKey.y));
         return address(uint160(uint256(hash)));
+    }
+
+    function _validateDecryptedArguments(bytes[] calldata decryptedArguments, address from, address to) private pure {
+        uint256 valueIndex = 2;
+        if (decryptedArguments.length == 2) {
+            // mint or burn
+            require((from == address(0)) != (to == address(0)), DecryptionBadFormat());
+            valueIndex = 1;
+        } else if (decryptedArguments.length == 3) {
+            // token transfer
+            require(
+                decryptedArguments[1].length == 32 || decryptedArguments[1].length == 0,
+                DecryptionBadFormat()
+            );
+        } else {
+            revert DecryptionBadFormat();
+        }
+        require(
+            decryptedArguments[0].length == 32 || decryptedArguments[0].length == 0,
+            DecryptionBadFormat()
+        );
+        require(
+            decryptedArguments[valueIndex].length == 32,
+            DecryptionBadFormat()
+        );
     }
 }

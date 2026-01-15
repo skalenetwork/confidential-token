@@ -73,7 +73,7 @@ event CallbackFeeChanged(uint256 newFee)
 Emitted when ETH balance is topped up
 
 ```solidity
-event EthBalanceToppedUp(address sender, address receiver, uint256 amount)
+event EthBalanceToppedUp(address sender, address receiver, uint256 value)
 ```
 
 #### Parameters
@@ -82,14 +82,14 @@ event EthBalanceToppedUp(address sender, address receiver, uint256 amount)
 | ---- | ---- | ----------- |
 | sender | address | Address of the sender |
 | receiver | address | Address of the receiver |
-| amount | uint256 | Amount of ETH topped up |
+| value | uint256 | Amount of ETH topped up |
 
 ### EthWithdrawn
 
 Emitted when ETH is withdrawn
 
 ```solidity
-event EthWithdrawn(address receiver, uint256 amount)
+event EthWithdrawn(address receiver, uint256 value)
 ```
 
 #### Parameters
@@ -97,7 +97,7 @@ event EthWithdrawn(address receiver, uint256 amount)
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | receiver | address | Address of the receiver |
-| amount | uint256 | Amount of ETH withdrawn |
+| value | uint256 | Amount of ETH withdrawn |
 
 ### Transfer
 
@@ -236,21 +236,21 @@ receive() external payable
 Burns tokens from the caller's balance
 
 ```solidity
-function burn(uint256 amount) external
+function burn(uint256 value) external
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| amount | uint256 | The amount of tokens to burn |
+| value | uint256 |  |
 
 ### mint
 
 Mints new tokens to the specified address
 
 ```solidity
-function mint(address to, uint256 amount) external
+function mint(address to, uint256 value) external
 ```
 
 #### Parameters
@@ -258,7 +258,7 @@ function mint(address to, uint256 amount) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | to | address | The address to mint tokens to |
-| amount | uint256 | The amount of tokens to mint |
+| value | uint256 |  |
 
 ### onDecrypt
 
@@ -352,14 +352,14 @@ function setEncryptTEAddress(address newAddress) external
 Withdraws ETH from the caller's balance
 
 ```solidity
-function withdraw(uint256 amount, address receiver) external
+function withdraw(uint256 value, address receiver) external
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| amount | uint256 | Amount of ETH to withdraw |
+| value | uint256 |  |
 | receiver | address | Address to send the withdrawn ETH to |
 
 ### encryptedBalanceOf
