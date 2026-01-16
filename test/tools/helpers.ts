@@ -12,9 +12,12 @@ export const balanceOf = async (token: ConfidentialToken, bite: BiteMock, holder
 }
 
 
-export const feedAccounts = async (addresses: string[]) => {
+export const feedAccounts = async (addresses: AddressLike[]) => {
     for (const address of addresses) {
-        await setBalance(address, ethers.parseEther("1000"));
+        await setBalance(
+            await ethers.resolveAddress(address),
+            ethers.parseEther("1000")
+        );
     }
 }
 

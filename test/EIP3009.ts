@@ -1,14 +1,12 @@
 // cspell:words typehash
 
 import { ethers } from "hardhat";
-import { AddressLike, BigNumberish, Wallet } from "ethers";
+import { AddressLike, BaseWallet, BigNumberish, HDNodeWallet, Wallet } from "ethers";
 import { expect } from "chai";
 import { BiteMock, ConfidentialToken } from "../typechain-types";
 import { withMintedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
-import { balanceOf, nowPlusSeconds } from "./tools/helpers";
-//import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { PRIVATE_KEYS } from "./tools/constants";
+import { balanceOf, feedAccounts, nowPlusSeconds } from "./tools/helpers";
 
 const TRANSFER_WITH_AUTHORIZATION_TYPEHASH = ethers.id(
     "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
@@ -26,18 +24,16 @@ describe("EIP3009", () => {
     let token: ConfidentialToken;
     let bite: BiteMock;
     let domainSeparator: string;
-    //let deployer: HardhatEthersSigner;
-    let alice: Wallet;
-    let bob: Wallet;
-    let charlie: Wallet;
+    let alice: HDNodeWallet;
+    let bob: HDNodeWallet;
+    let charlie: HDNodeWallet;
     let nonce: string;
     const initialBalance = 10e6;
 
     before(async () => {
-        //[deployer] = await ethers.getSigners();
-        [alice, bob, charlie] = PRIVATE_KEYS.slice(0, 3).map((key) =>
-            new Wallet(key).connect(ethers.provider)
-        );
+        alice = Wallet.createRandom(ethers.provider);
+        bob = Wallet.createRandom(ethers.provider);
+        charlie = Wallet.createRandom(ethers.provider);
     });
 
     beforeEach(async () => {
@@ -51,13 +47,19 @@ describe("EIP3009", () => {
         await token.registerPublicKey(await getPublicKey(bob));
         await token.registerPublicKey(await getPublicKey(charlie));
 
+        await feedAccounts([
+            alice,
+            bob,
+            charlie
+        ]);
+
         await token.transfer(alice, initialBalance);
         await bite.sendCallback();
 
         for (const user of [alice, bob, charlie]) {
             await token
                 .connect(user)
-                .deposit(user.address, { value: ethers.parseEther("3") });
+                .deposit(user, { value: ethers.parseEther("3") });
         }
     });
 
@@ -76,8 +78,8 @@ describe("EIP3009", () => {
     });
 
     interface TransferParams {
-        from: Wallet;
-        to: Wallet;
+        from: BaseWallet;
+        to: BaseWallet;
         value: BigNumberish;
         validAfter: BigNumberish;
         validBefore: BigNumberish;
@@ -119,7 +121,7 @@ describe("EIP3009", () => {
             // need to top-up some ETH for gas fees
             await token
                 .connect(charlie)
-                .deposit(charlie.address, { value: ethers.parseEther("0.3") });
+                .deposit(charlie, { value: ethers.parseEther("0.3") });
 
             // a third-party, Charlie (not Alice) submits the signed authorization
             await token.connect(charlie).transferWithAuthorization(
@@ -405,8 +407,8 @@ describe("EIP3009", () => {
 
             // create a signed authorization for an approval (granting allowance)
             const { v, r, s } = await signReceiveAuthorization(
-                owner.address,
-                spender.address,
+                owner,
+                spender,
                 value,
                 validAfter,
                 validBefore,
@@ -937,7 +939,7 @@ describe("EIP3009", () => {
 
             // submit the cancellation
             await token.cancelAuthorization(
-                alice.address,
+                alice,
                 nonce,
                 cancellation.v,
                 cancellation.r,
@@ -946,12 +948,12 @@ describe("EIP3009", () => {
 
             // try to submit the same cancellation again
             await token.connect(charlie).cancelAuthorization(
-                alice.address,
+                alice,
                 nonce,
                 cancellation.v,
                 cancellation.r,
                 cancellation.s
-            ).should.be.revertedWithCustomError(token, "AuthorizationUsedError").withArgs(alice.address, nonce);
+            ).should.be.revertedWithCustomError(token, "AuthorizationUsedError").withArgs(alice, nonce);
         });
     });
 });
@@ -970,7 +972,7 @@ const signTransferAuthorization = async (
     validBefore: BigNumberish,
     nonce: string,
     domainSeparator: string,
-    signer: Wallet
+    signer: BaseWallet
 ): Promise<Signature> => {
   return signEIP712(
     domainSeparator,
@@ -996,7 +998,7 @@ async function signReceiveAuthorization(
     validBefore: BigNumberish,
     nonce: string,
     domainSeparator: string,
-    signer: Wallet
+    signer: BaseWallet
 ): Promise<Signature> {
     return signEIP712(
         domainSeparator,
@@ -1017,13 +1019,13 @@ async function signReceiveAuthorization(
 async function signCancelAuthorization(
     nonce: string,
     domainSeparator: string,
-    signer: Wallet
+    signer: BaseWallet
 ): Promise<Signature> {
     return signEIP712(
         domainSeparator,
         CANCEL_AUTHORIZATION_TYPEHASH,
         ["address", "bytes32"],
-        [await ethers.resolveAddress(signer.address), nonce],
+        [await ethers.resolveAddress(signer), nonce],
         signer
     );
 }
@@ -1033,7 +1035,7 @@ const signEIP712 = async (
     typeHash: string,
     types: string[],
     parameters: BigNumberish[],
-    signer: Wallet
+    signer: BaseWallet
 ): Promise<Signature> => {
     const digest = ethers.keccak256(
         "0x1901" +
