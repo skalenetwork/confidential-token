@@ -8,7 +8,7 @@ import "solidity-docgen";
 import dotenv from "dotenv"
 
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const config: HardhatUserConfig = {
   docgen: {
@@ -28,6 +28,7 @@ const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.30",
     settings: {
+      evmVersion: "shanghai",
       optimizer: {
         enabled: true,
         runs: 200,
