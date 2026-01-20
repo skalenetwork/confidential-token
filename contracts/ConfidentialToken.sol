@@ -54,16 +54,16 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     uint256 public callbackFee = 0.03 ether;
 
     /// @notice Address of the EncryptECIES precompiled contract
-    address public encryptECIESAddress;
+    address public encryptECIESAddress = address(0x1C);
 
     /// @notice Address of the EncryptTE precompiled contract
-    address public encryptTEAddress;
+    address public encryptTEAddress = address(0x1D);
 
     /// @notice Mapping of holder addresses to their public keys
     mapping(address holder => PublicKey publicKey) public publicKeys;
 
     /// @notice Address of the submitCTX precompiled contract
-    address public submitCTXAddress;
+    address public submitCTXAddress = address(0x1B);
 
     /// @notice Version of the contract
     /// @dev Is used to get proper ABI
@@ -338,12 +338,12 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         uint256 fromIndex = 0;
         uint256 toIndex = 0;
         if (from != address(0)) {
-            encryptedFromBalance = _thresholdBalances[from];
+            encryptedFromBalance = _getEncryptedBalance(from);
             fromIndex = encryptedArgumentsLength;
             ++encryptedArgumentsLength;
         }
         if (to != address(0)) {
-            encryptedToBalance = _thresholdBalances[to];
+            encryptedToBalance = _getEncryptedBalance(to);
             toIndex = encryptedArgumentsLength;
             ++encryptedArgumentsLength;
         }
@@ -392,6 +392,16 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         } else {
             delete _thresholdBalances[holder];
             delete _userBalances[holder];
+        }
+    }
+
+    function _getEncryptedBalance(address holder) private view returns (bytes memory encryptedBalance) {
+        encryptedBalance = _thresholdBalances[holder];
+        if (encryptedBalance.length == 0) {
+            encryptedBalance = Precompiled.encryptTE(
+                encryptTEAddress,
+                abi.encodePacked(uint256(0))
+            );
         }
     }
 

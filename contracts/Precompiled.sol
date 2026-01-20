@@ -68,7 +68,7 @@ library Precompiled {
     function encryptTE(address encryptTEaddress, bytes memory text) internal view returns (bytes memory cipherText) {
         return _staticcallPrecompiled(
             encryptTEaddress,
-            text
+            abi.encode(text)
         );
     }
 
