@@ -42,6 +42,7 @@ const deployFixture = async () => {
     await contracts.ConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
     await contracts.ConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
     await contracts.ConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
+    await contracts.ConfidentialToken.setCallbackFee(ethers.parseEther("0.003"));
 
     return {
         accessManager: contracts.AccessManager,
