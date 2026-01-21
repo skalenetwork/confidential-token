@@ -10,6 +10,18 @@ Library for interacting with Ethereum precompiled contracts and SKALE-specific p
 error PrecompiledCallFailed(address precompiledContract)
 ```
 
+### EmptyReturnData
+
+```solidity
+error EmptyReturnData(address precompiledContract)
+```
+
+### IncorrectReturnDataLength
+
+```solidity
+error IncorrectReturnDataLength(address precompiledContract, uint256 expected, uint256 actual)
+```
+
 ### submitCTX
 
 Calls the SubmitCTX precompiled contract
