@@ -33,6 +33,8 @@ import { PublicKey } from "./types.sol";
  */
 library Precompiled {
     error PrecompiledCallFailed(address precompiledContract);
+    error EmptyReturnData(address precompiledContract);
+    error IncorrectReturnDataLength(address precompiledContract, uint256 expected, uint256 actual);
 
     /// @notice Calls the SubmitCTX precompiled contract
     /// @param submitCTXAddress The address of the SubmitCTX precompiled contract
@@ -49,7 +51,7 @@ library Precompiled {
         internal
         returns (address payable callbackSender)
     {
-        return payable(address(bytes20(_callPrecompiled(
+        bytes memory addressBytes = _callPrecompiled(
             submitCTXAddress,
             abi.encode(
                 gasLimit,
@@ -58,7 +60,12 @@ library Precompiled {
                     plaintextArguments
                 )
             )
-        ))));
+        );
+        require(
+            addressBytes.length == 20,
+            IncorrectReturnDataLength(submitCTXAddress, 20, addressBytes.length)
+        );
+        return payable(address(bytes20(addressBytes)));
     }
 
     /// @notice Calls the EncryptTE precompiled contract
@@ -66,10 +73,11 @@ library Precompiled {
     /// @param text The plaintext data to encrypt
     /// @return cipherText The encrypted data returned by the precompiled contract
     function encryptTE(address encryptTEaddress, bytes memory text) internal view returns (bytes memory cipherText) {
-        return _staticcallPrecompiled(
+        cipherText = _staticcallPrecompiled(
             encryptTEaddress,
             abi.encode(text)
         );
+        require(cipherText.length != 0, EmptyReturnData(encryptTEaddress));
     }
 
     /// @notice Calls the EncryptECIES precompiled contract
@@ -86,7 +94,7 @@ library Precompiled {
         view
         returns (bytes memory cipherText)
     {
-        return _staticcallPrecompiled(
+        cipherText = _staticcallPrecompiled(
             encryptECIESaddress,
             abi.encode(
                 text,
@@ -94,6 +102,7 @@ library Precompiled {
                 publicKey.y
             )
         );
+        require(cipherText.length != 0, EmptyReturnData(encryptECIESaddress));
     }
 
     // Private
