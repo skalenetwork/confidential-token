@@ -70,6 +70,10 @@ library Precompiled {
             IncorrectReturnDataLength(submitCTXAddress, 20, addressBytes.length)
         );
         callbackSender = payable(address(bytes20(addressBytes)));
+        // The system precompiled contract is called.
+        // It's trusted and doesn't perform any external calls,
+        // so reentrancy is not an issue here.
+        // slither-disable-next-line reentrancy-events
         emit CTXSubmitted(callbackSender);
     }
 
