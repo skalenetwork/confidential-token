@@ -32,6 +32,10 @@ import { PublicKey } from "./types.sol";
  * @notice Library for interacting with Ethereum precompiled contracts and SKALE-specific precompiles
  */
 library Precompiled {
+    /// @notice Emitted when a CTX is successfully submitted
+    /// @param callbackSender The address that will send the callback
+    event CTXSubmitted(address indexed callbackSender);
+
     error PrecompiledCallFailed(address precompiledContract);
     error EmptyReturnData(address precompiledContract);
     error IncorrectReturnDataLength(address precompiledContract, uint256 expected, uint256 actual);
@@ -65,7 +69,8 @@ library Precompiled {
             addressBytes.length == 20,
             IncorrectReturnDataLength(submitCTXAddress, 20, addressBytes.length)
         );
-        return payable(address(bytes20(addressBytes)));
+        callbackSender = payable(address(bytes20(addressBytes)));
+        emit CTXSubmitted(callbackSender);
     }
 
     /// @notice Calls the EncryptTE precompiled contract
