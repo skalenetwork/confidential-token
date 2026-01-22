@@ -60,7 +60,7 @@ function mint(address to, uint256 amount) external
 Registers the public key of any address
 
 ```solidity
-function registerPublicKey(struct PublicKey publicKey) external
+function registerPublicKey(struct PublicKey publicKey) external payable
 ```
 
 **dev:** _The address is calculated from the public key_

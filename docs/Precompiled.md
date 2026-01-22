@@ -4,6 +4,20 @@
 
 Library for interacting with Ethereum precompiled contracts and SKALE-specific precompiles
 
+### CTXSubmitted
+
+Emitted when a CTX is successfully submitted
+
+```solidity
+event CTXSubmitted(address callbackSender)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| callbackSender | address | The address that will send the callback |
+
 ### PrecompiledCallFailed
 
 ```solidity

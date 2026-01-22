@@ -280,7 +280,7 @@ function onDecrypt(bytes[] decryptedArguments, bytes[] plaintextArguments) exter
 Registers the public key of any address
 
 ```solidity
-function registerPublicKey(struct PublicKey publicKey) external
+function registerPublicKey(struct PublicKey publicKey) external payable
 ```
 
 **dev:** _The address is calculated from the public key_
