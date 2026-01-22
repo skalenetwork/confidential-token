@@ -50,7 +50,7 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Registers the public key of any address
     /// @dev The address is calculated from the public key
     /// @param publicKey The public key to register
-    function registerPublicKey(PublicKey memory publicKey) external;
+    function registerPublicKey(PublicKey memory publicKey) external payable;
 
     /// @notice Sets number of ETH to be sent to pay for callback execution
     /// @param newFee New callback fee
