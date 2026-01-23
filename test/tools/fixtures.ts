@@ -55,7 +55,7 @@ const deployMintableFixture = async () => {
 const mintedFixture = async () => {
     const minted = ethers.parseEther("1000");
     const ethBalance = ethers.parseEther("1.0");
-    const context = await cleanDeployment();
+    const context = await cleanMintableDeployment();
     await context.owner.sendTransaction({
         to: await ethers.resolveAddress(context.token),
         value: ethBalance

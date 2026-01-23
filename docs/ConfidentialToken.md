@@ -243,7 +243,7 @@ function burn(uint256 value) external
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| amount | uint256 | The amount of tokens to burn |
+| value | uint256 |  |
 
 ### onDecrypt
 
