@@ -34,7 +34,7 @@
     },
     {
         "filename": "docs/**/*.md",
-        "words": ["ECIES"]
+        "words": ["ECIES", "IERC20"]
     }
   ]
 }

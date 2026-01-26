@@ -315,6 +315,10 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         _setBalance(from, updatedFromBalance);
         _setBalance(to, updatedToBalance);
 
+        _onUpdate(from, to, value);
+    }
+
+    function _onUpdate(address from, address to, uint256) internal virtual {
         emit Transfer(from, to);
     }
 

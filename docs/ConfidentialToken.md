@@ -437,6 +437,12 @@ function _decryptedUpdate(address from, address to, uint256 fromBalance, uint256
 | toBalance | uint256 | Decrypted balance of the `to` address |
 | value | uint256 | Amount of tokens to be transferred |
 
+### _onUpdate
+
+```solidity
+function _onUpdate(address from, address to, uint256) internal virtual
+```
+
 ### _update
 
 Transfers a `value` amount of tokens from `from` to `to`
