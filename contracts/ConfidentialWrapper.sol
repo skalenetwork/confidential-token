@@ -39,7 +39,8 @@ contract ConfidentialWrapper is ConfidentialToken, IConfidentialWrapper {
     using SafeERC20 for IERC20;
 
     /// @notice Address of the original token
-    IERC20 public immutable WRAPPED_TOKEN;
+    IERC20 public immutable WRAPPED_TOKEN; // slither-disable-line naming-convention
+    // disable slither naming-convention because of conflict with solhint
 
     /// @notice Amount of tokens requested to be wrapped
     /// @dev Almost always equals to zero
