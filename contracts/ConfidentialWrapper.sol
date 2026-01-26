@@ -38,9 +38,12 @@ import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 contract ConfidentialWrapper is ConfidentialToken, IConfidentialWrapper {
     using SafeERC20 for IERC20;
 
+    // Disable slither naming-convention because of conflict with solhint
+    // slither-disable-start naming-convention
     /// @notice Address of the original token
-    IERC20 public immutable WRAPPED_TOKEN; // slither-disable-line naming-convention
-    // disable slither naming-convention because of conflict with solhint
+    IERC20 public immutable WRAPPED_TOKEN;
+    // slither-disable-end naming-convention
+
 
     /// @notice Amount of tokens requested to be wrapped
     /// @dev Almost always equals to zero
