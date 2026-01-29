@@ -3,44 +3,37 @@ import chalk from "chalk";
 import { promises as fs } from 'fs';
 import { getVersion, verify } from "@skalenetwork/upgrade-tools";
 import { AddressLike } from "ethers";
-import { AccessManager, ConfidentialToken } from "../typechain-types";
+import { AccessManager, ConfidentialWrapper } from "../typechain-types";
+import { getRequiredEnvironmentVariable } from "./deployMintable";
 
 export const contracts = [
     "AccessManager",
-    "ConfidentialToken"
+    "ConfidentialWrapper"
 ];
 
 export interface DeployedContracts {
     AccessManager: AccessManager,
-    ConfidentialToken: ConfidentialToken
+    ConfidentialWrapper: ConfidentialWrapper
 }
 
-export const getRequiredEnvironmentVariable = (name: string): string => {
-    if (!process.env[name]) {
-        throw new Error(`Please set value for ${name} environment variable`);
-    }
-    return process.env[name];
-}
-
-export const deployMintable = async (tokenName: string, tokenSymbol: string, version: string, ownerAddress: AddressLike) => {
+export const deployWrapper = async (originToken: AddressLike, version: string, ownerAddress: AddressLike) => {
     const accessManagerFactory = await ethers.getContractFactory("AccessManager");
     const accessManager = await accessManagerFactory.deploy(ownerAddress);
     await accessManager.deploymentTransaction()!.wait();
     console.log(`Deployed AccessManager at: ${await ethers.resolveAddress(accessManager)}`);
 
-    const ConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
-    const confidentialToken = await ConfidentialTokenFactory.deploy(
-        tokenName,
-        tokenSymbol,
+    const ConfidentialWrapperFactory = await ethers.getContractFactory("ConfidentialWrapper");
+    const confidentialWrapper = await ConfidentialWrapperFactory.deploy(
+        originToken,
         version,
         await ethers.resolveAddress(accessManager)
     );
-    await confidentialToken.deploymentTransaction()!.wait();
-    console.log(`Deployed ConfidentialToken at: ${await ethers.resolveAddress(confidentialToken)}`);
+    await confidentialWrapper.deploymentTransaction()!.wait();
+    console.log(`Deployed ConfidentialWrapper at: ${await ethers.resolveAddress(confidentialWrapper)}`);
 
     return {
         AccessManager: accessManager,
-        ConfidentialToken: confidentialToken
+        ConfidentialWrapper: confidentialWrapper
     };
 };
 
@@ -78,9 +71,8 @@ const main = async () => {
 
     console.log("Deploy contracts");
 
-    const deployedContracts = await deployMintable(
-        getRequiredEnvironmentVariable("NAME"),
-        getRequiredEnvironmentVariable("SYMBOL"),
+    const deployedContracts = await deployWrapper(
+        getRequiredEnvironmentVariable("ORIGIN_TOKEN"),
         version,
         ownerAddress
     );
