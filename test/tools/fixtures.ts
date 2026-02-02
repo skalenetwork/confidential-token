@@ -4,6 +4,7 @@ import {
 import { deployMintable } from "../../migrations/deployMintable";
 import { ethers } from "hardhat";
 import { deployWrapper } from "../../migrations/deployWrapper";
+import { deployTestERC20 } from "../../scripts/deployTestERC20";
 
 // cspell:words ECIES
 
@@ -70,15 +71,12 @@ const mintedFixture = async () => {
 }
 
 const deployWrapperFixture = async () => {
-    const tokenName = "Regular Token";
-    const tokenSymbol = "RTK";
     const version = "testing";
     const [deployer] = await ethers.getSigners();
 
-    const underlyingFactory = await ethers.getContractFactory("MintableERC20");
-    const underlyingToken = await underlyingFactory.deploy(
-        tokenName,
-        tokenSymbol
+    const {MintableERC20: underlyingToken} = await deployTestERC20(
+        "D2 Example",
+        "D2E"
     );
 
     const contracts = await deployWrapper(

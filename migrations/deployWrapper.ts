@@ -17,6 +17,7 @@ export interface DeployedContracts {
 }
 
 export const deployWrapper = async (originToken: AddressLike, version: string, ownerAddress: AddressLike) => {
+    console.log("Deploy ConfidentialWrapper for", await ethers.resolveAddress(originToken));
     const accessManagerFactory = await ethers.getContractFactory("AccessManager");
     const accessManager = await accessManagerFactory.deploy(ownerAddress);
     await accessManager.deploymentTransaction()!.wait();
@@ -26,7 +27,7 @@ export const deployWrapper = async (originToken: AddressLike, version: string, o
     const confidentialWrapper = await ConfidentialWrapperFactory.deploy(
         originToken,
         version,
-        await ethers.resolveAddress(accessManager)
+        accessManager
     );
     await confidentialWrapper.deploymentTransaction()!.wait();
     console.log(`Deployed ConfidentialWrapper at: ${await ethers.resolveAddress(confidentialWrapper)}`);
