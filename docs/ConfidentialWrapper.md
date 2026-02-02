@@ -27,14 +27,6 @@ error OutdatedMint(address to, uint256 value)
 constructor(contract IERC20Metadata underlyingToken, string version_, address initialAuthority) public
 ```
 
-### depositFor
-
-```solidity
-function depositFor(address account, uint256 value) public returns (bool)
-```
-
-**dev:** _Allow a user to deposit underlying tokens and mint the corresponding number of wrapped tokens._
-
 ### release
 
 Releases the wrapped tokens to the caller
@@ -50,31 +42,43 @@ function release(uint256 value) external
 | ---- | ---- | ----------- |
 | value | uint256 | The amount of tokens to release |
 
+### depositFor
+
+```solidity
+function depositFor(address account, uint256 value) public returns (bool success)
+```
+
+**dev:** _Allow a user to deposit underlying tokens and mint the corresponding number of wrapped tokens._
+
 ### withdrawTo
 
 ```solidity
-function withdrawTo(address account, uint256 value) public returns (bool)
+function withdrawTo(address account, uint256 value) public returns (bool success)
 ```
 
 **dev:** _Allow a user to burn a number of wrapped tokens and withdraw the corresponding number of underlying tokens._
 
-### balanceOf
-
-```solidity
-function balanceOf(address account) public pure returns (uint256)
-```
-
 ### decimals
 
 ```solidity
-function decimals() public view returns (uint8)
+function decimals() public view returns (uint8 decimalsValue)
 ```
 
 ### totalSupply
 
 ```solidity
-function totalSupply() public view returns (uint256)
+function totalSupply() public view returns (uint256 supply)
 ```
+
+**dev:** _Returns the value of tokens in existence._
+
+### balanceOf
+
+```solidity
+function balanceOf(address account) public pure returns (uint256 balance)
+```
+
+**dev:** _Returns the value of tokens owned by `account`._
 
 ### _onUpdate
 
