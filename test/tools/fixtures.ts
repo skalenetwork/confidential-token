@@ -3,6 +3,7 @@ import {
 } from "@nomicfoundation/hardhat-network-helpers";
 import { deployMintable } from "../../migrations/deployMintable";
 import { ethers } from "hardhat";
+import { deployWrapper } from "../../migrations/deployWrapper";
 
 // cspell:words ECIES
 
@@ -68,7 +69,41 @@ const mintedFixture = async () => {
     }
 }
 
+const deployWrapperFixture = async () => {
+    const tokenName = "Regular Token";
+    const tokenSymbol = "RTK";
+    const version = "testing";
+    const [deployer] = await ethers.getSigners();
+
+    const underlyingFactory = await ethers.getContractFactory("MintableERC20");
+    const underlyingToken = await underlyingFactory.deploy(
+        tokenName,
+        tokenSymbol
+    );
+
+    const contracts = await deployWrapper(
+        underlyingToken,
+        version,
+        deployer
+    );
+
+    const mocks = await deployBiteMocks();
+    await contracts.ConfidentialWrapper.setEncryptECIESAddress(mocks.encryptECIES);
+    await contracts.ConfidentialWrapper.setEncryptTEAddress(mocks.encryptTE);
+    await contracts.ConfidentialWrapper.setSubmitCTXAddress(mocks.submitCTX);
+    await contracts.ConfidentialWrapper.setCallbackFee(ethers.parseEther("0.003"));
+
+    return {
+        accessManager: contracts.AccessManager,
+        owner: deployer,
+        token: contracts.ConfidentialWrapper,
+        underlyingToken,
+        ...mocks
+    }
+}
+
 // External functions
 
 export const cleanMintableDeployment = async () => loadFixture(deployMintableFixture);
 export const withMintedTokens = async () => loadFixture(mintedFixture);
+export const cleanWrapperDeployment = async () => loadFixture(deployWrapperFixture);
