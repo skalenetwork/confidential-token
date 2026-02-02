@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- *   IMintableConfidentialToken.sol - confidential-token
+ *   IMintableERC20.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Dmytro Stebaiev
  *
@@ -19,15 +19,17 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// cspell:words IERC20
+
 pragma solidity ^0.8.24;
 
-import { IConfidentialToken } from "./IConfidentialToken.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
-/// @title IMintableConfidentialToken
+/// @title IMintableERC20
 /// @author Dmytro Stebaiev
-/// @notice Interface of ConfidentialToken with minting functionality
-interface IMintableConfidentialToken is IConfidentialToken {
+/// @notice Interface of ERC20 with minting functionality
+interface IMintableERC20 is IERC20 {
     /// @notice Mints new tokens to the specified address
     /// @param to The address to mint tokens to
     /// @param amount The amount of tokens to mint

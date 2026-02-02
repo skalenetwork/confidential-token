@@ -22,13 +22,13 @@
 pragma solidity ^0.8.24;
 
 import { ConfidentialToken } from "./ConfidentialToken.sol";
-import { IMintableConfidentialToken } from "./interfaces/IMintableConfidentialToken.sol";
+import { IMintableERC20 } from "./interfaces/IMintableERC20.sol";
 
 
 /// @title MintableConfidentialToken
 /// @author Dmytro Stebaiev
 /// @notice ConfidentialToken with minting functionality
-contract MintableConfidentialToken is ConfidentialToken, IMintableConfidentialToken {
+contract MintableConfidentialToken is ConfidentialToken, IMintableERC20 {
     /// @notice Constructor of the MintableConfidentialToken contract
     /// @param name Name of the token
     /// @param symbol Symbol of the token
@@ -43,7 +43,7 @@ contract MintableConfidentialToken is ConfidentialToken, IMintableConfidentialTo
         ConfidentialToken(name, symbol, version_, initialAuthority)
     {}
 
-    /// @inheritdoc IMintableConfidentialToken
+    /// @inheritdoc IMintableERC20
     function mint(address to, uint256 amount) external override restricted {
         _mint(to, amount);
     }

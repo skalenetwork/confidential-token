@@ -74,7 +74,7 @@ const deployWrapperFixture = async () => {
     const version = "testing";
     const [deployer] = await ethers.getSigners();
 
-    const {MintableERC20: underlyingToken} = await deployTestERC20(
+    const {TestERC20: underlyingToken} = await deployTestERC20(
         "D2 Example",
         "D2E"
     );

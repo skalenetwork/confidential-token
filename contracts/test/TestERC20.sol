@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /*
-    MintableERC20.sol - confidential-token
+    TestERC20.sol - confidential-token
     Copyright (C) 2025-Present SKALE Labs
     @author Dmytro Stebaiev
 
@@ -19,30 +19,19 @@
     along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// cspell:words IERC20
-
 pragma solidity ^0.8.24;
 
-import { ERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";
 
 
-/// @title IMintableERC20
-/// @author Dmytro Stebaiev
-/// @notice Interface for MintableERC20 contract
-interface IMintableERC20 is IERC20 {
-    /// @notice Mints tokens to a specified address
-    /// @param to Address to mint tokens to
-    /// @param amount Amount of tokens to mint
-    function mint(address to, uint256 amount) external;
-}
-
-/// @title MintableERC20
+/// @title TestERC20
 /// @author Dmytro Stebaiev
 /// @notice ERC20 token with minting functionality for testing purposes
 /// @notice There is no access control on the mint function
 /// @notice DON'T USE IN PRODUCTION!
-contract MintableERC20 is ERC20, IMintableERC20 {
-    /// @notice Constructor for the MintableERC20 contract
+contract TestERC20 is ERC20, IMintableERC20 {
+    /// @notice Constructor for the TestERC20 contract
     /// @param name_ Name of the token
     /// @param symbol_ Symbol of the token
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
