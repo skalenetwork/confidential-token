@@ -4,14 +4,6 @@
 
 Confidential wrapper that adds confidentiality to an ERC20 token
 
-### WRAPPED_TOKEN
-
-Address of the original token
-
-```solidity
-contract IERC20 WRAPPED_TOKEN
-```
-
 ### requestedMints
 
 Amount of tokens requested to be wrapped
@@ -32,8 +24,16 @@ error OutdatedMint(address to, uint256 value)
 ### constructor
 
 ```solidity
-constructor(contract IERC20Metadata wrappedTokenAddress, string version_, address initialAuthority) public
+constructor(contract IERC20Metadata underlyingToken, string version_, address initialAuthority) public
 ```
+
+### depositFor
+
+```solidity
+function depositFor(address account, uint256 value) public returns (bool)
+```
+
+**dev:** _Allow a user to deposit underlying tokens and mint the corresponding number of wrapped tokens._
 
 ### release
 
@@ -50,37 +50,41 @@ function release(uint256 value) external
 | ---- | ---- | ----------- |
 | value | uint256 | The amount of tokens to release |
 
-### unwrap
-
-Unwraps the specified amount of confidential tokens into the underlying token
+### withdrawTo
 
 ```solidity
-function unwrap(uint256 value) external
+function withdrawTo(address account, uint256 value) public returns (bool)
 ```
 
-#### Parameters
+**dev:** _Allow a user to burn a number of wrapped tokens and withdraw the corresponding number of underlying tokens._
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 | The amount of tokens to unwrap |
-
-### wrap
-
-Wraps the specified amount of the underlying token into confidential tokens
+### balanceOf
 
 ```solidity
-function wrap(uint256 value) external
+function balanceOf(address account) public pure returns (uint256)
 ```
 
-#### Parameters
+### decimals
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 | The amount of tokens to wrap |
+```solidity
+function decimals() public view returns (uint8)
+```
+
+### totalSupply
+
+```solidity
+function totalSupply() public view returns (uint256)
+```
 
 ### _onUpdate
 
 ```solidity
 function _onUpdate(address from, address to, uint256 value) internal
+```
+
+### _update
+
+```solidity
+function _update(address from, address to, uint256 value) internal
 ```
 

@@ -23,27 +23,22 @@
 
 pragma solidity ^0.8.24;
 
-import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { ConfidentialToken } from "./ConfidentialToken.sol";
+import { ERC20, IERC20 }  from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20Wrapper }   from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Wrapper.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SafeERC20 }      from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math }           from "@openzeppelin/contracts/utils/math/Math.sol";
+
+import { ConfidentialToken }    from "./ConfidentialToken.sol";
 import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 
 
 /// @title ConfidentialWrapper
 /// @author Dmytro Stebaiev
 /// @notice Confidential wrapper that adds confidentiality to an ERC20 token
-contract ConfidentialWrapper is ConfidentialToken, IConfidentialWrapper {
+contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWrapper {
     using SafeERC20 for IERC20;
-
-    // Disable slither naming-convention because of conflict with solhint
-    // slither-disable-start naming-convention
-    /// @notice Address of the original token
-    IERC20 public immutable WRAPPED_TOKEN;
-    // slither-disable-end naming-convention
-
 
     /// @notice Amount of tokens requested to be wrapped
     /// @dev Almost always equals to zero
@@ -53,36 +48,57 @@ contract ConfidentialWrapper is ConfidentialToken, IConfidentialWrapper {
     error OutdatedMint(address to, uint256 value);
 
     constructor(
-        IERC20Metadata wrappedTokenAddress,
+        IERC20Metadata underlyingToken,
         string memory version_,
         address initialAuthority
     )
         ConfidentialToken(
-            string.concat("Confidential ", wrappedTokenAddress.name()),
-            string.concat("cnf", wrappedTokenAddress.symbol()),
+            string.concat("Confidential ", underlyingToken.name()),
+            string.concat("cnf", underlyingToken.symbol()),
             version_,
             initialAuthority
         )
-    {
-        WRAPPED_TOKEN = wrappedTokenAddress;
-    }
+        ERC20Wrapper(underlyingToken)
+    {}
+
+    // External functions
 
     /// @inheritdoc IConfidentialWrapper
     function release(uint256 value) external override {
         requestedMints[msg.sender] -= value;
-        WRAPPED_TOKEN.safeTransfer(msg.sender, value);
+        underlying().safeTransfer(msg.sender, value);
     }
 
-    /// @inheritdoc IConfidentialWrapper
-    function unwrap(uint256 value) external override {
-        _burn(msg.sender, value);
-    }
+    // Public functions
 
-    /// @inheritdoc IConfidentialWrapper
-    function wrap(uint256 value) external override {
+    /// @inheritdoc ERC20Wrapper
+    function depositFor(address account, uint256 value) public override returns (bool success) {
         requestedMints[msg.sender] += value;
-        WRAPPED_TOKEN.safeTransferFrom(msg.sender, address(this), value);
-        _mint(msg.sender, value);
+        return super.depositFor(account, value);
+    }
+
+    /// @inheritdoc ERC20Wrapper
+    function withdrawTo(address account, uint256 value) public override returns (bool success) {
+        if (account == address(this)) {
+            revert ERC20InvalidReceiver(account);
+        }
+        _burn(_msgSender(), value);
+        return true;
+    }
+
+    /// @inheritdoc ERC20Wrapper
+    function decimals() public view override(ERC20, ERC20Wrapper) returns (uint8 decimalsValue) {
+        return ERC20Wrapper.decimals();
+    }
+
+    /// @inheritdoc ConfidentialToken
+    function totalSupply() public view override(ConfidentialToken, ERC20) returns (uint256 supply) {
+        return ConfidentialToken.totalSupply();
+    }
+
+    /// @inheritdoc ConfidentialToken
+    function balanceOf(address account) public pure override(ConfidentialToken, ERC20) returns (uint256 balance) {
+        return ConfidentialToken.balanceOf(account);
     }
 
     // Internal functions
@@ -97,6 +113,10 @@ contract ConfidentialWrapper is ConfidentialToken, IConfidentialWrapper {
         }
     }
 
+    function _update(address from, address to, uint256 value) internal override(ConfidentialToken, ERC20) {
+        ConfidentialToken._update(from, to, value);
+    }
+
     // Private functions
 
     function _onMint(address to, uint256 value) private {
@@ -109,6 +129,6 @@ contract ConfidentialWrapper is ConfidentialToken, IConfidentialWrapper {
     }
 
     function _onBurn(address from, uint256 value) private {
-        WRAPPED_TOKEN.safeTransfer(from, value);
+        underlying().safeTransfer(from, value);
     }
 }

@@ -32,12 +32,4 @@ interface IConfidentialWrapper is IConfidentialToken {
     /// @notice Almost never is used and is required only if callback call fails
     /// @param value The amount of tokens to release
     function release(uint256 value) external;
-
-    /// @notice Unwraps the specified amount of confidential tokens into the underlying token
-    /// @param value The amount of tokens to unwrap
-    function unwrap(uint256 value) external;
-
-    /// @notice Wraps the specified amount of the underlying token into confidential tokens
-    /// @param value The amount of tokens to wrap
-    function wrap(uint256 value) external;
 }

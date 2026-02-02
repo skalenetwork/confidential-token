@@ -263,7 +263,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     }
 
     /// @inheritdoc ERC20
-    function totalSupply() public view override returns (uint256 supply) {
+    function totalSupply() public view virtual override returns (uint256 supply) {
         return _totalSupply;
     }
 
@@ -271,7 +271,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     // compiler gives warning about unused variable
     // solhint-disable gas-named-return-values
     /// @inheritdoc ERC20
-    function balanceOf(address) public pure override returns (uint256) {
+    function balanceOf(address) public pure virtual override returns (uint256) {
         revert ValueIsEncrypted();
     }
     // solhint-disable-enable gas-named-return-values
@@ -327,7 +327,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @param from  Address to transfer tokens from
     /// @param to    Address to transfer tokens to
     /// @param value Amount of tokens to be transferred
-    function _update(address from, address to, uint256 value) internal override {
+    function _update(address from, address to, uint256 value) internal virtual override {
         // callbackFee is not a constant
         // so no ability to save some gas here
         // solhint-disable-next-line gas-strict-inequalities

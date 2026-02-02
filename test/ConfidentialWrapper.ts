@@ -3,7 +3,7 @@ import { cleanWrapperDeployment } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
 
 describe("ConfidentialWrapper", () => {
-    it.only("should be able to wrap and unwrap tokens", async () => {
+    it("should be able to wrap and unwrap tokens", async () => {
         const { underlyingToken, token, owner, bite } = await cleanWrapperDeployment();
         await token.registerPublicKey(await getPublicKey(owner));
         await owner.sendTransaction({
@@ -19,14 +19,14 @@ describe("ConfidentialWrapper", () => {
             token,
             amount
         );
-        await token.wrap(amount);
+        await token.depositFor(owner, amount);
         await bite.sendCallback();
 
         (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
         (await underlyingToken.balanceOf(owner)).should.be.equal(0);
         (await underlyingToken.balanceOf(token)).should.be.equal(amount);
 
-        await token.unwrap(amount);
+        await token.withdrawTo(owner, amount);
         await bite.sendCallback();
 
         (await token.encryptedBalanceOf(owner)).should.be.equal("0x");
