@@ -23,7 +23,6 @@
 
 pragma solidity ^0.8.24;
 
-
 import { ERC20, IERC20 }  from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC20Wrapper }   from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Wrapper.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -64,9 +63,9 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     // External functions
 
     /// @inheritdoc IConfidentialWrapper
-    function release(uint256 value) external override {
+    function releaseTo(address account, uint256 value) external override {
         requestedMints[msg.sender] -= value;
-        underlying().safeTransfer(msg.sender, value);
+        underlying().safeTransfer(account, value);
     }
 
     // Public functions
@@ -121,11 +120,11 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
 
     function _onMint(address to, uint256 value) private {
         bool previouslyRequested;
-            (previouslyRequested, requestedMints[to]) = Math.trySub(
-                requestedMints[to],
-                value
-            );
-            require(previouslyRequested, OutdatedMint(to, value));
+        (previouslyRequested, requestedMints[to]) = Math.trySub(
+            requestedMints[to],
+            value
+        );
+        require(previouslyRequested, OutdatedMint(to, value));
     }
 
     function _onBurn(address from, uint256 value) private {

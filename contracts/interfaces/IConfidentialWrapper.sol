@@ -30,6 +30,7 @@ import { IConfidentialToken } from "./IConfidentialToken.sol";
 interface IConfidentialWrapper is IConfidentialToken {
     /// @notice Releases the wrapped tokens to the caller
     /// @notice Almost never is used and is required only if callback call fails
+    /// @param account The address to release tokens to
     /// @param value The amount of tokens to release
-    function release(uint256 value) external;
+    function releaseTo(address account, uint256 value) external;
 }
