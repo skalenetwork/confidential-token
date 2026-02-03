@@ -245,21 +245,6 @@ function burn(uint256 value) external
 | ---- | ---- | ----------- |
 | value | uint256 |  |
 
-### mint
-
-Mints new tokens to the specified address
-
-```solidity
-function mint(address to, uint256 value) external
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| to | address | The address to mint tokens to |
-| value | uint256 |  |
-
 ### onDecrypt
 
 Called by the DecryptAndExecute precompiled contract after decryption
@@ -419,7 +404,7 @@ function deposit(address receiver) public payable
 ### totalSupply
 
 ```solidity
-function totalSupply() public view returns (uint256 supply)
+function totalSupply() public view virtual returns (uint256 supply)
 ```
 
 **dev:** _Returns the value of tokens in existence._
@@ -427,7 +412,7 @@ function totalSupply() public view returns (uint256 supply)
 ### balanceOf
 
 ```solidity
-function balanceOf(address) public pure returns (uint256)
+function balanceOf(address) public pure virtual returns (uint256)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
@@ -452,13 +437,19 @@ function _decryptedUpdate(address from, address to, uint256 fromBalance, uint256
 | toBalance | uint256 | Decrypted balance of the `to` address |
 | value | uint256 | Amount of tokens to be transferred |
 
+### _onUpdate
+
+```solidity
+function _onUpdate(address from, address to, uint256) internal virtual
+```
+
 ### _update
 
 Transfers a `value` amount of tokens from `from` to `to`
 or alternatively mints (or burns) if `from` (or `to`) is the zero address.
 
 ```solidity
-function _update(address from, address to, uint256 value) internal
+function _update(address from, address to, uint256 value) internal virtual
 ```
 
 #### Parameters

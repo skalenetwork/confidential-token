@@ -1,8 +1,10 @@
 import {
     loadFixture
 } from "@nomicfoundation/hardhat-network-helpers";
-import { deploy } from "../../migrations/deploy";
+import { deployMintable } from "../../migrations/deployMintable";
 import { ethers } from "hardhat";
+import { deployWrapper } from "../../migrations/deployWrapper";
+import { deployTestERC20 } from "../../scripts/deployTestERC20";
 
 // cspell:words ECIES
 
@@ -27,12 +29,12 @@ const deployBiteMocks = async () => {
 
 // Fixtures
 
-const deployFixture = async () => {
+const deployMintableFixture = async () => {
     const tokenName = "Confidential Token";
     const tokenSymbol = "CTK";
     const version = "testing";
     const [deployer] = await ethers.getSigners();
-    const contracts = await deploy(
+    const contracts = await deployMintable(
         tokenName,
         tokenSymbol,
         version,
@@ -55,7 +57,7 @@ const deployFixture = async () => {
 const mintedFixture = async () => {
     const minted = ethers.parseEther("1000");
     const ethBalance = ethers.parseEther("1.0");
-    const context = await cleanDeployment();
+    const context = await cleanMintableDeployment();
     await context.owner.sendTransaction({
         to: await ethers.resolveAddress(context.token),
         value: ethBalance
@@ -68,7 +70,60 @@ const mintedFixture = async () => {
     }
 }
 
+const deployWrapperFixture = async () => {
+    const version = "testing";
+    const [deployer] = await ethers.getSigners();
+
+    const {TestERC20: underlyingToken} = await deployTestERC20(
+        "D2 Example",
+        "D2E"
+    );
+
+    const contracts = await deployWrapper(
+        underlyingToken,
+        version,
+        deployer
+    );
+
+    const mocks = await deployBiteMocks();
+    await contracts.ConfidentialWrapper.setEncryptECIESAddress(mocks.encryptECIES);
+    await contracts.ConfidentialWrapper.setEncryptTEAddress(mocks.encryptTE);
+    await contracts.ConfidentialWrapper.setSubmitCTXAddress(mocks.submitCTX);
+    await contracts.ConfidentialWrapper.setCallbackFee(ethers.parseEther("0.003"));
+
+    return {
+        accessManager: contracts.AccessManager,
+        owner: deployer,
+        token: contracts.ConfidentialWrapper,
+        underlyingToken,
+        ...mocks
+    }
+}
+
+const wrappedFixture = async () => {
+    const wrapped = ethers.parseEther("1000");
+    const ethBalance = ethers.parseEther("1.0");
+    const context = await cleanWrapperDeployment();
+    await context.owner.sendTransaction({
+        to: await ethers.resolveAddress(context.token),
+        value: ethBalance
+    });
+    await context.underlyingToken.mint(context.owner, wrapped);
+    await context.underlyingToken.approve(
+        context.token,
+        wrapped
+    );
+    await context.token.depositFor(context.owner, wrapped);
+    await context.bite.sendCallback();
+    return {
+        wrapped,
+        ...context
+    }
+}
+
 // External functions
 
-export const cleanDeployment = async () => loadFixture(deployFixture);
+export const cleanMintableDeployment = async () => loadFixture(deployMintableFixture);
 export const withMintedTokens = async () => loadFixture(mintedFixture);
+export const cleanWrapperDeployment = async () => loadFixture(deployWrapperFixture);
+export const withWrappedTokens = async () => loadFixture(wrappedFixture);
