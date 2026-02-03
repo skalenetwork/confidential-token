@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
-import { cleanWrapperDeployment } from "./tools/fixtures";
+import { cleanWrapperDeployment, withWrappedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
+import "chai/register-should";
 
 describe("ConfidentialWrapper", () => {
     it("should be able to wrap and unwrap tokens", async () => {
@@ -74,5 +75,30 @@ describe("ConfidentialWrapper", () => {
         (await token.encryptedBalanceOf(owner)).should.be.equal("0x");
         (await underlyingToken.balanceOf(owner)).should.be.equal(amount);
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
-    })
+    });
+
+    it("should not allow to withdraw to the token itself", async () => {
+        const { token, wrapped } = await withWrappedTokens();
+
+        await token.withdrawTo(token, wrapped)
+            .should.be.revertedWithCustomError(
+                token, "ERC20InvalidReceiver"
+            ).withArgs(await ethers.resolveAddress(token));
+    });
+
+    it("should return decimals of the underlying token", async () => {
+        const { token, underlyingToken } = await cleanWrapperDeployment();
+        (await token.decimals()).should.be.equal(await underlyingToken.decimals());
+    });
+
+    it("should return total supply", async () => {
+        const { token, wrapped } = await withWrappedTokens();
+        (await token.totalSupply()).should.be.equal(wrapped);
+    });
+
+    it("balanceOf should have confidential behavior", async () => {
+        const { owner, token } = await withWrappedTokens();
+        await token.balanceOf(owner)
+            .should.be.revertedWithCustomError(token, "ValueIsEncrypted");
+    });
 });

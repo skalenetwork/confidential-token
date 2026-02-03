@@ -100,8 +100,30 @@ const deployWrapperFixture = async () => {
     }
 }
 
+const wrappedFixture = async () => {
+    const wrapped = ethers.parseEther("1000");
+    const ethBalance = ethers.parseEther("1.0");
+    const context = await cleanWrapperDeployment();
+    await context.owner.sendTransaction({
+        to: await ethers.resolveAddress(context.token),
+        value: ethBalance
+    });
+    await context.underlyingToken.mint(context.owner, wrapped);
+    await context.underlyingToken.approve(
+        context.token,
+        wrapped
+    );
+    await context.token.depositFor(context.owner, wrapped);
+    await context.bite.sendCallback();
+    return {
+        wrapped,
+        ...context
+    }
+}
+
 // External functions
 
 export const cleanMintableDeployment = async () => loadFixture(deployMintableFixture);
 export const withMintedTokens = async () => loadFixture(mintedFixture);
 export const cleanWrapperDeployment = async () => loadFixture(deployWrapperFixture);
+export const withWrappedTokens = async () => loadFixture(wrappedFixture);
