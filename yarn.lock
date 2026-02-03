@@ -3658,13 +3658,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"antlr4@npm:^4.13.1-patch-1":
-  version: 4.13.2
-  resolution: "antlr4@npm:4.13.2"
-  checksum: 10c0/dfe7dcb24fe99ce103e1eac3ce30558a3df713cf5deeacd7e30686f5cca8206864e49b254af3bd5eff5904d31e5cd7902a7468c13dcb619da10caf3f703d03b4
-  languageName: node
-  linkType: hard
-
 "anymatch@npm:~3.1.2":
   version: 3.1.3
   resolution: "anymatch@npm:3.1.3"
@@ -4504,7 +4497,7 @@ __metadata:
     globals: "npm:^16.5.0"
     hardhat: "npm:^2.27.1"
     pm2: "npm:^6.0.14"
-    solhint: "npm:^6.0.2"
+    solhint: "npm:^6.0.3"
     solidity-coverage: "npm:^0.8.17"
     solidity-docgen: "npm:^0.6.0-beta.36"
     ts-node: "npm:^10.9.2"
@@ -8523,14 +8516,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"solhint@npm:^6.0.2":
-  version: 6.0.2
-  resolution: "solhint@npm:6.0.2"
+"solhint@npm:^6.0.3":
+  version: 6.0.3
+  resolution: "solhint@npm:6.0.3"
   dependencies:
     "@solidity-parser/parser": "npm:^0.20.2"
     ajv: "npm:^6.12.6"
     ajv-errors: "npm:^1.0.1"
-    antlr4: "npm:^4.13.1-patch-1"
     ast-parents: "npm:^0.0.1"
     better-ajv-errors: "npm:^2.0.2"
     chalk: "npm:^4.1.2"
@@ -8552,7 +8544,7 @@ __metadata:
       optional: true
   bin:
     solhint: solhint.js
-  checksum: 10c0/b2db0d547090148581eb7a8491d1c7d2ea848efd0063924a1eb31c84e8ff368900580982c4637e8d8381ef7e2625af0fa07f50da0b59a6c5561567f8cf10b071
+  checksum: 10c0/1dad7354ee19a29e3c642c5a03a3d716132d9df9780693f95f41f7ebfac2039e2b0b49f690a35488a712382599e25173560fd6628661eadfcbc0a96505526efa
   languageName: node
   linkType: hard
 
