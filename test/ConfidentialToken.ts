@@ -38,7 +38,7 @@ describe("ConfidentialToken", () => {
         const encryptedBalance = await token.encryptedBalanceOf(recipient);
         encryptedBalance.should.not.be.equal(amount);
 
-        const decryptedBalance = await bite.decrypt(encryptedBalance);
+        const decryptedBalance = await balanceOf(token, bite, recipient);
         decryptedBalance.should.be.equal(amount);
     });
 

@@ -32,6 +32,15 @@ import { PublicKey } from "./types.sol";
  * @notice Library for interacting with Ethereum precompiled contracts and SKALE-specific precompiles
  */
 library Precompiled {
+
+    /// @notice Minimum return size of ThresholdEncryption precompile - 1
+    /// @dev 292 (min from cryptoscheme) + 32 (min encoded size of input) - 1
+    uint256 constant internal MIN_TE_RETURN_SIZE = 323;
+
+    /// @notice Minimum return size of ECIES precompile - 1
+    /// @dev 65 (min from cryptoscheme) + 32 (min encoded size of input) - 1
+    uint256 constant internal MIN_ECIES_RETURN_SIZE = 96;
+
     /// @notice Emitted when a CTX is successfully submitted
     /// @param callbackSender The address that will send the callback
     event CTXSubmitted(address indexed callbackSender);
@@ -87,6 +96,10 @@ library Precompiled {
             abi.encode(text)
         );
         require(cipherText.length != 0, EmptyReturnData(encryptTEaddress));
+        require(
+            cipherText.length >= MIN_TE_RETURN_SIZE,
+            IncorrectReturnDataLength(encryptTEaddress, MIN_TE_RETURN_SIZE, cipherText.length)
+        );
     }
 
     /// @notice Calls the EncryptECIES precompiled contract
@@ -112,6 +125,10 @@ library Precompiled {
             )
         );
         require(cipherText.length != 0, EmptyReturnData(encryptECIESaddress));
+        require(
+            cipherText.length >= MIN_ECIES_RETURN_SIZE,
+            IncorrectReturnDataLength(encryptECIESaddress, MIN_ECIES_RETURN_SIZE, cipherText.length)
+        );
     }
 
     // Private

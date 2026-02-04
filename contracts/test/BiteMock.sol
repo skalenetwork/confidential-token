@@ -28,6 +28,13 @@ import { DoubleEndedQueue } from "@openzeppelin/contracts/utils/structs/DoubleEn
 import { CallbackSender } from "./CallbackSender.sol";
 
 
+/// @notice Encryption method types
+enum EncryptionMethod {
+    TE,
+    ECIES
+}
+
+
 /// @title IBiteMock
 /// @author Dmytro Stebaiev
 /// @notice Interface for BiteMock contract
@@ -57,8 +64,12 @@ interface IBiteMock {
 
     /// @notice Decrypts a cypherText
     /// @param cypherText The cypherText to decrypt
+    /// @param method The encryption method used (TE or ECIES)
     /// @return message The decrypted message
-    function decrypt(bytes memory cypherText) external pure returns (bytes memory message);
+    function decrypt(
+        bytes memory cypherText,
+        EncryptionMethod method
+    ) external pure returns (bytes memory message);
 }
 
 /// @title BiteMock
@@ -70,7 +81,14 @@ contract BiteMock is IBiteMock{
     /// @notice Mock symmetric encryption key
     uint256 public constant MOCK_KEY = 36028797018963913;
 
+    /// @notice TE overhead in bytes
+    uint256 public constant TE_OVERHEAD = 292;
+
+    /// @notice ECIES overhead in bytes
+    uint256 public constant ECIES_OVERHEAD = 65;
+
     DoubleEndedQueue.Bytes32Deque private _queue;
+
     error NoCallbacksQueued();
 
     /// @inheritdoc IBiteMock
@@ -87,7 +105,7 @@ contract BiteMock is IBiteMock{
         uint256 length = encryptedArgs.length;
         bytes[] memory decryptedArgs = new bytes[](length);
         for (uint256 i = 0; i < length; ++i) {
-            decryptedArgs[i] = decrypt(encryptedArgs[i]);
+            decryptedArgs[i] = decrypt(encryptedArgs[i], EncryptionMethod.TE);
         }
         CallbackSender sender = new CallbackSender(
             supplicant,
@@ -116,20 +134,38 @@ contract BiteMock is IBiteMock{
     }
 
     /// @inheritdoc IBiteMock
-    function decrypt(bytes memory cypherText) public pure override returns (bytes memory message) {
-        message = _reverse(cypherText);
+    function decrypt(
+        bytes memory cypherText,
+        EncryptionMethod method
+    ) public pure override returns (bytes memory message) {
+        uint256 overhead = method == EncryptionMethod.TE ? TE_OVERHEAD : ECIES_OVERHEAD;
+        bytes memory stripped = stripOverhead(cypherText, overhead);
+        message = _reverse(stripped);
+    }
+
+    /// @notice Strips overhead bytes from the end of data
+    /// @param data The data to strip
+    /// @param overhead The number of bytes to remove from the end
+    /// @return result The data with overhead removed
+    function stripOverhead(bytes memory data, uint256 overhead) public pure returns (bytes memory result) {
+        uint256 resultLength = data.length - overhead;
+        result = new bytes(resultLength);
+        for (uint256 i = 0; i < resultLength; ++i) {
+            result[i] = data[i];
+        }
     }
 
     // Private
 
-    // Symmetric encryption/decryption function - tests only
-    function _reverse(bytes memory data) internal pure returns (bytes memory output) {
+    /// @notice Performs mock encryption/decryption
+    /// @param data The data to process
+    /// @return output The data after XOR operation
+    function _reverse(bytes memory data) private pure returns (bytes memory output) {
         uint256 size = data.length;
         output = new bytes(size);
         for (uint256 i = 0; i < size; ++i) {
             bytes32 expansion = keccak256(abi.encodePacked(MOCK_KEY, i / 32));
             output[i] = data[i] ^ expansion[i % 32];
         }
-        return output;
     }
 }

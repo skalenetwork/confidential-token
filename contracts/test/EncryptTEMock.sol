@@ -46,12 +46,18 @@ contract EncryptTEMock is PrecompiledMock {
 
     /// @notice Internal function to simulate encryption
     /// @param data The calldata passed to the precompiled contract
-    /// @return result The encrypted result
+    /// @return result The encrypted result with TE overhead
     function _call(bytes calldata data) internal view override returns (bytes memory result) {
         (bytes memory text) = abi.decode(
             data,
             (bytes)
         );
-        return BITE.encrypt(text);
+        bytes memory encrypted = BITE.encrypt(text);
+        // Append TE overhead
+        result = new bytes(encrypted.length + BITE.TE_OVERHEAD());
+        for (uint256 i = 0; i < encrypted.length; ++i) {
+            result[i] = encrypted[i];
+        }
+        // Remaining bytes are zero (simulated overhead)
     }
 }
