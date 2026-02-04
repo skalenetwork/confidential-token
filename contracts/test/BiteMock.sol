@@ -66,8 +66,11 @@ interface IBiteMock {
 /// @notice Mock contract for BITE functionality
 contract BiteMock is IBiteMock{
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
+
+    /// @notice Mock symmetric encryption key
+    uint256 public constant MOCK_KEY = 36028797018963913;
+
     DoubleEndedQueue.Bytes32Deque private _queue;
-    uint256 private constant MOCK_KEY = 11111;
     error NoCallbacksQueued();
 
     /// @inheritdoc IBiteMock
@@ -121,8 +124,9 @@ contract BiteMock is IBiteMock{
 
     // Symmetric encryption/decryption function - tests only
     function _reverse(bytes memory data) internal pure returns (bytes memory output) {
-        output = new bytes(data.length);
-        for (uint i = 0; i < data.length; i++) {
+        uint256 size = data.length;
+        output = new bytes(size);
+        for (uint256 i = 0; i < size; ++i) {
             bytes32 expansion = keccak256(abi.encodePacked(MOCK_KEY, i / 32));
             output[i] = data[i] ^ expansion[i % 32];
         }
