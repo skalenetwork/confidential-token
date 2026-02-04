@@ -2,6 +2,7 @@ import { ethers } from "hardhat";
 import { cleanWrapperDeployment, withWrappedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
 import "chai/register-should";
+import { balanceOf } from "./tools/helpers";
 
 describe("ConfidentialWrapper", () => {
     it("should be able to wrap and unwrap tokens", async () => {
@@ -29,8 +30,10 @@ describe("ConfidentialWrapper", () => {
 
         await token.withdrawTo(owner, amount);
         await bite.sendCallback();
+        // balance should be encrypted
+        (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
 
-        (await token.encryptedBalanceOf(owner)).should.be.equal("0x");
+        (await balanceOf(token, bite, owner)).should.be.equal(0);
         (await underlyingToken.balanceOf(owner)).should.be.equal(amount);
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
     });

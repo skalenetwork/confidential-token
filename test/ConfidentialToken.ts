@@ -2,6 +2,7 @@ import { ethers } from "hardhat";
 import { cleanMintableDeployment } from "./tools/fixtures";
 import "chai/register-should";
 import { getPublicKey } from "./tools/cryptography";
+import { balanceOf } from "./tools/helpers";
 
 
 describe("ConfidentialToken", () => {
@@ -53,18 +54,22 @@ describe("ConfidentialToken", () => {
 
         await token.registerPublicKey(await getPublicKey(owner));
 
+        // No action yet
         (await token.encryptedBalanceOf(owner)).should.be.equal("0x");
 
         await token.mint(owner, amount);
         await bite.sendCallback();
 
+        // No action yet
         (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
         (await token.totalSupply()).should.be.equal(amount);
 
         await token.burn(amount);
         await bite.sendCallback();
 
-        (await token.encryptedBalanceOf(owner)).should.be.equal("0x");
+        // Should be encrypted
+        (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
+        (await balanceOf(token, bite, owner)).should.be.equal(0);
     });
 
     it("should be possible to set callback fee", async () => {
