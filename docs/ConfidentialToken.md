@@ -161,7 +161,7 @@ event EncryptTEAddressChanged(address newAddress)
 Emitted when a public key is registered
 
 ```solidity
-event PublicKeyRegistered(address holder)
+event PublicKeyRegistered(address holder, struct PublicKey publicKey)
 ```
 
 #### Parameters
@@ -169,6 +169,7 @@ event PublicKeyRegistered(address holder)
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | holder | address | Address of the holder whose public key is registered |
+| publicKey | struct PublicKey | The newly registered public key |
 
 ### AccessViolation
 
@@ -192,6 +193,12 @@ error InsufficientBalance()
 
 ```solidity
 error InsufficientEth(uint256 required, uint256 available)
+```
+
+### InvalidPublicKey
+
+```solidity
+error InvalidPublicKey()
 ```
 
 ### PublicKeyIsNotRegistered
