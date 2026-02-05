@@ -4,6 +4,26 @@
 
 Library for interacting with Ethereum precompiled contracts and SKALE-specific precompiles
 
+### TE_RETURN_SIZE_THRESHOLD
+
+Minimum return size of ThresholdEncryption precompile - 1
+
+```solidity
+uint256 TE_RETURN_SIZE_THRESHOLD
+```
+
+**dev:** _292 (min from crypto scheme) + 32 (min encoded size of input) - 1_
+
+### ECIES_RETURN_SIZE_THRESHOLD
+
+Minimum return size of ECIES precompile - 1
+
+```solidity
+uint256 ECIES_RETURN_SIZE_THRESHOLD
+```
+
+**dev:** _65 (min from crypto scheme) + 32 (min encoded size of input) - 1_
+
 ### CTXSubmitted
 
 Emitted when a CTX is successfully submitted
@@ -34,6 +54,12 @@ error EmptyReturnData(address precompiledContract)
 
 ```solidity
 error IncorrectReturnDataLength(address precompiledContract, uint256 expected, uint256 actual)
+```
+
+### InvalidReturnDataSize
+
+```solidity
+error InvalidReturnDataSize(address precompiledContract, uint256 expectedMin, uint256 actual)
 ```
 
 ### submitCTX

@@ -32,6 +32,14 @@ import { PublicKey } from "./types.sol";
  * @notice Library for interacting with Ethereum precompiled contracts and SKALE-specific precompiles
  */
 library Precompiled {
+
+    /// @notice Minimum return size of ThresholdEncryption precompile - 1
+    /// @dev 292 (min from crypto scheme) + 32 (min encoded size of input) - 1
+    uint256 constant internal TE_RETURN_SIZE_THRESHOLD = 323;
+
+    /// @notice Minimum return size of ECIES precompile - 1
+    /// @dev 65 (min from crypto scheme) + 32 (min encoded size of input) - 1
+    uint256 constant internal ECIES_RETURN_SIZE_THRESHOLD = 96;
     /// @notice Emitted when a CTX is successfully submitted
     /// @param callbackSender The address that will send the callback
     event CTXSubmitted(address indexed callbackSender);
@@ -39,6 +47,7 @@ library Precompiled {
     error PrecompiledCallFailed(address precompiledContract);
     error EmptyReturnData(address precompiledContract);
     error IncorrectReturnDataLength(address precompiledContract, uint256 expected, uint256 actual);
+    error InvalidReturnDataSize(address precompiledContract, uint256 expectedMin, uint256 actual);
 
     /// @notice Calls the SubmitCTX precompiled contract
     /// @param submitCTXAddress The address of the SubmitCTX precompiled contract
@@ -87,6 +96,10 @@ library Precompiled {
             abi.encode(text)
         );
         require(cipherText.length != 0, EmptyReturnData(encryptTEaddress));
+        require(
+            cipherText.length > TE_RETURN_SIZE_THRESHOLD,
+            InvalidReturnDataSize(encryptTEaddress, TE_RETURN_SIZE_THRESHOLD + 1, cipherText.length)
+        );
     }
 
     /// @notice Calls the EncryptECIES precompiled contract
@@ -112,6 +125,10 @@ library Precompiled {
             )
         );
         require(cipherText.length != 0, EmptyReturnData(encryptECIESaddress));
+        require(
+            cipherText.length > ECIES_RETURN_SIZE_THRESHOLD,
+            InvalidReturnDataSize(encryptECIESaddress, ECIES_RETURN_SIZE_THRESHOLD + 1, cipherText.length)
+        );
     }
 
     // Private

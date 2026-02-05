@@ -19,13 +19,20 @@
     along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// cspell:words deque
+// cspell:words deque ECIES
 
 pragma solidity ^0.8.24;
 
 import { DoubleEndedQueue } from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 
 import { CallbackSender } from "./CallbackSender.sol";
+
+
+/// @notice Encryption method types
+enum EncryptionMethod {
+    TE,
+    ECIES
+}
 
 
 /// @title IBiteMock
@@ -57,8 +64,12 @@ interface IBiteMock {
 
     /// @notice Decrypts a cypherText
     /// @param cypherText The cypherText to decrypt
+    /// @param method The encryption method used (TE or ECIES)
     /// @return message The decrypted message
-    function decrypt(bytes memory cypherText) external pure returns (bytes memory message);
+    function decrypt(
+        bytes memory cypherText,
+        EncryptionMethod method
+    ) external pure returns (bytes memory message);
 }
 
 /// @title BiteMock
@@ -66,6 +77,16 @@ interface IBiteMock {
 /// @notice Mock contract for BITE functionality
 contract BiteMock is IBiteMock{
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
+
+    /// @notice Mock symmetric encryption key
+    uint256 public constant MOCK_KEY = 36028797018963913;
+
+    /// @notice TE overhead in bytes
+    uint256 public constant TE_OVERHEAD = 292;
+
+    /// @notice ECIES overhead in bytes
+    uint256 public constant ECIES_OVERHEAD = 65;
+
     DoubleEndedQueue.Bytes32Deque private _queue;
 
     error NoCallbacksQueued();
@@ -84,7 +105,7 @@ contract BiteMock is IBiteMock{
         uint256 length = encryptedArgs.length;
         bytes[] memory decryptedArgs = new bytes[](length);
         for (uint256 i = 0; i < length; ++i) {
-            decryptedArgs[i] = decrypt(encryptedArgs[i]);
+            decryptedArgs[i] = decrypt(encryptedArgs[i], EncryptionMethod.TE);
         }
         CallbackSender sender = new CallbackSender(
             supplicant,
@@ -109,21 +130,42 @@ contract BiteMock is IBiteMock{
 
     /// @inheritdoc IBiteMock
     function encrypt(bytes memory message) public pure override returns (bytes memory cypherText) {
-        cypherText = _reverse(message);
+        cypherText = _symmetricCipher(message);
     }
 
     /// @inheritdoc IBiteMock
-    function decrypt(bytes memory cypherText) public pure override returns (bytes memory message) {
-        message = _reverse(cypherText);
+    function decrypt(
+        bytes memory cypherText,
+        EncryptionMethod method
+    ) public pure override returns (bytes memory message) {
+        uint256 overhead = method == EncryptionMethod.TE ? TE_OVERHEAD : ECIES_OVERHEAD;
+        bytes memory stripped = _stripOverhead(cypherText, overhead);
+        message = _symmetricCipher(stripped);
+    }
+
+    /// @notice Strips overhead bytes from the end of data
+    /// @param data The data to strip
+    /// @param overhead The number of bytes to remove from the end
+    /// @return result The data with overhead removed
+    function _stripOverhead(bytes memory data, uint256 overhead) private pure returns (bytes memory result) {
+        uint256 resultLength = data.length - overhead;
+        result = new bytes(resultLength);
+        for (uint256 i = 0; i < resultLength; ++i) {
+            result[i] = data[i];
+        }
     }
 
     // Private
 
-    function _reverse(bytes memory data) internal pure returns (bytes memory reversed) {
-        reversed = new bytes(data.length);
-        uint256 length = data.length;
-        for (uint256 i = 0; i < length; ++i) {
-            reversed[i] = data[length - 1 - i];
+    /// @notice Performs mock symmetric encryption/decryption
+    /// @param data The data to process
+    /// @return output The data after symmetric encrypt operation
+    function _symmetricCipher(bytes memory data) private pure returns (bytes memory output) {
+        uint256 size = data.length;
+        output = new bytes(size);
+        for (uint256 i = 0; i < size; ++i) {
+            bytes32 expansion = keccak256(abi.encodePacked(MOCK_KEY, i / 32));
+            output[i] = data[i] ^ expansion[i % 32];
         }
     }
 }

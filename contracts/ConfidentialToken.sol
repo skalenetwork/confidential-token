@@ -380,20 +380,14 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     // Private functions
 
     function _setBalance(address holder, uint256 balance) private {
-        if (balance > 0) {
-            _thresholdBalances[holder] = Precompiled.encryptTE(encryptTEAddress, abi.encodePacked(balance));
-
-            if (_knownPublicKey(holder)) {
-                PublicKey memory holderPublicKey = publicKeys[holder];
-                _userBalances[holder] = Precompiled.encryptECIES(
-                    encryptECIESAddress,
-                    abi.encodePacked(balance),
-                    holderPublicKey
-                );
-            }
-        } else {
-            delete _thresholdBalances[holder];
-            delete _userBalances[holder];
+        _thresholdBalances[holder] = Precompiled.encryptTE(encryptTEAddress, abi.encodePacked(balance));
+        if (_knownPublicKey(holder)) {
+            PublicKey memory holderPublicKey = publicKeys[holder];
+            _userBalances[holder] = Precompiled.encryptECIES(
+                encryptECIESAddress,
+                abi.encodePacked(balance),
+                holderPublicKey
+            );
         }
     }
 
