@@ -54,8 +54,9 @@ contract EncryptTEMock is PrecompiledMock {
         );
         bytes memory encrypted = BITE.encrypt(text);
         // Append TE overhead
-        result = new bytes(encrypted.length + BITE.TE_OVERHEAD());
-        for (uint256 i = 0; i < encrypted.length; ++i) {
+        uint256 encryptedLength = encrypted.length;
+        result = new bytes(encryptedLength + BITE.TE_OVERHEAD());
+        for (uint256 i = 0; i < encryptedLength; ++i) {
             result[i] = encrypted[i];
         }
         // Remaining bytes are zero (simulated overhead)

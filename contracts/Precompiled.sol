@@ -34,11 +34,11 @@ import { PublicKey } from "./types.sol";
 library Precompiled {
 
     /// @notice Minimum return size of ThresholdEncryption precompile - 1
-    /// @dev 292 (min from cryptoscheme) + 32 (min encoded size of input) - 1
+    /// @dev 292 (min from crypto scheme) + 32 (min encoded size of input) - 1
     uint256 constant internal MIN_TE_RETURN_SIZE = 323;
 
     /// @notice Minimum return size of ECIES precompile - 1
-    /// @dev 65 (min from cryptoscheme) + 32 (min encoded size of input) - 1
+    /// @dev 65 (min from crypto scheme) + 32 (min encoded size of input) - 1
     uint256 constant internal MIN_ECIES_RETURN_SIZE = 96;
 
     /// @notice Emitted when a CTX is successfully submitted
@@ -48,6 +48,7 @@ library Precompiled {
     error PrecompiledCallFailed(address precompiledContract);
     error EmptyReturnData(address precompiledContract);
     error IncorrectReturnDataLength(address precompiledContract, uint256 expected, uint256 actual);
+    error InvalidReturnDataSize(address precompiledContract, uint256 expectedMin, uint256 actual);
 
     /// @notice Calls the SubmitCTX precompiled contract
     /// @param submitCTXAddress The address of the SubmitCTX precompiled contract
@@ -97,8 +98,8 @@ library Precompiled {
         );
         require(cipherText.length != 0, EmptyReturnData(encryptTEaddress));
         require(
-            cipherText.length >= MIN_TE_RETURN_SIZE,
-            IncorrectReturnDataLength(encryptTEaddress, MIN_TE_RETURN_SIZE, cipherText.length)
+            cipherText.length > MIN_TE_RETURN_SIZE,
+            InvalidReturnDataSize(encryptTEaddress, MIN_TE_RETURN_SIZE + 1, cipherText.length)
         );
     }
 
@@ -126,8 +127,8 @@ library Precompiled {
         );
         require(cipherText.length != 0, EmptyReturnData(encryptECIESaddress));
         require(
-            cipherText.length >= MIN_ECIES_RETURN_SIZE,
-            IncorrectReturnDataLength(encryptECIESaddress, MIN_ECIES_RETURN_SIZE, cipherText.length)
+            cipherText.length > MIN_ECIES_RETURN_SIZE,
+            InvalidReturnDataSize(encryptECIESaddress, MIN_ECIES_RETURN_SIZE + 1, cipherText.length)
         );
     }
 

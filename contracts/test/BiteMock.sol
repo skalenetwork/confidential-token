@@ -19,7 +19,7 @@
     along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// cspell:words deque
+// cspell:words deque ECIES
 
 pragma solidity ^0.8.24;
 
@@ -139,7 +139,7 @@ contract BiteMock is IBiteMock{
         EncryptionMethod method
     ) public pure override returns (bytes memory message) {
         uint256 overhead = method == EncryptionMethod.TE ? TE_OVERHEAD : ECIES_OVERHEAD;
-        bytes memory stripped = stripOverhead(cypherText, overhead);
+        bytes memory stripped = _stripOverhead(cypherText, overhead);
         message = _reverse(stripped);
     }
 
@@ -147,7 +147,7 @@ contract BiteMock is IBiteMock{
     /// @param data The data to strip
     /// @param overhead The number of bytes to remove from the end
     /// @return result The data with overhead removed
-    function stripOverhead(bytes memory data, uint256 overhead) public pure returns (bytes memory result) {
+    function _stripOverhead(bytes memory data, uint256 overhead) private pure returns (bytes memory result) {
         uint256 resultLength = data.length - overhead;
         result = new bytes(resultLength);
         for (uint256 i = 0; i < resultLength; ++i) {

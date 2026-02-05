@@ -1,3 +1,5 @@
+// cspell:words ECIES
+
 import { AddressLike } from "ethers";
 import { BiteMock, ConfidentialToken } from "../../typechain-types";
 import { ethers } from "hardhat";
