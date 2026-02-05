@@ -28,6 +28,7 @@ describe("ConfidentialToken", () => {
         });
 
         await token.registerPublicKey(await getPublicKey(recipient));
+        await bite.sendCallback();
 
         await token.mint(owner, amount);
         await bite.sendCallback();
@@ -53,9 +54,10 @@ describe("ConfidentialToken", () => {
         });
 
         await token.registerPublicKey(await getPublicKey(owner));
+        await bite.sendCallback();
 
-        // No action yet
-        (await token.encryptedBalanceOf(owner)).should.be.equal("0x");
+        // Balance is encrypted after registering public key
+        (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
 
         await token.mint(owner, amount);
         await bite.sendCallback();

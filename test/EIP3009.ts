@@ -43,9 +43,6 @@ describe("EIP3009", () => {
         token = deployedToken;
         domainSeparator = await token.DOMAIN_SEPARATOR();
         nonce = ethers.hexlify(ethers.randomBytes(32));
-        await token.registerPublicKey(await getPublicKey(alice));
-        await token.registerPublicKey(await getPublicKey(bob));
-        await token.registerPublicKey(await getPublicKey(charlie));
 
         await feedAccounts([
             alice,
@@ -53,14 +50,21 @@ describe("EIP3009", () => {
             charlie
         ]);
 
-        await token.transfer(alice, initialBalance);
-        await bite.sendCallback();
-
         for (const user of [alice, bob, charlie]) {
             await token
                 .connect(user)
                 .deposit(user, { value: ethers.parseEther("3") });
         }
+
+        await token.registerPublicKey(await getPublicKey(alice));
+        await bite.sendCallback();
+        await token.registerPublicKey(await getPublicKey(bob));
+        await bite.sendCallback();
+        await token.registerPublicKey(await getPublicKey(charlie));
+        await bite.sendCallback();
+
+        await token.transfer(alice, initialBalance);
+        await bite.sendCallback();
     });
 
     it("has the expected type hashes", async () => {

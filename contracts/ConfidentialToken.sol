@@ -195,11 +195,13 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @inheritdoc IConfidentialToken
     function registerPublicKey(PublicKey calldata publicKey) external payable override {
         address holder = _publicKeyToAddress(publicKey);
+        deposit(holder);
         if (!_knownPublicKey(holder)) {
             publicKeys[holder] = publicKey;
             emit PublicKeyRegistered(holder);
+            // Triggers callback to update the balance with the new public key
+            _update(holder, holder, 0);
         }
-        deposit(holder);
     }
 
     /// @inheritdoc IConfidentialToken
