@@ -35,12 +35,11 @@ library Precompiled {
 
     /// @notice Minimum return size of ThresholdEncryption precompile - 1
     /// @dev 292 (min from crypto scheme) + 32 (min encoded size of input) - 1
-    uint256 constant internal MIN_TE_RETURN_SIZE = 323;
+    uint256 constant internal TE_RETURN_SIZE_THRESHOLD = 323;
 
     /// @notice Minimum return size of ECIES precompile - 1
     /// @dev 65 (min from crypto scheme) + 32 (min encoded size of input) - 1
-    uint256 constant internal MIN_ECIES_RETURN_SIZE = 96;
-
+    uint256 constant internal ECIES_RETURN_SIZE_THRESHOLD = 96;
     /// @notice Emitted when a CTX is successfully submitted
     /// @param callbackSender The address that will send the callback
     event CTXSubmitted(address indexed callbackSender);
@@ -98,8 +97,8 @@ library Precompiled {
         );
         require(cipherText.length != 0, EmptyReturnData(encryptTEaddress));
         require(
-            cipherText.length > MIN_TE_RETURN_SIZE,
-            InvalidReturnDataSize(encryptTEaddress, MIN_TE_RETURN_SIZE + 1, cipherText.length)
+            cipherText.length > TE_RETURN_SIZE_THRESHOLD,
+            InvalidReturnDataSize(encryptTEaddress, TE_RETURN_SIZE_THRESHOLD + 1, cipherText.length)
         );
     }
 
@@ -127,8 +126,8 @@ library Precompiled {
         );
         require(cipherText.length != 0, EmptyReturnData(encryptECIESaddress));
         require(
-            cipherText.length > MIN_ECIES_RETURN_SIZE,
-            InvalidReturnDataSize(encryptECIESaddress, MIN_ECIES_RETURN_SIZE + 1, cipherText.length)
+            cipherText.length > ECIES_RETURN_SIZE_THRESHOLD,
+            InvalidReturnDataSize(encryptECIESaddress, ECIES_RETURN_SIZE_THRESHOLD + 1, cipherText.length)
         );
     }
 
