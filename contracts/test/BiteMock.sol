@@ -130,7 +130,7 @@ contract BiteMock is IBiteMock{
 
     /// @inheritdoc IBiteMock
     function encrypt(bytes memory message) public pure override returns (bytes memory cypherText) {
-        cypherText = _reverse(message);
+        cypherText = _symmetricCipher(message);
     }
 
     /// @inheritdoc IBiteMock
@@ -140,7 +140,7 @@ contract BiteMock is IBiteMock{
     ) public pure override returns (bytes memory message) {
         uint256 overhead = method == EncryptionMethod.TE ? TE_OVERHEAD : ECIES_OVERHEAD;
         bytes memory stripped = _stripOverhead(cypherText, overhead);
-        message = _reverse(stripped);
+        message = _symmetricCipher(stripped);
     }
 
     /// @notice Strips overhead bytes from the end of data
@@ -157,10 +157,10 @@ contract BiteMock is IBiteMock{
 
     // Private
 
-    /// @notice Performs mock encryption/decryption
+    /// @notice Performs mock symmetric encryption/decryption
     /// @param data The data to process
-    /// @return output The data after XOR operation
-    function _reverse(bytes memory data) private pure returns (bytes memory output) {
+    /// @return output The data after symmetric encrypt operation
+    function _symmetricCipher(bytes memory data) private pure returns (bytes memory output) {
         uint256 size = data.length;
         output = new bytes(size);
         for (uint256 i = 0; i < size; ++i) {
