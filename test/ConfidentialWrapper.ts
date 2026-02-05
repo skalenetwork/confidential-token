@@ -11,7 +11,7 @@ describe("ConfidentialWrapper", () => {
             to: await ethers.resolveAddress(token),
             value: ethers.parseEther("1.0")
         });
-        await token.registerPublicKey(await getPublicKey(owner));
+        await token.connect(owner).registerPublicKey(await getPublicKey(owner));
         await bite.sendCallback();
 
         (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
@@ -41,7 +41,7 @@ describe("ConfidentialWrapper", () => {
 
     it("should be possible to unlock underlying tokens if bite transaction fails", async () => {
         const { underlyingToken, token, owner, bite } = await cleanWrapperDeployment();
-        await token.registerPublicKey(await getPublicKey(owner) , {value: ethers.parseEther("1.0")});
+        await token.connect(owner).registerPublicKey(await getPublicKey(owner) , {value: ethers.parseEther("1.0")});
         await bite.sendCallback();
 
         (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");

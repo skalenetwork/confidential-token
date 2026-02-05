@@ -56,11 +56,11 @@ describe("EIP3009", () => {
                 .deposit(user, { value: ethers.parseEther("3") });
         }
 
-        await token.registerPublicKey(await getPublicKey(alice));
+        await token.connect(alice).registerPublicKey(await getPublicKey(alice));
         await bite.sendCallback();
-        await token.registerPublicKey(await getPublicKey(bob));
+        await token.connect(bob).registerPublicKey(await getPublicKey(bob));
         await bite.sendCallback();
-        await token.registerPublicKey(await getPublicKey(charlie));
+        await token.connect(charlie).registerPublicKey(await getPublicKey(charlie));
         await bite.sendCallback();
 
         await token.transfer(alice, initialBalance);

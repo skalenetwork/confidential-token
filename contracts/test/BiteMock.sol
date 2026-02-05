@@ -57,19 +57,41 @@ interface IBiteMock {
     /// @notice Sends the next queued callback
     function sendCallback() external;
 
-    /// @notice Encrypts a message
+    /// @notice Encrypts a message with TE encryption key
     /// @param message The message to encrypt
     /// @return cypherText The encrypted message
-    function encrypt(bytes memory message) external pure returns (bytes memory cypherText);
+    function encryptTE(bytes memory message) external pure returns (bytes memory cypherText);
 
-    /// @notice Decrypts a cypherText
+    /// @notice Encrypts a message with ECIES encryption key
+    /// @param message The message to encrypt
+    /// @param keyX The X coordinate of the public key to use for encryption
+    /// @param keyY The Y coordinate of the public key to use for encryption
+    /// @return cypherText The encrypted message
+    function encryptECIES(
+        bytes memory message,
+        bytes32 keyX,
+        bytes32 keyY
+    ) external pure returns (bytes memory cypherText);
+
+    /// @notice Decrypts a cypherText with ECIES encryption key
     /// @param cypherText The cypherText to decrypt
-    /// @param method The encryption method used (TE or ECIES)
+    /// @param key The public key used for decryption
     /// @return message The decrypted message
-    function decrypt(
+    function decryptECIES(
         bytes memory cypherText,
-        EncryptionMethod method
+        uint256 key
     ) external pure returns (bytes memory message);
+
+    /// @notice Decrypts a cypherText with TE encryption key
+    /// @param cypherText The cypherText to decrypt
+    /// @return message The decrypted message
+    function decryptTE(bytes memory cypherText) external pure returns (bytes memory message);
+
+    /// @notice Converts a public key to uint256 representation
+    /// @param x The X coordinate of the public key
+    /// @param y The Y coordinate of the public key
+    /// @return key The uint256 representation of the public key
+    function pubKeyToUint256(bytes32 x, bytes32 y) external pure returns (uint256 key);
 }
 
 /// @title BiteMock
@@ -79,7 +101,7 @@ contract BiteMock is IBiteMock{
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
     /// @notice Mock symmetric encryption key
-    uint256 public constant MOCK_KEY = 36028797018963913;
+    uint256 public constant MOCK_TE_KEY = 36028797018963913;
 
     /// @notice TE overhead in bytes
     uint256 public constant TE_OVERHEAD = 292;
@@ -105,7 +127,7 @@ contract BiteMock is IBiteMock{
         uint256 length = encryptedArgs.length;
         bytes[] memory decryptedArgs = new bytes[](length);
         for (uint256 i = 0; i < length; ++i) {
-            decryptedArgs[i] = decrypt(encryptedArgs[i], EncryptionMethod.TE);
+            decryptedArgs[i] = decryptTE(encryptedArgs[i]);
         }
         CallbackSender sender = new CallbackSender(
             supplicant,
@@ -129,25 +151,66 @@ contract BiteMock is IBiteMock{
     // Public
 
     /// @inheritdoc IBiteMock
-    function encrypt(bytes memory message) public pure override returns (bytes memory cypherText) {
-        cypherText = _symmetricCipher(message);
+    function encryptECIES(
+        bytes memory message,
+        bytes32 keyX,
+        bytes32 keyY
+    )
+        public
+        pure
+        override
+        returns (bytes memory cypherText)
+    {
+        cypherText = _symmetricCipher(message, pubKeyToUint256(keyX, keyY));
+        // Append ECIES overhead
+        return _addOverhead(cypherText, ECIES_OVERHEAD);
     }
 
     /// @inheritdoc IBiteMock
-    function decrypt(
-        bytes memory cypherText,
-        EncryptionMethod method
-    ) public pure override returns (bytes memory message) {
-        uint256 overhead = method == EncryptionMethod.TE ? TE_OVERHEAD : ECIES_OVERHEAD;
-        bytes memory stripped = _stripOverhead(cypherText, overhead);
-        message = _symmetricCipher(stripped);
+    function encryptTE(bytes memory message) public pure override returns (bytes memory cypherText) {
+        cypherText = _symmetricCipher(message, MOCK_TE_KEY);
+        return _addOverhead(cypherText, TE_OVERHEAD);
     }
 
+    /// @inheritdoc IBiteMock
+    function decryptTE(bytes memory cypherText) public pure override returns (bytes memory message) {
+        bytes memory stripped = _stripOverhead(cypherText, TE_OVERHEAD);
+        message = _symmetricCipher(stripped, MOCK_TE_KEY);
+    }
+
+    /// @inheritdoc IBiteMock
+    function decryptECIES(
+        bytes memory cypherText,
+        uint256 key
+    )
+        public
+        pure
+        override
+        returns (bytes memory message)
+    {
+        bytes memory stripped = _stripOverhead(cypherText, ECIES_OVERHEAD);
+        message = _symmetricCipher(stripped, key);
+    }
+
+    /// @inheritdoc IBiteMock
+    function pubKeyToUint256(bytes32 x, bytes32 y) public pure override returns (uint256 key) {
+        key = uint256(keccak256(abi.encodePacked(x, y)));
+    }
+
+    // Private
+
     /// @notice Strips overhead bytes from the end of data
-    /// @param data The data to strip
-    /// @param overhead The number of bytes to remove from the end
-    /// @return result The data with overhead removed
-    function _stripOverhead(bytes memory data, uint256 overhead) private pure returns (bytes memory result) {
+    /// @param data The data to process
+    /// @param overhead The number of overhead bytes to strip
+    /// @return result The data without overhead
+    function _stripOverhead(
+        bytes memory data,
+        uint256 overhead
+    )
+        private
+        pure
+        returns (bytes memory result)
+    {
         uint256 resultLength = data.length - overhead;
         result = new bytes(resultLength);
         for (uint256 i = 0; i < resultLength; ++i) {
@@ -155,16 +218,27 @@ contract BiteMock is IBiteMock{
         }
     }
 
-    // Private
+    /// @notice Adds overhead bytes to the end of data
+    /// @param data The data to process
+    /// @param overhead The number of overhead bytes to add
+    /// @return result The data with overhead
+    function _addOverhead(bytes memory data, uint256 overhead) private pure returns (bytes memory result) {
+        uint256 dataLength = data.length;
+        result = new bytes(dataLength + overhead);
+        for (uint256 i = 0; i < dataLength; ++i) {
+            result[i] = data[i];
+        }
+    }
 
     /// @notice Performs mock symmetric encryption/decryption
     /// @param data The data to process
+    /// @param key The symmetric key
     /// @return output The data after symmetric encrypt operation
-    function _symmetricCipher(bytes memory data) private pure returns (bytes memory output) {
+    function _symmetricCipher(bytes memory data, uint256 key) private pure returns (bytes memory output) {
         uint256 size = data.length;
         output = new bytes(size);
         for (uint256 i = 0; i < size; ++i) {
-            bytes32 expansion = keccak256(abi.encodePacked(MOCK_KEY, i / 32));
+            bytes32 expansion = keccak256(abi.encodePacked(key, i / 32));
             output[i] = data[i] ^ expansion[i % 32];
         }
     }

@@ -117,12 +117,14 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
 
     /// @notice Emitted when a public key is registered
     /// @param holder Address of the holder whose public key is registered
-    event PublicKeyRegistered(address indexed holder);
+    /// @param publicKey The newly registered public key
+    event PublicKeyRegistered(address indexed holder, PublicKey indexed publicKey);
 
     error AccessViolation();
     error DecryptionBadFormat();
     error InsufficientBalance();
     error InsufficientEth(uint256 required, uint256 available);
+    error InvalidPublicKey();
     error PublicKeyIsNotRegistered(address holder);
     error ValueIsEncrypted();
 
@@ -194,13 +196,13 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
 
     /// @inheritdoc IConfidentialToken
     function registerPublicKey(PublicKey calldata publicKey) external payable override {
-        address holder = _publicKeyToAddress(publicKey);
-        deposit(holder);
-        if (!_knownPublicKey(holder)) {
-            publicKeys[holder] = publicKey;
-            emit PublicKeyRegistered(holder);
+        require(_isValidPublicKey(publicKey), InvalidPublicKey());
+        deposit(msg.sender);
+        if (_publicKeyToAddress(publicKey) != _publicKeyToAddress(publicKeys[msg.sender])) {
+            publicKeys[msg.sender] = publicKey;
+            emit PublicKeyRegistered(msg.sender, publicKey);
             // Triggers callback to update the balance with the new public key
-            _update(holder, holder, 0);
+            _update(msg.sender, msg.sender, 0);
         }
     }
 
@@ -407,7 +409,11 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @param holder The address of the holder
     /// @return True if the public key is known, false otherwise
     function _knownPublicKey(address holder) private view returns (bool) {
-        return publicKeys[holder].x != bytes32(0) || publicKeys[holder].y != bytes32(0);
+        return _isValidPublicKey(publicKeys[holder]);
+    }
+
+    function _isValidPublicKey(PublicKey memory publicKey) private pure returns (bool) {
+        return publicKey.x != bytes32(0) || publicKey.y != bytes32(0);
     }
 
     function _decodeBalance(bytes calldata encodedBalance) private pure returns (uint256 balance) {
