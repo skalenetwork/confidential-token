@@ -30,7 +30,7 @@ describe("ConfidentialToken", () => {
             value: ethers.parseEther("1.0")
         });
 
-        await token.connect(recipient).registerPublicKey(
+        await token.connect(recipient).setViewerPublicKey(
             await getPublicKey(recipient),
             {value: ethers.parseEther("1.0")}
         );
@@ -59,7 +59,7 @@ describe("ConfidentialToken", () => {
             value: ethers.parseEther("1.0")
         });
 
-        await token.connect(owner).registerPublicKey(await getPublicKey(owner));
+        await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
         await bite.sendCallback();
 
         // Balance is encrypted after registering public key
@@ -114,18 +114,32 @@ describe("ConfidentialToken", () => {
             .should.be.revertedWithCustomError(token, "ValueIsEncrypted");
     });
 
+    it("should not return encrypted token balance until view address registered", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner] = await ethers.getSigners();
+        const { token, bite } = await cleanMintableDeployment();
+
+        await token.registerPublicKey(await getPublicKey(owner));
+        await token.encryptedBalanceOf(owner).should.be.revertedWithCustomError(token, "NoViewerRegisteredForHolder");
+
+        await token.setViewerAddress(owner.address, {value: amount});
+        await bite.sendCallback();
+
+        (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
+    });
+
     it("should show different balances for different users", async () => {
         const amount = ethers.parseEther("1.0");
         const [owner, user] = await ethers.getSigners();
         const { token, bite } = await cleanMintableDeployment();
 
-        await token.connect(owner).registerPublicKey(
+        await token.connect(owner).setViewerPublicKey(
             await getPublicKey(owner),
             {value: amount}
         );
         await bite.sendCallback();
 
-        await token.connect(user).registerPublicKey(
+        await token.connect(user).setViewerPublicKey(
             await getPublicKey(user),
             {value: amount}
         );
@@ -143,12 +157,12 @@ describe("ConfidentialToken", () => {
         const { token, bite } = await cleanMintableDeployment();
         const userPublicKey = await getPublicKey(user);
         const ownerPublicKey = await getPublicKey(owner);
-        await token.connect(owner).registerPublicKey(
+        await token.connect(owner).setViewerPublicKey(
             ownerPublicKey,
             {value: amount}
         );
         await bite.sendCallback();
-         await token.connect(user).registerPublicKey(
+         await token.connect(user).setViewerPublicKey(
             userPublicKey,
             {value: amount}
         );
@@ -168,7 +182,7 @@ describe("ConfidentialToken", () => {
         const amount = ethers.parseEther("1.0");
         const [owner] = await ethers.getSigners();
         const { token } = await cleanMintableDeployment();
-        await token.connect(owner).registerPublicKey(
+        await token.connect(owner).setViewerPublicKey(
             {x: ethers.ZeroHash, y: ethers.ZeroHash},
             {value: amount}
         ).should.be.revertedWithCustomError(
@@ -176,16 +190,19 @@ describe("ConfidentialToken", () => {
             "InvalidPublicKey"
         );
     });
+
     it("should re-encrypt balance if view key is updated", async () => {
         const amount = ethers.parseEther("1.0");
         const [owner, user] = await ethers.getSigners();
         const { token, bite } = await cleanMintableDeployment();
         const userPublicKey = await getPublicKey(user);
         const ownerPublicKey = await getPublicKey(owner);
-        await token.connect(owner).registerPublicKey(
+        await token.connect(owner).setViewerPublicKey(
             ownerPublicKey,
             {value: amount}
         );
+        expect(await token.publicKeys(owner)).to.deep.equal([ownerPublicKey.x , ownerPublicKey.y]);
+        expect(await token.viewerAddresses(owner)).to.equal(owner.address);
         await bite.sendCallback();
 
         const encryptedBalanceBefore = await token.encryptedBalanceOf(owner);
@@ -193,10 +210,12 @@ describe("ConfidentialToken", () => {
 
         // Update public key
         const newOwnerPublicKey = userPublicKey;
-        await token.connect(owner).registerPublicKey(
+        await token.connect(owner).setViewerPublicKey(
             newOwnerPublicKey,
             {value: amount}
         );
+        expect(await token.publicKeys(user)).to.deep.equal([newOwnerPublicKey.x , newOwnerPublicKey.y]);
+        expect(await token.viewerAddresses(owner)).to.equal(user.address);
         await bite.sendCallback();
 
         const encryptedBalanceAfter = await token.encryptedBalanceOf(owner);

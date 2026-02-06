@@ -40,21 +40,53 @@ function deposit(address receiver) external payable
 | ---- | ---- | ----------- |
 | receiver | address | The address of the receiver holder |
 
-### registerPublicKey
+### setViewerPublicKey
 
-Registers the public key of any address
+Registers a view key for the message sender
 
 ```solidity
-function registerPublicKey(struct PublicKey publicKey) external payable
+function setViewerPublicKey(struct PublicKey publicKey) external payable
 ```
 
-**dev:** _The address is calculated from the public key_
+**dev:** _Combination of registerPublicKey and setViewerAddress (payable version)_
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | publicKey | struct PublicKey | The public key to register |
+
+### registerPublicKey
+
+Registers a view key in the contract
+
+```solidity
+function registerPublicKey(struct PublicKey publicKey) external
+```
+
+**dev:** _Does not associate the public key with a holder_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| publicKey | struct PublicKey | The public key to register |
+
+### setViewerAddress
+
+Sets the address of the viewer allowed to view the sender's balance
+
+```solidity
+function setViewerAddress(address viewer) external payable
+```
+
+**dev:** _The viewer must be already registered in the system via registerPublicKey_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | The address of the viewer |
 
 ### setCallbackFee
 

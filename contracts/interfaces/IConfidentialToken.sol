@@ -42,10 +42,20 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param receiver The address of the receiver holder
     function deposit(address receiver) external payable;
 
-    /// @notice Registers the public key of any address
-    /// @dev The address is calculated from the public key
+    /// @notice Registers a view key for the message sender
+    /// @dev Combination of registerPublicKey and setViewerAddress (payable version)
     /// @param publicKey The public key to register
-    function registerPublicKey(PublicKey memory publicKey) external payable;
+    function setViewerPublicKey(PublicKey memory publicKey) external payable;
+
+    /// @notice Registers a view key in the contract
+    /// @dev Does not associate the public key with a holder
+    /// @param publicKey The public key to register
+    function registerPublicKey(PublicKey memory publicKey) external;
+
+    /// @notice Sets the address of the viewer allowed to view the sender's balance
+    /// @dev The viewer must be already registered in the system via registerPublicKey
+    /// @param viewer The address of the viewer
+    function setViewerAddress(address viewer) external payable;
 
     /// @notice Sets number of ETH to be sent to pay for callback execution
     /// @param newFee New callback fee

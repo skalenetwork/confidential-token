@@ -28,9 +28,17 @@ Address of the EncryptTE precompiled contract
 address encryptTEAddress
 ```
 
+### viewerAddresses
+
+Mapping of holder addresses to their viewers' addresses
+
+```solidity
+mapping(address => address) viewerAddresses
+```
+
 ### publicKeys
 
-Mapping of holder addresses to their public keys
+Mapping of addresses to their public keys
 
 ```solidity
 mapping(address => struct PublicKey) publicKeys
@@ -158,18 +166,32 @@ event EncryptTEAddressChanged(address newAddress)
 
 ### PublicKeyRegistered
 
-Emitted when a public key is registered
+Emitted when a public key is registered for a viewer address
 
 ```solidity
-event PublicKeyRegistered(address holder, struct PublicKey publicKey)
+event PublicKeyRegistered(address viewer)
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| holder | address | Address of the holder whose public key is registered |
-| publicKey | struct PublicKey | The newly registered public key |
+| viewer | address | Address of the viewer whose public key is registered |
+
+### ViewerChanged
+
+Emitted when a viewer is changed for a holder
+
+```solidity
+event ViewerChanged(address holder, address newViewer)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| holder | address | Address of the holder whose viewer is changed |
+| newViewer | address | Address of the new viewer |
 
 ### AccessViolation
 
@@ -201,10 +223,16 @@ error InsufficientEth(uint256 required, uint256 available)
 error InvalidPublicKey()
 ```
 
+### NoViewerRegisteredForHolder
+
+```solidity
+error NoViewerRegisteredForHolder(address holder)
+```
+
 ### PublicKeyIsNotRegistered
 
 ```solidity
-error PublicKeyIsNotRegistered(address holder)
+error PublicKeyIsNotRegistered(address viewer)
 ```
 
 ### ValueIsEncrypted
@@ -267,15 +295,15 @@ function onDecrypt(bytes[] decryptedArguments, bytes[] plaintextArguments) exter
 | decryptedArguments | bytes[] | The decrypted arguments |
 | plaintextArguments | bytes[] | The plaintext arguments |
 
-### registerPublicKey
+### setViewerPublicKey
 
-Registers the public key of any address
+Registers a view key for the message sender
 
 ```solidity
-function registerPublicKey(struct PublicKey publicKey) external payable
+function setViewerPublicKey(struct PublicKey publicKey) external payable
 ```
 
-**dev:** _The address is calculated from the public key_
+**dev:** _Combination of registerPublicKey and setViewerAddress (payable version)_
 
 #### Parameters
 
@@ -407,6 +435,38 @@ function deposit(address receiver) public payable
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | receiver | address | The address of the receiver holder |
+
+### registerPublicKey
+
+Registers a view key in the contract
+
+```solidity
+function registerPublicKey(struct PublicKey publicKey) public
+```
+
+**dev:** _Does not associate the public key with a holder_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| publicKey | struct PublicKey | The public key to register |
+
+### setViewerAddress
+
+Sets the address of the viewer allowed to view the sender's balance
+
+```solidity
+function setViewerAddress(address viewer) public payable
+```
+
+**dev:** _The viewer must be already registered in the system via registerPublicKey_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | The address of the viewer |
 
 ### totalSupply
 

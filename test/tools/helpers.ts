@@ -11,7 +11,7 @@ export const balanceOf = async (token: ConfidentialToken, bite: BiteMock, holder
 
     // We use the registered view key for mock decryption
     // In production the private key of the view key registered should be used
-    const publicKey = await token.publicKeys(holder);
+    const publicKey = await token.publicKeys(await token.viewerAddresses(holder));
     return ethers.toBigInt(
         await bite.decryptECIES(
             encryptedBalance,

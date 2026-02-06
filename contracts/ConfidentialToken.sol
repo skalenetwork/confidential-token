@@ -59,8 +59,11 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @notice Address of the EncryptTE precompiled contract
     address public encryptTEAddress = address(0x1D);
 
-    /// @notice Mapping of holder addresses to their public keys
-    mapping(address holder => PublicKey publicKey) public publicKeys;
+    /// @notice Mapping of holder addresses to their viewers' addresses
+    mapping(address holder => address viewerAddress) public viewerAddresses;
+
+    /// @notice Mapping of addresses to their public keys
+    mapping(address viewerAddress => PublicKey publicKey) public publicKeys;
 
     /// @notice Address of the submitCTX precompiled contract
     address public submitCTXAddress = address(0x1B);
@@ -115,17 +118,22 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @param newAddress New address of the EncryptTE precompiled contract
     event EncryptTEAddressChanged(address indexed newAddress);
 
-    /// @notice Emitted when a public key is registered
-    /// @param holder Address of the holder whose public key is registered
-    /// @param publicKey The newly registered public key
-    event PublicKeyRegistered(address indexed holder, PublicKey indexed publicKey);
+    /// @notice Emitted when a public key is registered for a viewer address
+    /// @param viewer Address of the viewer whose public key is registered
+    event PublicKeyRegistered(address indexed viewer);
+
+    /// @notice Emitted when a viewer is changed for a holder
+    /// @param holder Address of the holder whose viewer is changed
+    /// @param newViewer Address of the new viewer
+    event ViewerChanged(address indexed holder, address indexed newViewer);
 
     error AccessViolation();
     error DecryptionBadFormat();
     error InsufficientBalance();
     error InsufficientEth(uint256 required, uint256 available);
     error InvalidPublicKey();
-    error PublicKeyIsNotRegistered(address holder);
+    error NoViewerRegisteredForHolder(address holder);
+    error PublicKeyIsNotRegistered(address viewer);
     error ValueIsEncrypted();
 
     /// @notice Sets the values for {name} and {symbol}.
@@ -195,15 +203,9 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     }
 
     /// @inheritdoc IConfidentialToken
-    function registerPublicKey(PublicKey calldata publicKey) external payable override {
-        require(_isValidPublicKey(publicKey), InvalidPublicKey());
-        deposit(msg.sender);
-        if (_publicKeyToAddress(publicKey) != _publicKeyToAddress(publicKeys[msg.sender])) {
-            publicKeys[msg.sender] = publicKey;
-            emit PublicKeyRegistered(msg.sender, publicKey);
-            // Triggers callback to update the balance with the new public key
-            _update(msg.sender, msg.sender, 0);
-        }
+    function setViewerPublicKey(PublicKey calldata publicKey) external payable override {
+        registerPublicKey(publicKey);
+        setViewerAddress(_publicKeyToAddress(publicKey));
     }
 
     /// @inheritdoc IConfidentialToken
@@ -246,7 +248,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
 
     /// @inheritdoc IConfidentialToken
     function encryptedBalanceOf(address holder) external view override returns (bytes memory encryptedBalance) {
-        require(_knownPublicKey(holder), PublicKeyIsNotRegistered(holder));
+        require(_viewerIsRegistered(holder), NoViewerRegisteredForHolder(holder));
         return _userBalances[holder];
     }
 
@@ -263,6 +265,28 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         if (value > 0) {
             _ethBalance[receiver] += value;
             emit EthBalanceToppedUp(msg.sender, receiver, value);
+        }
+    }
+
+
+    /// @inheritdoc IConfidentialToken
+    function registerPublicKey(PublicKey calldata publicKey) public override {
+        require(_isValidPublicKey(publicKey), InvalidPublicKey());
+        address viewerAddress = _publicKeyToAddress(publicKey);
+        if (!_knownPublicKey(viewerAddress)) {
+            publicKeys[viewerAddress] = publicKey;
+            emit PublicKeyRegistered(viewerAddress);
+        }
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function setViewerAddress(address viewer) public override payable {
+        require(_knownPublicKey(viewer), PublicKeyIsNotRegistered(viewer));
+        deposit(msg.sender);
+        if(viewerAddresses[msg.sender] != viewer) {
+            viewerAddresses[msg.sender] = viewer;
+            emit ViewerChanged(msg.sender, viewer);
+            _update(msg.sender, msg.sender, 0);
         }
     }
 
@@ -385,12 +409,12 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
 
     function _setBalance(address holder, uint256 balance) private {
         _thresholdBalances[holder] = Precompiled.encryptTE(encryptTEAddress, abi.encodePacked(balance));
-        if (_knownPublicKey(holder)) {
-            PublicKey memory holderPublicKey = publicKeys[holder];
+        if (_viewerIsRegistered(holder)) {
+            PublicKey memory viewerPublicKey = _getViewKey(holder);
             _userBalances[holder] = Precompiled.encryptECIES(
                 encryptECIESAddress,
                 abi.encodePacked(balance),
-                holderPublicKey
+                viewerPublicKey
             );
         }
     }
@@ -403,6 +427,15 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
                 abi.encodePacked(uint256(0))
             );
         }
+    }
+
+    function _getViewKey(address holder) private view returns (PublicKey memory viewKey) {
+        viewKey = publicKeys[viewerAddresses[holder]];
+    }
+
+    function _viewerIsRegistered(address holder) private view returns (bool) {
+        address viewer = viewerAddresses[holder];
+        return viewer != address(0) && _knownPublicKey(viewer);
     }
 
     /// @notice Checks if a public key is known for a given holder address
