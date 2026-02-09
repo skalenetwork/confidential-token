@@ -63,7 +63,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     mapping(address holder => address viewerAddress) public viewerAddresses;
 
     /// @notice Mapping of addresses to their public keys
-    mapping(address viewerAddress => PublicKey publicKey) public publicKeys;
+    mapping(address accountAddress => PublicKey publicKey) public publicKeys;
 
     /// @notice Address of the submitCTX precompiled contract
     address public submitCTXAddress = address(0x1B);
@@ -272,10 +272,10 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @inheritdoc IConfidentialToken
     function registerPublicKey(PublicKey calldata publicKey) public override {
         require(_isValidPublicKey(publicKey), InvalidPublicKey());
-        address viewerAddress = _publicKeyToAddress(publicKey);
-        if (!_knownPublicKey(viewerAddress)) {
-            publicKeys[viewerAddress] = publicKey;
-            emit PublicKeyRegistered(viewerAddress);
+        address accountAddress = _publicKeyToAddress(publicKey);
+        if (!_knownPublicKey(accountAddress)) {
+            publicKeys[accountAddress] = publicKey;
+            emit PublicKeyRegistered(accountAddress);
         }
     }
 
@@ -460,14 +460,14 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
      * @notice Converts a public key to an Ethereum address
      * @dev Uses keccak256 hash of the concatenated public key components
      * @param publicKey The public key to convert
-     * @return nodeAddress The derived Ethereum address
+     * @return accountAddress The derived Ethereum address
      */
     function _publicKeyToAddress(
         PublicKey memory publicKey
     )
         private
         pure
-        returns (address nodeAddress)
+        returns (address accountAddress)
     {
         bytes32 hash = keccak256(abi.encodePacked(publicKey.x, publicKey.y));
         return address(uint160(uint256(hash)));
