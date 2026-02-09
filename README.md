@@ -15,13 +15,14 @@
 
 A sophisticated implementation of ERC20 tokens with encrypted balances on the SKALE network. This repository provides smart contracts that enable private token transfers and balance confidentiality using encryption integrated with SKALE's encryption precompiles and BITE consensus protocol.
 
-Confidential Token implements privacy-preserving token functionality while maintaining compatibility with the ERC20 standard. Balances are encrypted using SKALE's cryptographic precompiles, allowing users to securely hold and transfer tokens without revealing their balance amounts on the public blockchain.
+Confidential Token implements privacy-preserving token functionality while maintaining compatibility with the ERC2612 (and ERC20 consequently) standard. Balances are encrypted using SKALE's cryptographic precompiles, allowing users to securely hold and transfer tokens without revealing their balance amounts on the public blockchain.
 
 ### Key Features
 
 - **Encrypted Balances**: Token balances are encrypted and stored on-chain, visible only to authorized viewers
 - **ERC20 Compatibility**: Contract inherits from ERC20 standard with additional privacy features
 - **EIP3009 Support**: Transfer With Authorization via signed messages
+- **ERC-2612 (Permit) Support**: Approvals via signed permit messages (ERC20Permit)
 - **Token Wrapping**: Convert any standard ERC20 token into a confidential token
 - **Minting Capability**: Optional minting functionality for managing token supply
 - **Access Control**: OpenZeppelin AccessManager integration for fine-grained permissions
@@ -30,7 +31,7 @@ Confidential Token implements privacy-preserving token functionality while maint
 ## Core Contracts
 
 #### [ConfidentialToken.sol](contracts/ConfidentialToken.sol)
-The main contract implementing the confidential token functionality. It extends ERC20 with encrypted balance management and implements EIP-3009.
+The main contract implementing the confidential token functionality. It extends ERC20 with encrypted balance management and implements EIP-3009 and ERC-2612 (ERC20Permit).
 
 **Key Features:**
 - Encrypted balance storage (dual encryption: BITE Threshold Key for logic, User Public Key for viewing)
@@ -38,6 +39,7 @@ The main contract implementing the confidential token functionality. It extends 
 - Callback fee configuration for confidential operations (transfers and view key changes)
 - Supports depositing gas token to pay for confidential operations
 - EIP-3009 support for transfers with authorizations via signed messages.
+- ERC-2616 support for permits that change authorization amounts
 - Integration with SKALE's precompiled contracts and BITE protocol (Phase 2)
 
 **Core Functions:**
@@ -55,6 +57,9 @@ The main contract implementing the confidential token functionality. It extends 
 - `receiveWithAuthorization(from, to, value, validAfter, validBefore, nonce, signature)`: Receive tokens via signed authorization.
 - `cancelAuthorization(authorizer, nonce, signature)`: Cancel a previously signed authorization nonce
 - `authorizationState(authorizer, nonce)`: Check if an authorization nonce has been used or revoked
+
+**ERC-2612 Permit Functions:**
+- `permit(owner, spender, value, deadline, v, r, s)`: Approve via signed message (ERC20Permit)
 
 #### [ConfidentialWrapper.sol](contracts/ConfidentialWrapper.sol)
 Wraps an existing ERC20 token to add confidentiality features.
@@ -199,6 +204,7 @@ For issues, questions, or contributions, please open an issue on the repository 
 - [SKALE Network Documentation](https://docs.skale.network/)
 - [BITE V2 Protocol Documentation](https://forum.skale.network/t/bite-phase-2-extended-architecture-specification/737)
 - [EIP-20: Ethereum token standard](https://eips.ethereum.org/EIPS/eip-20)
+- [EIP-2612: Permit extension for ERC-20](https://eips.ethereum.org/EIPS/eip-2612)
 - [EIP-3009: Transfer and receive with authorization](https://eips.ethereum.org/EIPS/eip-3009)
 - [EIP-712: Typed structured data hashing and signing](https://eips.ethereum.org/EIPS/eip-712)
 
