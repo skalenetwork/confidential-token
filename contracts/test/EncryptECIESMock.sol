@@ -50,17 +50,10 @@ contract EncryptECIESMock is PrecompiledMock {
     /// @param data The calldata passed to the precompiled contract
     /// @return result The encrypted result with ECIES overhead
     function _call(bytes calldata data) internal view override returns (bytes memory result) {
-        (bytes memory text) = abi.decode(
+        (bytes memory text, bytes32 pubKeyX, bytes32 pubKeyY) = abi.decode(
             data,
-            (bytes)
+            (bytes, bytes32, bytes32)
         );
-        bytes memory encrypted = BITE.encrypt(text);
-        // Append ECIES overhead
-        uint256 encryptedLength = encrypted.length;
-        result = new bytes(encryptedLength + BITE.ECIES_OVERHEAD());
-        for (uint256 i = 0; i < encryptedLength; ++i) {
-            result[i] = encrypted[i];
-        }
-        // Remaining bytes are zero (simulated overhead)
+        return BITE.encryptECIES(text, pubKeyX, pubKeyY);
     }
 }

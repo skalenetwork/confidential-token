@@ -19,7 +19,7 @@
     "globals": "^16.5.0",
     "hardhat": "^2.27.1",
     "pm2": "^6.0.14",
-    "solhint": "^6.0.2",
+    "solhint": "^6.0.3",
     "solidity-coverage": "^0.8.17",
     "solidity-docgen": "^0.6.0-beta.36",
     "ts-node": "^10.9.2",
