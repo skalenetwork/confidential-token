@@ -23,8 +23,8 @@
 
 pragma solidity ^0.8.24;
 
-import { PublicKey } from "../types.sol";
-import { IBiteSupplicant } from "./bite/IBiteSupplicant.sol";
+import { IBiteSupplicant } from "@skalenetwork/bite-solidity/interfaces/IBiteSupplicant.sol";
+import { PublicKey } from "@skalenetwork/bite-solidity/BITE.sol";
 
 
 /// @title IConfidentialToken

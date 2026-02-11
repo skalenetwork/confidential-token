@@ -21,8 +21,8 @@
 
 pragma solidity ^0.8.24;
 
+import { IBiteSupplicant } from "@skalenetwork/bite-solidity/interfaces/IBiteSupplicant.sol";
 import { ZeroAddress } from "../errors.sol";
-import { IBiteSupplicant } from "../interfaces/bite/IBiteSupplicant.sol";
 
 
 /// @title ICallbackSender
