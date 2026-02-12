@@ -226,4 +226,33 @@ describe("ConfidentialToken", () => {
         // Real balance should stay the same
         expect(realBalanceBefore).to.equal(realBalanceAfter);
     });
+
+    it("transfer to self should not change balance", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner] = await ethers.getSigners();
+        const { token, bite } = await cleanMintableDeployment();
+
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: ethers.parseEther("1.0")
+        });
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner),
+            {value: ethers.parseEther("1.0")}
+        );
+        await bite.sendCallback();
+
+        await token.mint(owner, amount);
+        await bite.sendCallback();
+
+        const balanceBefore = await balanceOf(token, bite, owner);
+
+        await token.connect(owner).transfer(owner, amount);
+        await bite.sendCallback();
+
+        const balanceAfter = await balanceOf(token, bite, owner);
+        balanceAfter.should.be.equal(balanceBefore);
+        balanceAfter.should.be.equal(amount);
+    });
 });
