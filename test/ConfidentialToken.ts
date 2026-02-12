@@ -1,7 +1,7 @@
 // cspell:words ECIES
 
 import { ethers } from "hardhat";
-import { cleanMintableDeployment } from "./tools/fixtures";
+import { cleanMintableDeployment, withMintedTokens } from "./tools/fixtures";
 import "chai/register-should";
 import { getPublicKey } from "./tools/cryptography";
 import { balanceOf } from "./tools/helpers";
@@ -225,5 +225,24 @@ describe("ConfidentialToken", () => {
         expect(encryptedBalanceBefore).to.not.equal(encryptedBalanceAfter);
         // Real balance should stay the same
         expect(realBalanceBefore).to.equal(realBalanceAfter);
+    });
+
+    it("transfer to self should not change balance", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner)
+        );
+        await bite.sendCallback();
+
+        const balanceBefore = await balanceOf(token, bite, owner);
+
+        await token.connect(owner).transfer(owner, amount);
+        await bite.sendCallback();
+
+        const balanceAfter = await balanceOf(token, bite, owner);
+        balanceAfter.should.be.equal(balanceBefore);
     });
 });
