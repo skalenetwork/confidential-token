@@ -46,7 +46,8 @@ const config: HardhatUserConfig = {
       "@skalenetwork/bite-solidity/test/SubmitCTXMock.sol",
       "@skalenetwork/bite-solidity/test/CallbackSender.sol",
       "@skalenetwork/bite-solidity/test/PrecompiledMock.sol"
-    ]
+    ],
+    keep: true,
   }
 };
 
