@@ -3,6 +3,7 @@ import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-network-helpers";
 import "@typechain/hardhat";
+import "hardhat-dependency-compiler";
 import "solidity-coverage";
 import "solidity-docgen";
 import dotenv from "dotenv"
@@ -34,6 +35,16 @@ const config: HardhatUserConfig = {
         runs: 200,
       }
     }
+  },
+  dependencyCompiler: {
+    paths: [
+      "@skalenetwork/bite-solidity/test/BiteMock.sol",
+      "@skalenetwork/bite-solidity/test/EncryptECIESMock.sol",
+      "@skalenetwork/bite-solidity/test/EncryptTEMock.sol",
+      "@skalenetwork/bite-solidity/test/SubmitCTXMock.sol",
+      "@skalenetwork/bite-solidity/test/CallbackSender.sol",
+      "@skalenetwork/bite-solidity/test/PrecompiledMock.sol"
+    ]
   }
 };
 

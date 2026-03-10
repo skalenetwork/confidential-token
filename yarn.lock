@@ -4506,6 +4506,7 @@ __metadata:
     ethers: "npm:^6.16.0"
     globals: "npm:^16.5.0"
     hardhat: "npm:^2.27.1"
+    hardhat-dependency-compiler: "npm:^1.2.1"
     pm2: "npm:^6.0.14"
     solhint: "npm:^6.0.3"
     solidity-coverage: "npm:^0.8.17"
@@ -6015,6 +6016,15 @@ __metadata:
   bin:
     handlebars: bin/handlebars
   checksum: 10c0/7aff423ea38a14bb379316f3857fe0df3c5d66119270944247f155ba1f08e07a92b340c58edaa00cfe985c21508870ee5183e0634dcb53dd405f35c93ef7f10d
+  languageName: node
+  linkType: hard
+
+"hardhat-dependency-compiler@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "hardhat-dependency-compiler@npm:1.2.1"
+  peerDependencies:
+    hardhat: ^2.0.0
+  checksum: 10c0/d4373422849fe8851d06f1151f51fe17d00fb9f3425cc77cce53bd2d0c9f325d4f1520f2aa8eae305b3a0d012b9841b398d57c3f2d5e7a3d29b6dd4aaebc1f6e
   languageName: node
   linkType: hard
 
