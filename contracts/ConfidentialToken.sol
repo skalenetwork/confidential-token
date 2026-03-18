@@ -29,14 +29,12 @@ import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { BITE, PublicKey } from "@skalenetwork/bite-solidity/BITE.sol";
 
 import { EIP3009 } from "./eip3009/EIP3009.sol";
 
 import { ZeroAddress } from "./errors.sol";
-import { IBiteSupplicant } from "./interfaces/bite/IBiteSupplicant.sol";
-import { IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
-import { Precompiled } from "./Precompiled.sol";
-import { PublicKey } from "./types.sol";
+import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 
 
 /// @title ConfidentialToken
@@ -54,10 +52,10 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     uint256 public callbackFee = 1_000 gwei;
 
     /// @notice Address of the EncryptECIES precompiled contract
-    address public encryptECIESAddress = address(0x1C);
+    address public encryptECIESAddress = BITE.ENCRYPT_ECIES_ADDRESS;
 
     /// @notice Address of the EncryptTE precompiled contract
-    address public encryptTEAddress = address(0x1D);
+    address public encryptTEAddress = BITE.ENCRYPT_TE_ADDRESS;
 
     /// @notice Mapping of holder addresses to their viewers' addresses
     mapping(address holder => address viewerAddress) public viewerAddresses;
@@ -66,7 +64,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     mapping(address accountAddress => PublicKey publicKey) public publicKeys;
 
     /// @notice Address of the submitCTX precompiled contract
-    address public submitCTXAddress = address(0x1B);
+    address public submitCTXAddress = BITE.SUBMIT_CTX_ADDRESS;
 
     /// @notice Version of the contract
     /// @dev Is used to get proper ABI
@@ -385,7 +383,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         }
         uint256 valueIndex = encryptedArgumentsLength;
         ++encryptedArgumentsLength;
-        bytes memory encryptedValue = Precompiled.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
 
         bytes[] memory encryptedArguments = new bytes[](encryptedArgumentsLength);
         if (from != address(0)) {
@@ -399,7 +397,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         bytes[] memory plaintextArguments = new bytes[](1);
         plaintextArguments[0] = abi.encode(from, to);
 
-        address payable callback = Precompiled.submitCTX(
+        address payable callback = BITE.submitCTX(
             submitCTXAddress,
             callbackFee / tx.gasprice,
             encryptedArguments,
@@ -414,10 +412,10 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     // Private functions
 
     function _setBalance(address holder, uint256 balance) private {
-        _thresholdBalances[holder] = Precompiled.encryptTE(encryptTEAddress, abi.encodePacked(balance));
+        _thresholdBalances[holder] = BITE.encryptTE(encryptTEAddress, abi.encodePacked(balance));
         if (_viewerIsRegistered(holder)) {
             PublicKey memory viewerPublicKey = _getViewKey(holder);
-            _userBalances[holder] = Precompiled.encryptECIES(
+            _userBalances[holder] = BITE.encryptECIES(
                 encryptECIESAddress,
                 abi.encodePacked(balance),
                 viewerPublicKey
@@ -428,7 +426,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     function _getEncryptedBalance(address holder) private view returns (bytes memory encryptedBalance) {
         encryptedBalance = _thresholdBalances[holder];
         if (encryptedBalance.length == 0) {
-            encryptedBalance = Precompiled.encryptTE(
+            encryptedBalance = BITE.encryptTE(
                 encryptTEAddress,
                 abi.encodePacked(uint256(0))
             );

@@ -18,6 +18,7 @@
     "ethers": "^6.16.0",
     "globals": "^16.5.0",
     "hardhat": "^2.27.1",
+    "hardhat-dependency-compiler": "^1.2.1",
     "pm2": "^6.0.14",
     "solhint": "^6.0.3",
     "solidity-coverage": "^0.8.17",
@@ -36,13 +37,14 @@
     "hooks": "git config core.hooksPath .githooks",
     "lint": "yarn solhint 'contracts/**/*.sol'",
     "no-hooks": "git config core.hooksPath .git/hooks",
-    "slither": "yarn cleanCompile && slither . --compile-force-framework hardhat --ignore-compile",
+    "slither": "yarn cleanCompile && slither .",
     "test": "yarn tsc && npx hardhat test",
     "tsc": "yarn exec tsc --noEmit",
     "docgen": "yarn hardhat docgen"
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.4.0",
+    "@skalenetwork/bite-solidity": "^1.0.0-stable.0",
     "@skalenetwork/upgrade-tools": "4.0.0-develop.4",
     "dotenv": "^17.2.3"
   }

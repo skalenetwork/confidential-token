@@ -2045,6 +2045,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@openzeppelin/contracts@npm:5.6.1":
+  version: 5.6.1
+  resolution: "@openzeppelin/contracts@npm:5.6.1"
+  checksum: 10c0/f00ecd2b63ca99361e772a9355a587345a2b2af8ead3e88996e0bd1eef89221c3f762cfb77632c1a6ea866a5d3bc030eea1790bd9d326d8ad71f8edee20a5b37
+  languageName: node
+  linkType: hard
+
 "@openzeppelin/defender-sdk-base-client@npm:^2.1.0, @openzeppelin/defender-sdk-base-client@npm:^2.7.0":
   version: 2.7.0
   resolution: "@openzeppelin/defender-sdk-base-client@npm:2.7.0"
@@ -2468,6 +2475,15 @@ __metadata:
   version: 5.6.0
   resolution: "@sindresorhus/is@npm:5.6.0"
   checksum: 10c0/66727344d0c92edde5760b5fd1f8092b717f2298a162a5f7f29e4953e001479927402d9d387e245fb9dc7d3b37c72e335e93ed5875edfc5203c53be8ecba1b52
+  languageName: node
+  linkType: hard
+
+"@skalenetwork/bite-solidity@npm:^1.0.0-stable.0":
+  version: 1.0.0
+  resolution: "@skalenetwork/bite-solidity@npm:1.0.0"
+  dependencies:
+    "@openzeppelin/contracts": "npm:5.6.1"
+  checksum: 10c0/11aeb260bfdc666b96481ba20d7f5e19f47ae316464b4495abfc68aa31b663bf5338d247d6a545bff981bc69b70b49a6192c721ac09a0429f586a8c193ec8496
   languageName: node
   linkType: hard
 
@@ -4482,6 +4498,7 @@ __metadata:
     "@nomicfoundation/hardhat-ethers": "npm:^3.1.2"
     "@nomicfoundation/hardhat-network-helpers": "npm:^1.1.2"
     "@openzeppelin/contracts": "npm:5.4.0"
+    "@skalenetwork/bite-solidity": "npm:^1.0.0-stable.0"
     "@skalenetwork/upgrade-tools": "npm:4.0.0-develop.4"
     "@typechain/ethers-v6": "npm:^0.5.1"
     "@typechain/hardhat": "npm:^9.1.0"
@@ -4496,6 +4513,7 @@ __metadata:
     ethers: "npm:^6.16.0"
     globals: "npm:^16.5.0"
     hardhat: "npm:^2.27.1"
+    hardhat-dependency-compiler: "npm:^1.2.1"
     pm2: "npm:^6.0.14"
     solhint: "npm:^6.0.3"
     solidity-coverage: "npm:^0.8.17"
@@ -6005,6 +6023,15 @@ __metadata:
   bin:
     handlebars: bin/handlebars
   checksum: 10c0/7aff423ea38a14bb379316f3857fe0df3c5d66119270944247f155ba1f08e07a92b340c58edaa00cfe985c21508870ee5183e0634dcb53dd405f35c93ef7f10d
+  languageName: node
+  linkType: hard
+
+"hardhat-dependency-compiler@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "hardhat-dependency-compiler@npm:1.2.1"
+  peerDependencies:
+    hardhat: ^2.0.0
+  checksum: 10c0/d4373422849fe8851d06f1151f51fe17d00fb9f3425cc77cce53bd2d0c9f325d4f1520f2aa8eae305b3a0d012b9841b398d57c3f2d5e7a3d29b6dd4aaebc1f6e
   languageName: node
   linkType: hard
 
