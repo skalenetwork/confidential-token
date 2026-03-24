@@ -30,6 +30,10 @@
         "words": ["typehash"]
     },
     {
+        "filename": "**/ConfidentialEIP3009.md",
+        "words": ["typehash"]
+    },
+    {
         "filename": "licenses/LICENSE_COINBASE",
         "words": ["SECZ"]
     },

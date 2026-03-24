@@ -21,7 +21,7 @@ Confidential Token implements privacy-preserving token functionality while maint
 
 - **Encrypted Balances**: Token balances are encrypted and stored on-chain, visible only to authorized viewers
 - **ERC20 Compatibility**: Contract inherits from ERC20 standard with additional privacy features
-- **EIP3009 Support**: Transfer With Authorization via signed messages
+- **EIP3009 Support**: Transfer With Authorization via signed messages, including encrypted value variants
 - **ERC-2612 (Permit) Support**: Approvals via signed permit messages (ERC20Permit)
 - **Token Wrapping**: Convert any standard ERC20 token into a confidential token
 - **Minting Capability**: Optional minting functionality for managing token supply
@@ -49,12 +49,16 @@ The main contract implementing the confidential token functionality. It extends 
 - `deposit(receiver)`: Deposit gas token to fund callback executions
 - `withdraw(amount, receiver)`: Withdraw gas token previously deposited
 - `burn(amount)`: Burn tokens from the caller's balance
+- `encryptedTransfer(to, value)`: Transfer tokens using an encrypted value (bytes)
+- `encryptedTransferFrom(from, to, value)`: Transfer tokens on behalf of another using an encrypted value (bytes)
 - `encryptedBalanceOf(holder)`: Get the encrypted balance representation (must be decrypted off-chain)
 - `ethBalanceOf(holder)`: Get the gas token balance for callback funding
 
 **EIP-3009 Authorization Functions:**
 - `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, signature)`: Transfer tokens using a signed authorization message.
 - `receiveWithAuthorization(from, to, value, validAfter, validBefore, nonce, signature)`: Receive tokens via signed authorization.
+- `encryptedTransferWithAuthorization(from, to, value, validAfter, validBefore, nonce, signature)`: Transfer tokens using a signed authorization with an encrypted value (bytes).
+- `encryptedReceiveWithAuthorization(from, to, value, validAfter, validBefore, nonce, signature)`: Receive tokens via signed authorization with an encrypted value (bytes).
 - `cancelAuthorization(authorizer, nonce, signature)`: Cancel a previously signed authorization nonce
 - `authorizationState(authorizer, nonce)`: Check if an authorization nonce has been used or revoked
 
