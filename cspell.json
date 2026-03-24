@@ -14,6 +14,7 @@
         ".yarn",
         "artifacts",
         "cache",
+        "contracts/hardhat-dependency-compiler",
         "cspell.json",
         "venv",
         "typechain-types",

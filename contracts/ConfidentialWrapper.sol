@@ -70,6 +70,15 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
 
     // Public functions
 
+    ///@inheritdoc ConfidentialToken
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) public virtual override(ConfidentialToken, ERC20) returns (bool result) {
+        return ConfidentialToken.transferFrom(from, to, value);
+    }
+
     /// @inheritdoc ERC20Wrapper
     function depositFor(address account, uint256 value) public override returns (bool success) {
         requestedMints[msg.sender] += value;
