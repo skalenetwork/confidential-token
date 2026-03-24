@@ -285,7 +285,12 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         }
     }
 
-    /// @inheritdoc ERC20
+    /// @notice Transfers `value` tokens from `from` to `to` using allowance mechanism.
+    /// @dev This function call may return true and revert on callback producing no changes
+    /// @param from Address to transfer tokens from
+    /// @param to Address to transfer tokens to
+    /// @param value Amount of tokens to be transferred
+    /// @return result Always returns true
     function transferFrom(
         address from,
         address to,
@@ -399,6 +404,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @param encryptedValue TE-encrypted amount of tokens to be transferred
     /// @param isTransferFrom Flag for transferFrom (true) or transfer (false)
     function _update(address from, address to, bytes memory encryptedValue, bool isTransferFrom) internal virtual {
+        // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
+        // slither-disable-next-line incorrect-equality
         require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 1, ValueWasNotEncryptedCorrectly());
         // callbackFee is not a constant
         // so no ability to save some gas here

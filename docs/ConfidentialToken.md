@@ -475,24 +475,27 @@ function deposit(address receiver) public payable
 
 ### transferFrom
 
+Transfers `value` tokens from `from` to `to` using allowance mechanism.
+
 ```solidity
 function transferFrom(address from, address to, uint256 value) public virtual returns (bool result)
 ```
 
-**dev:** _See {IERC20-transferFrom}.
+**dev:** _This function call may return true and revert on callback producing no changes_
 
-Skips emitting an {Approval} event indicating an allowance update. This is not
-required by the ERC. See {xref-ERC20-_approve-address-address-uint256-bool-}[_approve].
+#### Parameters
 
-NOTE: Does not update the allowance if the current allowance
-is the maximum `uint256`.
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| value | uint256 | Amount of tokens to be transferred |
 
-Requirements:
+#### Return Values
 
-- `from` and `to` cannot be the zero address.
-- `from` must have a balance of at least `value`.
-- the caller must have allowance for ``from``'s tokens of at least
-`value`._
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| result | bool | Always returns true |
 
 ### registerPublicKey
 
