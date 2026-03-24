@@ -31,8 +31,8 @@ import { EIP3009, EIP712Utils } from "./EIP3009.sol";
 
 
 /// @title EIP3009 extension for ConfidentialToken
-/// @author
-/// @notice
+/// @author Eduardo Vasques
+/// @notice Extension of EIP3009 with encrypted value parameter for SKALE chains using BITE
 abstract contract ConfidentialEIP3009 is EIP3009{
 
     /// @notice typehash for transfer with authorization with encrypted value
@@ -68,7 +68,7 @@ abstract contract ConfidentialEIP3009 is EIP3009{
      * @notice Execute a transfer with a signed authorization
      * @param from          Payer's address (Authorizer)
      * @param to            Payee's address
-     * @param value         Amount to be transferred
+     * @param value         Amount to be transferred (TE-encrypted)
      * @param validAfter    The time after which this is valid (unix time)
      * @param validBefore   The time before which this is valid (unix time)
      * @param nonce         Unique nonce
@@ -108,7 +108,7 @@ abstract contract ConfidentialEIP3009 is EIP3009{
      * considerations)
      * @param from          Payer's address (Authorizer)
      * @param to            Payee's address
-     * @param value         Amount to be transferred
+     * @param value         Amount to be transferred (TE-encrypted)
      * @param validAfter    The time after which this is valid (unix time)
      * @param validBefore   The time before which this is valid (unix time)
      * @param nonce         Unique nonce

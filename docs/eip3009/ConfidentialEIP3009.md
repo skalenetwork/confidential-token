@@ -2,6 +2,8 @@
 
 ## ConfidentialEIP3009
 
+Extension of EIP3009 with encrypted value parameter for SKALE chains using BITE
+
 ### ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH
 
 typehash for transfer with authorization with encrypted value
@@ -32,7 +34,7 @@ function encryptedTransferWithAuthorization(address from, address to, bytes valu
 | ---- | ---- | ----------- |
 | from | address | Payer's address (Authorizer) |
 | to | address | Payee's address |
-| value | bytes | Amount to be transferred |
+| value | bytes | Amount to be transferred (TE-encrypted) |
 | validAfter | uint256 | The time after which this is valid (unix time) |
 | validBefore | uint256 | The time before which this is valid (unix time) |
 | nonce | bytes32 | Unique nonce |
@@ -58,7 +60,7 @@ considerations)_
 | ---- | ---- | ----------- |
 | from | address | Payer's address (Authorizer) |
 | to | address | Payee's address |
-| value | bytes | Amount to be transferred |
+| value | bytes | Amount to be transferred (TE-encrypted) |
 | validAfter | uint256 | The time after which this is valid (unix time) |
 | validBefore | uint256 | The time before which this is valid (unix time) |
 | nonce | bytes32 | Unique nonce |
