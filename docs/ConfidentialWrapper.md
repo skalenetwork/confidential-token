@@ -43,6 +43,27 @@ function releaseTo(address account, uint256 value) external
 | account | address | The address to release tokens to |
 | value | uint256 | The amount of tokens to release |
 
+### transferFrom
+
+```solidity
+function transferFrom(address from, address to, uint256 value) public virtual returns (bool result)
+```
+
+**dev:** _See {IERC20-transferFrom}.
+
+Skips emitting an {Approval} event indicating an allowance update. This is not
+required by the ERC. See {xref-ERC20-_approve-address-address-uint256-bool-}[_approve].
+
+NOTE: Does not update the allowance if the current allowance
+is the maximum `uint256`.
+
+Requirements:
+
+- `from` and `to` cannot be the zero address.
+- `from` must have a balance of at least `value`.
+- the caller must have allowance for ``from``'s tokens of at least
+`value`._
+
 ### depositFor
 
 ```solidity
