@@ -241,6 +241,12 @@ error PublicKeyIsNotRegistered(address viewer)
 error ValueIsEncrypted()
 ```
 
+### ValueWasNotEncryptedCorrectly
+
+```solidity
+error ValueWasNotEncryptedCorrectly()
+```
+
 ### constructor
 
 Sets the values for {name} and {symbol}.
@@ -294,6 +300,37 @@ function onDecrypt(bytes[] decryptedArguments, bytes[] plaintextArguments) exter
 | ---- | ---- | ----------- |
 | decryptedArguments | bytes[] | The decrypted arguments |
 | plaintextArguments | bytes[] | The plaintext arguments |
+
+### encryptedTransfer
+
+Transfers tokens to another holder
+
+```solidity
+function encryptedTransfer(address to, bytes value) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| to | address | The address of the recipient holder |
+| value | bytes | The TE-encrypted amount of tokens to transfer |
+
+### encryptedTransferFrom
+
+Transfers tokens from one holder to another using allowance
+
+```solidity
+function encryptedTransferFrom(address from, address to, bytes value) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | The address of the sender holder |
+| to | address | The address of the recipient holder |
+| value | bytes | The TE-encrypted amount of tokens to transfer |
 
 ### setViewerPublicKey
 
@@ -436,6 +473,30 @@ function deposit(address receiver) public payable
 | ---- | ---- | ----------- |
 | receiver | address | The address of the receiver holder |
 
+### transferFrom
+
+Transfers `value` tokens from `from` to `to` using allowance mechanism.
+
+```solidity
+function transferFrom(address from, address to, uint256 value) public virtual returns (bool result)
+```
+
+**dev:** _This function call may return true and revert on callback producing no changes_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| value | uint256 | Amount of tokens to be transferred |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| result | bool | Always returns true |
+
 ### registerPublicKey
 
 Registers a view key in the contract
@@ -526,4 +587,50 @@ function _update(address from, address to, uint256 value) internal virtual
 | from | address | Address to transfer tokens from |
 | to | address | Address to transfer tokens to |
 | value | uint256 | Amount of tokens to be transferred |
+
+### _encryptedUpdate
+
+Transfers a `encryptedValue` amount of tokens from `from` to `to`
+or alternatively mints (or burns) if `from` (or `to`) is the zero address.
+
+```solidity
+function _encryptedUpdate(address from, address to, address spender, bytes encryptedValue) internal virtual
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| spender | address | Address of the spender for transferFrom operations |
+| encryptedValue | bytes | TE-encrypted amount of tokens to be transferred |
+
+### _transferFrom
+
+```solidity
+function _transferFrom(address from, address to, uint256 value) internal virtual
+```
+
+### _encryptedTransferFrom
+
+```solidity
+function _encryptedTransferFrom(address from, address to, bytes value) internal virtual
+```
+
+### _encryptedTransfer
+
+Transfers a `encryptedValue` amount of tokens from `from` to `to`
+
+```solidity
+function _encryptedTransfer(address from, address to, bytes value) internal virtual
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| value | bytes | TE-encrypted amount of tokens to be transferred |
 

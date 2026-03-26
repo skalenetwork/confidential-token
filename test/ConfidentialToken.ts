@@ -245,4 +245,98 @@ describe("ConfidentialToken", () => {
         const balanceAfter = await balanceOf(token, bite, owner);
         balanceAfter.should.be.equal(balanceBefore);
     });
+
+    it("should only update and check allowance on callback", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, spender ] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner)
+        );
+        await bite.sendCallback();
+
+        await token.connect(spender).setViewerPublicKey(
+            await getPublicKey(spender),
+            {value: amount}
+        );
+        await bite.sendCallback();
+
+        // Callback should fail because no allowance yet
+        await token.connect(spender).transferFrom(owner, spender, amount);
+
+        await bite.sendCallback().should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+
+        await token.connect(owner).approve(spender, amount);
+        expect(await token.allowance(owner, spender)).to.be.equal(amount);
+
+        await token.connect(spender).transferFrom(owner, spender, amount);
+        await bite.sendCallback();
+
+        // Allowance should be updated after callback
+        expect(await token.allowance(owner, spender)).to.be.equal(0);
+        expect(await balanceOf(token, bite, spender)).to.be.equal(amount);
+    });
+
+    it("should be able to transfer with encrypted values", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, recipient] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner)
+        );
+        await bite.sendCallback();
+
+        await token.connect(recipient).setViewerPublicKey(
+            await getPublicKey(recipient),
+            {value: amount}
+        );
+        await bite.sendCallback();
+
+        // Must be correctly encoded to hide the value, otherwise it leaks the length of the value
+        const encryptedAmount = await bite.encryptTE(ethers.zeroPadValue(ethers.toBeHex(amount), 32));
+
+        await token.connect(owner).encryptedTransfer(recipient, encryptedAmount);
+
+        await bite.sendCallback();
+
+        const decryptedBalance = await balanceOf(token, bite, recipient);
+        decryptedBalance.should.be.equal(amount);
+    });
+
+    it("should be able to transferFrom with encrypted values", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, spender, recipient] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner)
+        );
+        await bite.sendCallback();
+
+        await token.connect(spender).setViewerPublicKey(
+            await getPublicKey(spender),
+            {value: amount}
+        );
+        await bite.sendCallback();
+
+        await token.connect(recipient).setViewerPublicKey(
+            await getPublicKey(recipient),
+            {value: amount}
+        );
+        await bite.sendCallback();
+
+        await token.connect(owner).approve(spender, amount);
+
+        // Must be correctly encoded to hide the value, otherwise it leaks the length of the value
+        const encryptedAmount = await bite.encryptTE(ethers.zeroPadValue(ethers.toBeHex(amount), 32));
+
+        await token.connect(spender).encryptedTransferFrom(owner, recipient, encryptedAmount);
+
+        await bite.sendCallback();
+
+        const decryptedBalance = await balanceOf(token, bite, recipient);
+        decryptedBalance.should.be.equal(amount);
+    });
 });

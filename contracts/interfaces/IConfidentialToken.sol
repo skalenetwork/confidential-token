@@ -78,6 +78,17 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param receiver Address to send the withdrawn ETH to
     function withdraw(uint256 amount, address receiver) external;
 
+    /// @notice Transfers tokens to another holder
+    /// @param to The address of the recipient holder
+    /// @param value The TE-encrypted amount of tokens to transfer
+    function encryptedTransfer(address to, bytes calldata value) external;
+
+    /// @notice Transfers tokens from one holder to another using allowance
+    /// @param from The address of the sender holder
+    /// @param to The address of the recipient holder
+    /// @param value The TE-encrypted amount of tokens to transfer
+    function encryptedTransferFrom(address from, address to, bytes calldata value) external;
+
     /// @notice Gets the encrypted balance of a holder
     /// @param holder The address of the holder
     /// @return encryptedBalance The encrypted balance of the holder

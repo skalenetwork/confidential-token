@@ -43,6 +43,30 @@ function releaseTo(address account, uint256 value) external
 | account | address | The address to release tokens to |
 | value | uint256 | The amount of tokens to release |
 
+### transferFrom
+
+Transfers `value` tokens from `from` to `to` using allowance mechanism.
+
+```solidity
+function transferFrom(address from, address to, uint256 value) public virtual returns (bool result)
+```
+
+**dev:** _This function call may return true and revert on callback producing no changes_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| value | uint256 | Amount of tokens to be transferred |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| result | bool | Always returns true |
+
 ### depositFor
 
 ```solidity

@@ -159,6 +159,37 @@ function withdraw(uint256 amount, address receiver) external
 | amount | uint256 | Amount of ETH to withdraw |
 | receiver | address | Address to send the withdrawn ETH to |
 
+### encryptedTransfer
+
+Transfers tokens to another holder
+
+```solidity
+function encryptedTransfer(address to, bytes value) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| to | address | The address of the recipient holder |
+| value | bytes | The TE-encrypted amount of tokens to transfer |
+
+### encryptedTransferFrom
+
+Transfers tokens from one holder to another using allowance
+
+```solidity
+function encryptedTransferFrom(address from, address to, bytes value) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | The address of the sender holder |
+| to | address | The address of the recipient holder |
+| value | bytes | The TE-encrypted amount of tokens to transfer |
+
 ### encryptedBalanceOf
 
 Gets the encrypted balance of a holder
