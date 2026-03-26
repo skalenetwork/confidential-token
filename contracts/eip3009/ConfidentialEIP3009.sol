@@ -199,8 +199,8 @@ abstract contract ConfidentialEIP3009 is EIP3009{
         _authorizationStates[from][nonce] = true;
         emit AuthorizationUsed(from, nonce);
 
-        _transfer(from, to, value);
+        _encryptedTransfer(from, to, value);
     }
 
-    function _transfer(address from, address to, bytes calldata value) internal virtual;
+    function _encryptedTransfer(address from, address to, bytes calldata value) internal virtual;
 }

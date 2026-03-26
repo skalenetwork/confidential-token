@@ -169,9 +169,9 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
-        (address from, address to, bool isTransferFrom, address spender) = abi.decode(
+        (address from, address to, address spender) = abi.decode(
             plaintextArguments[0],
-            (address, address, bool, address)
+            (address, address, address)
         );
         _validateDecryptedArguments(decryptedArguments, from, to);
 
@@ -189,8 +189,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         } else {
             // transfer
             // Allowances not encrypted
-            if(isTransferFrom) {
-                require(spender != address(0), ERC20InvalidSender(address(0)));
+            if(spender != address(0)) {
                 _spendAllowance(from, spender, value);
             }
             fromBalance = _decodeBalance(decryptedArguments[0]);
@@ -207,7 +206,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     /// @inheritdoc IConfidentialToken
     function encryptedTransfer(address to, bytes calldata value) external override {
-        _transfer(msg.sender, to, value);
+        _encryptedTransfer(msg.sender, to, value);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -216,7 +215,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         address to,
         bytes calldata value
     ) external override {
-        _transferFrom(from, to, value);
+        _encryptedTransferFrom(from, to, value);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -394,7 +393,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @param value Amount of tokens to be transferred
     function _update(address from, address to, uint256 value) internal virtual override {
         bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
-        _update(from, to, encryptedValue, false);
+        _encryptedUpdate(from, to, encryptedValue, address(0));
     }
 
     /// @notice Transfers a `encryptedValue` amount of tokens from `from` to `to`
@@ -402,8 +401,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @param from  Address to transfer tokens from
     /// @param to    Address to transfer tokens to
     /// @param encryptedValue TE-encrypted amount of tokens to be transferred
-    /// @param isTransferFrom Flag for transferFrom (true) or transfer (false)
-    function _update(address from, address to, bytes memory encryptedValue, bool isTransferFrom) internal virtual {
+    /// @param spender Address of the spender for transferFrom operations
+    function _encryptedUpdate(address from, address to, bytes memory encryptedValue, address spender) internal virtual {
         // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
         // slither-disable-next-line incorrect-equality
         require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 1, ValueWasNotEncryptedCorrectly());
@@ -443,7 +442,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] memory plaintextArguments = new bytes[](1);
 
         // msg.sender will be ignored in callback if transferFrom is false
-        plaintextArguments[0] = abi.encode(from, to, isTransferFrom, msg.sender);
+        plaintextArguments[0] = abi.encode(from, to, spender);
 
         address payable callback = BITE.submitCTX(
             submitCTXAddress,
@@ -460,10 +459,10 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         address to,
         uint256 value
     ) internal virtual {
-        _transferFrom(from, to, BITE.encryptTE(encryptTEAddress, abi.encodePacked(value)));
+        _encryptedTransferFrom(from, to, BITE.encryptTE(encryptTEAddress, abi.encodePacked(value)));
     }
 
-    function _transferFrom(
+    function _encryptedTransferFrom(
         address from,
         address to,
         bytes memory value
@@ -474,21 +473,21 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
-        _update(from, to, value, true);
+        _encryptedUpdate(from, to, value, msg.sender);
     }
 
     /// @notice Transfers a `encryptedValue` amount of tokens from `from` to `to`
     /// @param from Address to transfer tokens from
     /// @param to Address to transfer tokens to
     /// @param value TE-encrypted amount of tokens to be transferred
-    function _transfer(address from, address to, bytes calldata value) internal virtual override {
+    function _encryptedTransfer(address from, address to, bytes calldata value) internal virtual override {
         if (from == address(0)) {
             revert ERC20InvalidSender(address(0));
         }
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
-        _update(from, to, value, false);
+        _encryptedUpdate(from, to, value, address(0));
     }
 
     // Private functions
