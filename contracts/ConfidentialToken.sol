@@ -188,8 +188,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
             fromBalance = _decodeBalance(decryptedArguments[0]);
         } else {
             // transfer
-            // Allowances not encrypted
             if(spender != address(0)) {
+                // Allowances not encrypted
                 _spendAllowance(from, spender, value);
             }
             fromBalance = _decodeBalance(decryptedArguments[0]);
@@ -393,16 +393,16 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @param value Amount of tokens to be transferred
     function _update(address from, address to, uint256 value) internal virtual override {
         bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
-        _encryptedUpdate(from, to, encryptedValue, address(0));
+        _encryptedUpdate(from, to, address(0), encryptedValue);
     }
 
     /// @notice Transfers a `encryptedValue` amount of tokens from `from` to `to`
     /// @notice or alternatively mints (or burns) if `from` (or `to`) is the zero address.
     /// @param from  Address to transfer tokens from
     /// @param to    Address to transfer tokens to
-    /// @param encryptedValue TE-encrypted amount of tokens to be transferred
     /// @param spender Address of the spender for transferFrom operations
-    function _encryptedUpdate(address from, address to, bytes memory encryptedValue, address spender) internal virtual {
+    /// @param encryptedValue TE-encrypted amount of tokens to be transferred
+    function _encryptedUpdate(address from, address to, address spender, bytes memory encryptedValue) internal virtual {
         // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
         // slither-disable-next-line incorrect-equality
         require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 1, ValueWasNotEncryptedCorrectly());
@@ -473,7 +473,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
-        _encryptedUpdate(from, to, value, msg.sender);
+        _encryptedUpdate(from, to, msg.sender, value);
     }
 
     /// @notice Transfers a `encryptedValue` amount of tokens from `from` to `to`
@@ -487,7 +487,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
-        _encryptedUpdate(from, to, value, address(0));
+        _encryptedUpdate(from, to, address(0), value);
     }
 
     // Private functions

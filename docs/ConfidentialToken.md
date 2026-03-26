@@ -588,13 +588,13 @@ function _update(address from, address to, uint256 value) internal virtual
 | to | address | Address to transfer tokens to |
 | value | uint256 | Amount of tokens to be transferred |
 
-### _update
+### _encryptedUpdate
 
 Transfers a `encryptedValue` amount of tokens from `from` to `to`
 or alternatively mints (or burns) if `from` (or `to`) is the zero address.
 
 ```solidity
-function _update(address from, address to, bytes encryptedValue, bool isTransferFrom) internal virtual
+function _encryptedUpdate(address from, address to, address spender, bytes encryptedValue) internal virtual
 ```
 
 #### Parameters
@@ -603,8 +603,8 @@ function _update(address from, address to, bytes encryptedValue, bool isTransfer
 | ---- | ---- | ----------- |
 | from | address | Address to transfer tokens from |
 | to | address | Address to transfer tokens to |
+| spender | address | Address of the spender for transferFrom operations |
 | encryptedValue | bytes | TE-encrypted amount of tokens to be transferred |
-| isTransferFrom | bool | Flag for transferFrom (true) or transfer (false) |
 
 ### _transferFrom
 
@@ -612,18 +612,18 @@ function _update(address from, address to, bytes encryptedValue, bool isTransfer
 function _transferFrom(address from, address to, uint256 value) internal virtual
 ```
 
-### _transferFrom
+### _encryptedTransferFrom
 
 ```solidity
-function _transferFrom(address from, address to, bytes value) internal virtual
+function _encryptedTransferFrom(address from, address to, bytes value) internal virtual
 ```
 
-### _transfer
+### _encryptedTransfer
 
 Transfers a `encryptedValue` amount of tokens from `from` to `to`
 
 ```solidity
-function _transfer(address from, address to, bytes value) internal virtual
+function _encryptedTransfer(address from, address to, bytes value) internal virtual
 ```
 
 #### Parameters

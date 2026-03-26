@@ -91,9 +91,9 @@ function _transferWithAuthorization(bytes32 typeHash, address from, address to, 
 | r | bytes32 | r of the signature |
 | s | bytes32 | s of the signature |
 
-### _transfer
+### _encryptedTransfer
 
 ```solidity
-function _transfer(address from, address to, bytes value) internal virtual
+function _encryptedTransfer(address from, address to, bytes value) internal virtual
 ```
 
