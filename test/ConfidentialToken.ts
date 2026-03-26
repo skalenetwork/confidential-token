@@ -362,4 +362,40 @@ describe("ConfidentialToken", () => {
         const decryptedBalance = await balanceOf(token, bite, recipient);
         decryptedBalance.should.be.equal(amount);
     });
+
+    it("should not allow double spending during BITE execution", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, user1, user2] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+        const viewPublicKey = await getPublicKey(owner);
+
+        await token.connect(owner).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+        await token.deposit(user1, {value: await token.callbackFee()});
+        await token.connect(user1).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+        await token.deposit(user2, {value: await token.callbackFee()});
+        await token.connect(user2).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+
+        const balanceBefore = await balanceOf(token, bite, owner);
+        (await balanceOf(token, bite, user1)).should.be.equal(0n);
+        (await balanceOf(token, bite, user2)).should.be.equal(0n);
+
+        await token.connect(owner).transfer(user1, amount);
+        await token.connect(owner).transfer(user2, amount);
+        await bite.sendCallback();
+        await bite.sendCallback();
+
+        const balanceAfter = await balanceOf(token, bite, owner);
+        balanceAfter.should.be.equal(balanceBefore - 2n * amount);
+        (await balanceOf(token, bite, user1)).should.be.equal(amount);
+        (await balanceOf(token, bite, user2)).should.be.equal(amount);
+    });
 });
