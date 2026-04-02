@@ -9,3 +9,19 @@ export async function getSignerAndContract() {
   const contract = new Contract(CONFIDENTIAL_TOKEN_ADDRESS, CONTRACT_ABI, signer);
   return { signer, contract };
 }
+
+let cachedCallbackFee = null;
+let cachedSymbol = null;
+
+export function getCachedSymbol() {
+  return cachedSymbol ?? 'CTK';
+}
+
+export async function fetchSymbol() {
+  try {
+    const { contract } = await getSignerAndContract();
+    cachedSymbol = await contract.symbol();
+  } catch (_) {
+    cachedSymbol = 'CTK';
+  }
+}
