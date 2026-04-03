@@ -25,3 +25,19 @@ export async function fetchSymbol() {
     cachedSymbol = 'CTK';
   }
 }
+
+export async function checkFunding(depositInput, fundingWarning) {
+  try {
+    const { signer, contract } = await getSignerAndContract();
+    const address = await signer.getAddress();
+    const [balance, fee] = await Promise.all([
+      contract.ethBalanceOf(address),
+      contract.callbackFee(),
+    ]);
+    cachedCallbackFee = fee;
+    depositInput.value = formatUnits(fee * 2n, 18);
+    fundingWarning.style.display = balance < fee ? 'block' : 'none';
+  } catch (e) {
+    console.error('checkFunding error:', e);
+  }
+}
