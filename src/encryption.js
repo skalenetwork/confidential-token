@@ -68,3 +68,20 @@ export function deriveViewerKey(privateKey) {
     y: '0x' + xyHex.slice(64, 128),
   };
 }
+
+export async function encryptTransfer(recipient, amount) {
+  const iface = new Interface(CONTRACT_ABI);
+  const data = iface.encodeFunctionData('transfer', [recipient, BigInt(amount)]);
+
+  const bite = new BITE(CHAIN_RPC);
+  const encryptedTx = await bite.encryptTransaction({
+    data,
+    to: CONFIDENTIAL_TOKEN_ADDRESS,
+  });
+
+  return {
+    to: encryptedTx.to,
+    data: encryptedTx.data,
+    gasLimit: encryptedTx.gasLimit,
+  };
+}
