@@ -57,3 +57,14 @@ export function decryptBalance(secretKey, encryptedDataHex) {
   const decryptedHex = decrypted.toString(CryptoJS.enc.Hex);
   return BigInt('0x' + decryptedHex).toString();
 }
+
+export function deriveViewerKey(privateKey) {
+  const cleanKey = privateKey.startsWith('0x') ? privateKey.slice(2) : privateKey;
+  const keyPair = ec.keyFromPrivate(cleanKey, 'hex');
+  const publicKey = keyPair.getPublic(false, 'hex'); // uncompressed 04 + x + y
+  const xyHex = publicKey.slice(2); // strip 04 prefix
+  return {
+    x: '0x' + xyHex.slice(0, 64),
+    y: '0x' + xyHex.slice(64, 128),
+  };
+}
