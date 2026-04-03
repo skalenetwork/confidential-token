@@ -41,3 +41,12 @@ export async function checkFunding(depositInput, fundingWarning) {
     console.error('checkFunding error:', e);
   }
 }
+
+export async function getDepositAmount(depositInputValue) {
+  if (depositInputValue && parseFloat(depositInputValue) > 0) {
+    return parseUnits(depositInputValue, 18);
+  }
+  const { contract } = await getSignerAndContract();
+  const fee = cachedCallbackFee ?? (await contract.callbackFee());
+  return fee * 2n;
+}
