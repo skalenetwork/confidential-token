@@ -48,3 +48,18 @@ connectBtn.addEventListener('click', () => {
     modal.open();
   }
 });
+
+renderAccount(modal.getAccount('eip155'));
+
+modal.subscribeAccount((account) => {
+  renderAccount(account);
+  if (account && account.isConnected) {
+    checkFunding(depositInput, fundingWarning);
+    fetchSymbol();
+  }
+});
+
+if (modal.getAccount('eip155')?.isConnected) {
+  checkFunding(depositInput, fundingWarning);
+  fetchSymbol();
+}
