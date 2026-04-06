@@ -130,3 +130,28 @@ registerBtn.addEventListener('click', async () => {
   }
 });
 
+// --- Deposit ETH ---
+depositBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  try {
+    setButtonLoading(depositBtn, true, 'Confirm tx...');
+    const { signer, contract } = await getSignerAndContract();
+    const address = await signer.getAddress();
+    const amount = await getDepositAmount(depositInput.value);
+
+    const tx = await contract.deposit(address, { value: amount });
+    setButtonLoading(depositBtn, true, 'Waiting...');
+    await tx.wait();
+
+    depositInput.value = '';
+    await checkFunding(depositInput, fundingWarning);
+  } catch (err) {
+    console.error('Deposit error:', err);
+    depositBtn.textContent = 'Deposit failed';
+    setTimeout(() => { depositBtn.textContent = depositBtn.dataset.label; }, 3000);
+  } finally {
+    depositBtn.disabled = false;
+    depositBtn.textContent = depositBtn.dataset.label;
+  }
+});
