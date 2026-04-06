@@ -63,3 +63,41 @@ if (modal.getAccount('eip155')?.isConnected) {
   checkFunding(depositInput, fundingWarning);
   fetchSymbol();
 }
+
+// --- Decrypt Balance ---
+decryptBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  try {
+    setButtonLoading(decryptBtn, true, 'Reading...');
+    const { signer, contract } = await getSignerAndContract();
+    const address = await signer.getAddress();
+
+    let encryptedData;
+    try {
+      encryptedData = await contract.encryptedBalanceOf(address);
+    } catch (_) {
+      balanceDisplay.textContent = 'Viewer key not registered';
+      balanceDisplay.style.color = '#ef4444';
+      return;
+    }
+
+    setButtonLoading(decryptBtn, true, 'Signing...');
+    const signature = await signer.signMessage(SIGN_MESSAGE);
+    const derivedPrivateKey = keccak256(signature);
+
+    setButtonLoading(decryptBtn, true, 'Decrypting...');
+    const rawBalance = decryptBalance(derivedPrivateKey, encryptedData);
+    const symbol = getCachedSymbol();
+
+    balanceDisplay.textContent = rawBalance + ' ' + symbol;
+    balanceDisplay.style.color = 'var(--accent-primary)';
+  } catch (err) {
+    console.error('Decrypt error:', err);
+    balanceDisplay.textContent = 'Decryption failed';
+    balanceDisplay.style.color = '#ef4444';
+  } finally {
+    setButtonLoading(decryptBtn, false);
+  }
+});
+
