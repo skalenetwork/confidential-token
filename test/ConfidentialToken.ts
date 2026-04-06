@@ -246,22 +246,45 @@ describe("ConfidentialToken", () => {
         balanceAfter.should.be.equal(balanceBefore);
     });
 
-    it("should only update and check allowance on callback", async () => {
+    it("should always charge callback fee from the sender of transferFrom", async () => {
         const amount = ethers.parseEther("1.0");
         const [owner, spender ] = await ethers.getSigners();
         const { token, bite } = await withMintedTokens();
-
+        const callbackFee = await token.callbackFee();
         await token.connect(owner).setViewerPublicKey(
             await getPublicKey(owner)
         );
         await bite.sendCallback();
-
         await token.connect(spender).setViewerPublicKey(
             await getPublicKey(spender),
             {value: amount}
         );
         await bite.sendCallback();
+        const depositedSpender = await token.ethBalanceOf(spender);
+        depositedSpender.should.be.equal(amount - callbackFee);
+        // Callback should fail because no allowance yet
+        await token.connect(spender).transferFrom(owner, spender, amount);
 
+        const depositedSpenderAfter = await token.ethBalanceOf(spender);
+        depositedSpenderAfter.should.be.equal(depositedSpender - callbackFee);
+
+        await bite.sendCallback().should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+        depositedSpenderAfter.should.be.equal(await token.ethBalanceOf(spender));
+    });
+
+    it("should only update and check allowance on callback", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, spender ] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner)
+        );
+        await bite.sendCallback();
+        await token.connect(spender).setViewerPublicKey(
+            await getPublicKey(spender),
+            {value: amount}
+        );
+        await bite.sendCallback();
         // Callback should fail because no allowance yet
         await token.connect(spender).transferFrom(owner, spender, amount);
 
