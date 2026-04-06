@@ -27,6 +27,7 @@ Confidential Token implements privacy-preserving token functionality while maint
 - **Minting Capability**: Optional minting functionality for managing token supply
 - **Access Control**: OpenZeppelin AccessManager integration for fine-grained permissions
 - **SKALE Integration**: Requires SKALE's precompiled contracts and BITE protocol for threshold encryption and secure computations.
+- **Historic Transfer Decryption**: Token holders can grant viewers selective access to decrypt past transfers, either by time range or by specific transfer ID. To/From addresses involved in the transfer always have permission to request re-encryption of past transfers.
 
 ## Core Contracts
 
@@ -53,6 +54,22 @@ The main contract implementing the confidential token functionality. It extends 
 - `encryptedTransferFrom(from, to, value)`: Transfer tokens on behalf of another using an encrypted value (bytes)
 - `encryptedBalanceOf(holder)`: Get the encrypted balance representation (must be decrypted off-chain)
 - `ethBalanceOf(holder)`: Get the gas token balance for callback funding
+
+**Historic Transfer Decryption:**
+
+Every transfer emits an `EncryptedTransfer` event carrying the full transfer metadata (sender, recipient, value, timestamp, transfer ID) encrypted under the BITE Threshold Key. This payload can later be decrypted on-demand via the BITE callback mechanism.
+
+Additionally, if the recipient has a registered public key at the time of transfer, a `TransferValueEncryptedForRecipient` event is emitted automatically in the same transaction — no extra request or fee required. The encrypted value in this event is ECIES-encrypted specifically for the recipient's public key, allowing them to read the transfer amount immediately.
+
+For third-party viewers (auditors, accounting tools, delegated observers), holders can grant selective decryption access to their own transfers:
+
+- `requestDecryptHistoricTransfer(encryptedTransferData)`: Submit a TE-encrypted transfer payload for decryption. Requires the caller to be a registered user and have sufficient ETH balance for the callback fee. On successful callback, emits a `ReEncryptedTransfer` event with the value ECIES-encrypted for the requester's public key. The fee is charged even if the requester turns out not to be authorized — authorization is only checked inside the callback.
+- `authorizeHistoricViewTimeRange(viewer, fromTimestamp, toTimestamp)`: Grant a viewer decryption access to all transfers whose timestamp falls strictly within `(fromTimestamp, toTimestamp)`. Setting `fromTimestamp >= toTimestamp` effectively disables the range. Emits `HistoricViewTimeRangeAuthorized`.
+- `authorizeHistoricViewTransferId(viewer, transferId)`: Grant a viewer access to one specific transfer by its on-chain ID. The transfer ID must already exist. Emits `HistoricViewTransferIdAuthorized`.
+- `removeHistoricViewTransferId(viewer, transferId)`: Revoke access to a single previously authorized transfer ID. Emits `HistoricViewTransferIdRevoked` only if the ID was present.
+- `removeHistoricViewAuth(viewer)`: Revoke all historic view permissions for a viewer at once (both time range and all individual transfer IDs). Emits `HistoricViewPermissionsRevoked`.
+
+> **Note:** The `from` and `to` parties of a transfer can always decrypt their own transfers without any explicit authorization.
 
 **EIP-3009 Authorization Functions:**
 - `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, signature)`: Transfer tokens using a signed authorization message.
