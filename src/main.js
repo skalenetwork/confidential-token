@@ -101,3 +101,32 @@ decryptBtn.addEventListener('click', async () => {
   }
 });
 
+// --- Register Viewer Key ---
+registerBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  try {
+    setButtonLoading(registerBtn, true, 'Signing...');
+    const { signer, contract } = await getSignerAndContract();
+    const signature = await signer.signMessage(SIGN_MESSAGE);
+    const derivedPrivateKey = keccak256(signature);
+
+    const { x, y } = deriveViewerKey(derivedPrivateKey);
+
+    setButtonLoading(registerBtn, true, 'Confirm tx...');
+    const tx = await contract.setViewerPublicKey({ x, y }, { value: 0 });
+
+    setButtonLoading(registerBtn, true, 'Waiting...');
+    await tx.wait();
+
+    registerBtn.textContent = 'Key Registered ✓';
+    setTimeout(() => { registerBtn.textContent = registerBtn.dataset.label; }, 3000);
+  } catch (err) {
+    console.error('Register error:', err);
+    registerBtn.textContent = 'Registration failed';
+    setTimeout(() => { registerBtn.textContent = registerBtn.dataset.label; }, 3000);
+  } finally {
+    registerBtn.disabled = false;
+  }
+});
+
