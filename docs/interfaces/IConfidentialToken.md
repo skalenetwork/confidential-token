@@ -77,7 +77,7 @@ event EthWithdrawn(address receiver, uint256 value)
 
 ### Transfer
 
-Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
+Emitted when tokens (value omitted) are moved from one account (`from`) to another (`to`)
 
 ```solidity
 event Transfer(address from, address to)

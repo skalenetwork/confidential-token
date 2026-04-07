@@ -230,6 +230,23 @@ describe("ConfidentialToken", () => {
         expect(realBalanceBefore).to.equal(realBalanceAfter);
     });
 
+    it("should not create historic transfer entries when updating viewer key", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, viewer] = await ethers.getSigners();
+        const { token, bite } = await cleanMintableDeployment();
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner),
+            { value: amount }
+        );
+        const callbackTx = await bite.sendCallback();
+        await expect(callbackTx).to.not.emit(token, "EncryptedTransfer");
+
+        await token.connect(viewer).registerPublicKey(await getPublicKey(viewer));
+        await token.connect(owner).authorizeHistoricViewTransferId(viewer, 0)
+            .should.be.revertedWithCustomError(token, "InvalidTransferId");
+    });
+
     it("transfer to self should not change balance", async () => {
         const amount = ethers.parseEther("1.0");
         const [owner] = await ethers.getSigners();
@@ -1016,7 +1033,7 @@ describe("ConfidentialToken", () => {
         // removeHistoricViewTransferId edge case
 
         it("should silently succeed when removing a transferId that exists but was never authorized", async () => {
-            const { token, bite } = await cleanMintableDeployment();
+            const { token, bite } = await withMintedTokens();
             const [owner, viewer] = await ethers.getSigners();
             await registerViewer(token, bite, owner);
             await registerViewer(token, bite, viewer);

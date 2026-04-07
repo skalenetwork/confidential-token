@@ -68,7 +68,7 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param value Amount of ETH withdrawn
     event EthWithdrawn(address indexed receiver, uint256 indexed value);
 
-    /// @notice Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
+    /// @notice Emitted when tokens (value omitted) are moved from one account (`from`) to another (`to`)
     /// @param from Address tokens are moved from
     /// @param to Address tokens are moved to
     event Transfer(address indexed from, address indexed to);

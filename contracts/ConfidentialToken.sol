@@ -395,9 +395,11 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     )
         internal
     {
+        require(encodedSender.length == 32, DecryptionBadFormat());
+        require(decryptedTransferData.length == 160, DecryptionBadFormat());
         // Account who requested the decryption
         address sender = abi.decode(encodedSender, (address));
-        require(_viewerIsRegistered(sender), NoViewerRegisteredForHolder(sender));
+        require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
 
         TransferData memory transferData = abi.decode(decryptedTransferData, (TransferData));
 
@@ -548,6 +550,10 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     function _onUpdate(address from, address to, uint256 value) internal virtual {
         // Emit basic event
         emit Transfer(from, to);
+
+        // Skip emission of historic events for zero value transfers to self
+        // They are mostly triggered by changes in view keys
+        if (from == to && value == 0) return;
 
         // Time is required to be used by decryption authorization logic
         // It does not control any critical structural logic like balance or allowance updates
