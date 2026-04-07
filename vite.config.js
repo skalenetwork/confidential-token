@@ -3,7 +3,6 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 
 export default defineConfig({
-  base: '/confidential-token/',
   plugins: [
     nodePolyfills(),
   ],
