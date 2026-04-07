@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile
+
+      - run: yarn build
+        env:
+          VITE_CHAIN_NAME: ${{ vars.VITE_CHAIN_NAME }}
+          VITE_CHAIN_ID: ${{ vars.VITE_CHAIN_ID }}
+          VITE_CHAIN_RPC: ${{ vars.VITE_CHAIN_RPC }}
+          VITE_CHAIN_EXPLORER: ${{ vars.VITE_CHAIN_EXPLORER }}
+          VITE_CONFIDENTIAL_TOKEN_ADDRESS: ${{ vars.VITE_CONFIDENTIAL_TOKEN_ADDRESS }}
+          VITE_APPKIT_PROJECT_ID: ${{ vars.VITE_APPKIT_PROJECT_ID }}
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
