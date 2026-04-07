@@ -155,3 +155,48 @@ depositBtn.addEventListener('click', async () => {
     depositBtn.textContent = depositBtn.dataset.label;
   }
 });
+
+// --- Send Confidential Transfer ---
+transferBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  const recipient = recipientInput.value.trim();
+  const amount = amountInput.value.trim();
+
+  if (!recipient || !/^0x[0-9a-fA-F]{40}$/.test(recipient)) {
+    recipientInput.style.borderColor = '#ef4444';
+    recipientInput.focus();
+    return;
+  }
+  recipientInput.style.borderColor = '';
+
+  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    amountInput.style.borderColor = '#ef4444';
+    amountInput.focus();
+    return;
+  }
+  amountInput.style.borderColor = '';
+
+  try {
+    setButtonLoading(transferBtn, true, 'Encrypting...');
+    const { signer } = await getSignerAndContract();
+    const encryptedTx = await encryptTransfer(recipient, amount);
+
+    setButtonLoading(transferBtn, true, 'Confirm tx...');
+    const tx = await signer.sendTransaction(encryptedTx);
+
+    setButtonLoading(transferBtn, true, 'Waiting...');
+    await tx.wait();
+
+    recipientInput.value = '';
+    amountInput.value = '';
+    transferBtn.textContent = 'Transfer Sent ✓';
+    setTimeout(() => { transferBtn.textContent = transferBtn.dataset.label; }, 3000);
+  } catch (err) {
+    console.error('Transfer error:', err);
+    transferBtn.textContent = 'Transfer failed';
+    setTimeout(() => { transferBtn.textContent = transferBtn.dataset.label; }, 3000);
+  } finally {
+    transferBtn.disabled = false;
+  }
+});
