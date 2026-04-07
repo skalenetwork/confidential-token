@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Confidential Token | SKALE</title>
+    <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -199,13 +200,20 @@
             font-weight: 600;
         }
 
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] { -moz-appearance: textfield; }
+
     </style>
 </head>
 <body>
 
     <header>
         <div class="logo">SKALE Confidential</div>
-        <button class="btn">Connect Wallet</button>
+        <button id="connectBtn" class="btn">Connect Wallet</button>
     </header>
 
     <main>
@@ -220,12 +228,19 @@
                 Your Balance
                 <span class="badge">Encrypted</span>
             </h2>
-            <div class="card-row">
-                <span style="color: var(--text-secondary);">Current Balance</span>
-                <span class="value-hidden">******** CTK</span>
+            <div class="card-row" style="justify-content: center;">
+                <span id="balanceDisplay" class="value-hidden">********</span>
             </div>
             <div class="form-actions" style="margin-top: 16px;">
-                <button class="btn btn-outline" style="width: 100%;">Decrypt Balance</button>
+                <button id="decryptBtn" class="btn btn-outline" style="flex: 1;">Decrypt Balance</button>
+                <button id="registerBtn" class="btn btn-outline" style="flex: 1;">Register Viewer Key</button>
+            </div>
+            <div id="fundingWarning" style="display: none; margin-top: 12px; padding: 12px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px;">
+                <p style="color: #ef4444; font-size: 13px; margin-bottom: 10px;">&#9888; Insufficient contract balance. ETH is required for registering your viewer key and future contract interactions.</p>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input id="depositAmount" type="number" step="any" style="flex: 1; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none;">
+                    <button id="depositBtn" class="btn" style="white-space: nowrap; padding: 10px 16px; font-size: 14px;">Deposit ETH</button>
+                </div>
             </div>
         </div>
 
@@ -242,14 +257,15 @@
 
             <div class="input-group">
                 <label for="amount">Amount</label>
-                <input type="number" id="amount" placeholder="0.0" autocomplete="off">
+                <input type="number" id="amount" placeholder="0" autocomplete="off">
             </div>
 
             <div class="form-actions">
-                <button class="btn">Send Confidential Transfer</button>
+                <button id="transferBtn" class="btn">Send Confidential Transfer</button>
             </div>
         </div>
     </main>
 
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>
