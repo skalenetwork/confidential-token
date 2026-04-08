@@ -1,3 +1,5 @@
+// cspell:words ECIES
+
 import { ethers } from "hardhat";
 import chalk from "chalk";
 import { MintableConfidentialToken, AccessManager } from "../typechain-types";
@@ -454,6 +456,7 @@ const testHistoricDecryption = async (txId: string, transferData: string) => {
     });
     console.log(chalk.green(`  PASS — all ${allDecrypted.length} historic decryptions match: ${ethers.formatEther(uniqueValue)}`));
 };
+
 const cleanup = async () => {
     console.log(chalk.yellow("\nCleaning up: withdrawing ETH from token and returning funds to deployer..."));
     const wallets = [walletA, walletB, walletC, deployer];
