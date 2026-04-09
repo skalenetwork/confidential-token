@@ -46,6 +46,14 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     using Math for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    struct TransferInfo {
+        address from;
+        address to;
+        address spender;
+        address gasPayer;
+        uint256 submittedBlockNumber;
+    }
+
     // TODO: add default addresses for precompiled contracts
 
     /// @notice Specifies number of ETH to be sent to pay for callback execution
@@ -175,36 +183,44 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
-        (address from, address to, address spender, address gasPayer) = abi.decode(
-            plaintextArguments[0],
-            (address, address, address, address)
-        );
-        _validateDecryptedArguments(decryptedArguments, from, to);
+        TransferInfo memory transferInfo = abi.decode(plaintextArguments[0], (TransferInfo));
 
-        uint256 fromBalance = 0;
-        uint256 toBalance = 0;
+        _validateDecryptedArguments(decryptedArguments, transferInfo.from, transferInfo.to);
+
         uint256 value = 0;
         uint256 valueIndex = decryptedArguments.length - 1;
         value = _decodeBalance(decryptedArguments[valueIndex]);
-        if (from == address(0)) {
+
+        if (_lastChanged[transferInfo.from] > transferInfo.submittedBlockNumber ||
+            _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber) {
+            // The account was changed by another CTX.
+            // Decrypted information is outdated.
+            // Resending updated encrypted balances to perform the transfer
+            emit CTXResubmitted(msg.sender);
+            _updateWithGasPayer(transferInfo.from, transferInfo.to, transferInfo.gasPayer, value);
+            return;
+        }
+
+        uint256 fromBalance = 0;
+        uint256 toBalance = 0;
+        if (transferInfo.from == address(0)) {
             // mint
             toBalance = _decodeBalance(decryptedArguments[0]);
-        } else if (to == address(0)) {
+        } else if (transferInfo.to == address(0)) {
             // burn
             fromBalance = _decodeBalance(decryptedArguments[0]);
         } else {
             // transfer
-            if(spender != address(0)) {
+            if(transferInfo.spender != address(0)) {
                 // Allowances not encrypted
-                _spendAllowance(from, spender, value);
+                _spendAllowance(transferInfo.from, transferInfo.spender, value);
             }
             fromBalance = _decodeBalance(decryptedArguments[0]);
             toBalance = _decodeBalance(decryptedArguments[1]);
         }
         _decryptedUpdate({
-            from: from,
-            to: to,
-            gasPayer: gasPayer,
+            from: transferInfo.from,
+            to: transferInfo.to,
             fromBalance: fromBalance,
             toBalance: toBalance,
             value: value
@@ -347,32 +363,18 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @dev Alternative implementation of _update function from ERC20
     /// @param from          Address to transfer tokens from
     /// @param to            Address to transfer tokens to
-    /// @param gasPayer      Address of the account paying for the gas
     /// @param fromBalance   Decrypted balance of the `from` address
     /// @param toBalance     Decrypted balance of the `to` address
     /// @param value         Amount of tokens to be transferred
     function _decryptedUpdate(
         address from,
         address to,
-        address gasPayer,
         uint256 fromBalance,
         uint256 toBalance,
         uint256 value
     )
         internal
     {
-        // block.number is not a constant
-        // so no ability to save some gas here
-        // solhint-disable-next-line gas-strict-inequalities
-        if (_lastChanged[from] >= block.number || _lastChanged[to] >= block.number) {
-            // The account was changed by previous CTX in this block.
-            // Decrypted information is outdated.
-            // Resending updated encrypted balances to perform the transfer
-            emit CTXResubmitted(msg.sender);
-            _updateWithGasPayer(from, to, gasPayer, value);
-            return;
-        }
-
         if (from == to) {
             _setBalance(from, fromBalance);
             _onUpdate(from, to, value);
@@ -456,7 +458,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
         bytes[] memory plaintextArguments = new bytes[](1);
 
-        plaintextArguments[0] = abi.encode(from, to, spender, gasPayer);
+        plaintextArguments[0] = abi.encode(TransferInfo({
+            from: from,
+            to: to,
+            spender: spender,
+            gasPayer: gasPayer,
+            submittedBlockNumber: block.number
+        }));
 
         address payable callback = BITE.submitCTX(
             submitCTXAddress,
