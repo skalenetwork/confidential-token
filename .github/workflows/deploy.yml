@@ -33,7 +33,6 @@ jobs:
           VITE_CHAIN_ID: ${{ vars.VITE_CHAIN_ID }}
           VITE_CHAIN_RPC: ${{ vars.VITE_CHAIN_RPC }}
           VITE_CHAIN_EXPLORER: ${{ vars.VITE_CHAIN_EXPLORER }}
-          VITE_CONFIDENTIAL_TOKEN_ADDRESS: ${{ vars.VITE_CONFIDENTIAL_TOKEN_ADDRESS }}
           VITE_APPKIT_PROJECT_ID: ${{ vars.VITE_APPKIT_PROJECT_ID }}
 
       - uses: actions/configure-pages@v5
