@@ -54,8 +54,6 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         uint256 submittedBlockNumber;
     }
 
-    // TODO: add default addresses for precompiled contracts
-
     /// @notice Specifies number of ETH to be sent to pay for callback execution
     uint256 public callbackFee = 1_000 gwei;
 
