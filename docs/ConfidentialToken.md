@@ -4,6 +4,18 @@
 
 ERC20-like token with encrypted balances
 
+### TransferInfo
+
+```solidity
+struct TransferInfo {
+  address from;
+  address to;
+  address spender;
+  address gasPayer;
+  uint256 submittedBlockNumber;
+}
+```
+
 ### callbackFee
 
 Specifies number of ETH to be sent to pay for callback execution
@@ -564,7 +576,7 @@ function balanceOf(address) public pure virtual returns (uint256)
 Internal function to handle decrypted balance updates
 
 ```solidity
-function _decryptedUpdate(address from, address to, address gasPayer, uint256 fromBalance, uint256 toBalance, uint256 value) internal
+function _decryptedUpdate(address from, address to, uint256 fromBalance, uint256 toBalance, uint256 value) internal
 ```
 
 **dev:** _Alternative implementation of _update function from ERC20_
@@ -575,7 +587,6 @@ function _decryptedUpdate(address from, address to, address gasPayer, uint256 fr
 | ---- | ---- | ----------- |
 | from | address | Address to transfer tokens from |
 | to | address | Address to transfer tokens to |
-| gasPayer | address | Address of the account paying for the gas |
 | fromBalance | uint256 | Decrypted balance of the `from` address |
 | toBalance | uint256 | Decrypted balance of the `to` address |
 | value | uint256 | Amount of tokens to be transferred |
