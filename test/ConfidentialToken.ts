@@ -482,7 +482,6 @@ describe("ConfidentialToken", () => {
         // hacker attempts transferFrom alice to hacker without any allowance
         await token.connect(hacker).transferFrom(alice, hacker, amount);
 
-        // Stop mining so both callbacks are submitted before being included in a block
         await bite.sendCallback();
         await bite.sendCallback()
             .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
