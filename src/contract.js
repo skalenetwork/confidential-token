@@ -37,7 +37,7 @@ export async function fetchSymbol() {
   }
 }
 
-export async function checkFunding(depositInput, fundingWarning) {
+export async function checkFunding(depositInput, fundingWarning, gatedButtons = []) {
   try {
     const { signer, contract } = await getSignerAndContract();
     const address = await signer.getAddress();
@@ -46,8 +46,10 @@ export async function checkFunding(depositInput, fundingWarning) {
       contract.callbackFee(),
     ]);
     cachedCallbackFee = fee;
-    depositInput.value = formatUnits(fee * 2n, 18);
-    fundingWarning.style.display = balance < fee ? 'block' : 'none';
+    depositInput.value = formatUnits(fee * DEPOSIT_MULTIPLIER, 18);
+    const insufficient = balance < fee;
+    fundingWarning.style.display = insufficient ? 'block' : 'none';
+    gatedButtons.forEach(btn => { btn.disabled = insufficient; });
   } catch (e) {
     console.error('checkFunding error:', e);
   }
@@ -59,5 +61,6 @@ export async function getDepositAmount(depositInputValue) {
   }
   const { contract } = await getSignerAndContract();
   const fee = cachedCallbackFee ?? (await contract.callbackFee());
-  return fee * 2n;
+  return fee * DEPOSIT_MULTIPLIER;
+}
 }
