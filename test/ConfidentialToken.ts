@@ -1,11 +1,12 @@
-// cspell:words ECIES
+// cspell:words ECIES automine
 
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { cleanMintableDeployment, withMintedTokens } from "./tools/fixtures";
 import "chai/register-should";
 import { getPublicKey } from "./tools/cryptography";
 import { balanceOf } from "./tools/helpers";
 import { expect } from "chai";
+import { mine } from "@nomicfoundation/hardhat-network-helpers";
 
 
 describe("ConfidentialToken", () => {
@@ -361,5 +362,128 @@ describe("ConfidentialToken", () => {
 
         const decryptedBalance = await balanceOf(token, bite, recipient);
         decryptedBalance.should.be.equal(amount);
+    });
+
+    it("should not allow double spending during BITE execution", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, user1, user2] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+        const viewPublicKey = await getPublicKey(owner);
+
+        await token.connect(owner).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+        await token.deposit(user1, {value: await token.callbackFee()});
+        await token.connect(user1).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+        await token.deposit(user2, {value: await token.callbackFee()});
+        await token.connect(user2).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+
+        const balanceBefore = await balanceOf(token, bite, owner);
+        (await balanceOf(token, bite, user1)).should.be.equal(0n);
+        (await balanceOf(token, bite, user2)).should.be.equal(0n);
+
+        await token.connect(owner).transfer(user1, amount);
+        await token.connect(owner).transfer(user2, amount);
+
+        // 2 callbacks should be run in the one block
+        await network.provider.send("evm_setAutomine", [false]);
+        const gasLimit = 10_000_000;
+        await bite.sendCallback({gasLimit});
+        const secondCTX = await bite.sendCallback({gasLimit});
+        await mine(1);
+        await expect(secondCTX).not.to.be.reverted;
+        await expect(secondCTX)
+            .to.emit(token, "CTXResubmitted");
+        await network.provider.send("evm_setAutomine", [true]);
+
+        // Second callback resubmitted the transfer
+        // New CTX was created
+        await bite.sendCallback();
+
+        const balanceAfter = await balanceOf(token, bite, owner);
+        balanceAfter.should.be.equal(balanceBefore - 2n * amount);
+        (await balanceOf(token, bite, user1)).should.be.equal(amount);
+        (await balanceOf(token, bite, user2)).should.be.equal(amount);
+    });
+
+    it("should not allow double spending when not all CTXs are in the same block", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, user1, user2] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+        const viewPublicKey = await getPublicKey(owner);
+
+        await token.connect(owner).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+        await token.deposit(user1, {value: await token.callbackFee()});
+        await token.connect(user1).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+        await token.deposit(user2, {value: await token.callbackFee()});
+        await token.connect(user2).setViewerPublicKey(
+            viewPublicKey
+        );
+        await bite.sendCallback();
+
+        const balanceBefore = await balanceOf(token, bite, owner);
+        (await balanceOf(token, bite, user1)).should.be.equal(0n);
+        (await balanceOf(token, bite, user2)).should.be.equal(0n);
+
+        await token.connect(owner).transfer(user1, amount);
+        await token.connect(owner).transfer(user2, amount);
+
+        await bite.sendCallback();
+        await expect(bite.sendCallback())
+            .to.emit(token, "CTXResubmitted");
+
+        // Second callback resubmitted the transfer
+        // New CTX was created
+        await bite.sendCallback();
+
+        const balanceAfter = await balanceOf(token, bite, owner);
+        balanceAfter.should.be.equal(balanceBefore - 2n * amount);
+        (await balanceOf(token, bite, user1)).should.be.equal(amount);
+        (await balanceOf(token, bite, user2)).should.be.equal(amount);
+    });
+
+    it("should not allow hacker to transferFrom without allowance", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [alice, bob, hacker] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        await token.connect(alice).setViewerPublicKey(
+            await getPublicKey(alice)
+        );
+        await bite.sendCallback();
+
+        await token.deposit(bob, {value: await token.callbackFee()});
+        await token.connect(bob).setViewerPublicKey(
+            await getPublicKey(bob)
+        );
+        await bite.sendCallback();
+
+        await token.deposit(hacker, {value: (await token.callbackFee()) * 3n});
+        await token.connect(hacker).setViewerPublicKey(
+            await getPublicKey(hacker)
+        );
+        await bite.sendCallback();
+
+        // alice makes a legitimate transfer to bob
+        await token.connect(alice).transfer(bob, amount);
+        // hacker attempts transferFrom alice to hacker without any allowance
+        await token.connect(hacker).transferFrom(alice, hacker, amount);
+
+        await bite.sendCallback();
+        await bite.sendCallback()
+            .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
     });
 });

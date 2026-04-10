@@ -46,7 +46,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     using Math for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    // TODO: add default addresses for precompiled contracts
+    struct TransferInfo {
+        address from;
+        address to;
+        address spender;
+        address gasPayer;
+        uint256 submittedBlockNumber;
+    }
 
     /// @notice Specifies number of ETH to be sent to pay for callback execution
     uint256 public callbackFee = 1_000 gwei;
@@ -77,6 +83,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     mapping(address holder => bytes encryptedBalance) private _userBalances;
 
     mapping(address holder => uint256 eth) private _ethBalance;
+
+    mapping(address holder => uint256 blockNumber) private _lastChanged;
 
     EnumerableSet.AddressSet private _callbackSenders;
 
@@ -125,6 +133,10 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @param newViewer Address of the new viewer
     event ViewerChanged(address indexed holder, address indexed newViewer);
 
+    /// @notice Emitted when a CTX is resubmitted due to outdated decrypted information
+    /// @param callbackSender Address of the CTX sender that triggered the resubmission
+    event CTXResubmitted(address indexed callbackSender);
+
     error AccessViolation();
     error DecryptionBadFormat();
     error InsufficientBalance();
@@ -169,35 +181,45 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
-        (address from, address to, address spender) = abi.decode(
-            plaintextArguments[0],
-            (address, address, address)
-        );
-        _validateDecryptedArguments(decryptedArguments, from, to);
+        TransferInfo memory transferInfo = abi.decode(plaintextArguments[0], (TransferInfo));
 
-        uint256 fromBalance = 0;
-        uint256 toBalance = 0;
+        _validateDecryptedArguments(decryptedArguments, transferInfo.from, transferInfo.to);
+
         uint256 value = 0;
         uint256 valueIndex = decryptedArguments.length - 1;
         value = _decodeBalance(decryptedArguments[valueIndex]);
-        if (from == address(0)) {
+
+        uint256 fromBalance = 0;
+        uint256 toBalance = 0;
+        if (transferInfo.from == address(0)) {
             // mint
             toBalance = _decodeBalance(decryptedArguments[0]);
-        } else if (to == address(0)) {
+        } else if (transferInfo.to == address(0)) {
             // burn
             fromBalance = _decodeBalance(decryptedArguments[0]);
         } else {
             // transfer
-            if(spender != address(0)) {
+            if(transferInfo.spender != address(0)) {
                 // Allowances not encrypted
-                _spendAllowance(from, spender, value);
+                _spendAllowance(transferInfo.from, transferInfo.spender, value);
             }
             fromBalance = _decodeBalance(decryptedArguments[0]);
             toBalance = _decodeBalance(decryptedArguments[1]);
         }
+
+        if (_lastChanged[transferInfo.from] > transferInfo.submittedBlockNumber ||
+            _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber) {
+            // The account was changed by another CTX.
+            // Decrypted information is outdated.
+            // Resending updated encrypted balances to perform the transfer
+            emit CTXResubmitted(msg.sender);
+            _updateWithGasPayer(transferInfo.from, transferInfo.to, transferInfo.gasPayer, value);
+            return;
+        }
+
         _decryptedUpdate({
-            from: from,
-            to: to,
+            from: transferInfo.from,
+            to: transferInfo.to,
             fromBalance: fromBalance,
             toBalance: toBalance,
             value: value
@@ -392,8 +414,18 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @param to    Address to transfer tokens to
     /// @param value Amount of tokens to be transferred
     function _update(address from, address to, uint256 value) internal virtual override {
+        _updateWithGasPayer(from, to, msg.sender, value);
+    }
+
+    function _updateWithGasPayer(address from, address to, address gasPayer, uint256 value) internal {
         bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
-        _encryptedUpdate(from, to, address(0), encryptedValue);
+        _encryptedUpdate({
+            from: from,
+            to: to,
+            spender: address(0),
+            gasPayer: gasPayer,
+            encryptedValue: encryptedValue
+        });
     }
 
     /// @notice Transfers a `encryptedValue` amount of tokens from `from` to `to`
@@ -401,48 +433,37 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @param from  Address to transfer tokens from
     /// @param to    Address to transfer tokens to
     /// @param spender Address of the spender for transferFrom operations
+    /// @param gasPayer Address of the account paying for the gas
     /// @param encryptedValue TE-encrypted amount of tokens to be transferred
-    function _encryptedUpdate(address from, address to, address spender, bytes memory encryptedValue) internal virtual {
+    function _encryptedUpdate(
+        address from,
+        address to,
+        address spender,
+        address gasPayer,
+        bytes memory encryptedValue
+    )
+        internal
+        virtual
+    {
         // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
         // slither-disable-next-line incorrect-equality
         require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 1, ValueWasNotEncryptedCorrectly());
         // callbackFee is not a constant
         // so no ability to save some gas here
         // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[msg.sender] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[msg.sender]));
-        _ethBalance[msg.sender] -= callbackFee;
+        require(_ethBalance[gasPayer] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[gasPayer]));
+        _ethBalance[gasPayer] -= callbackFee;
 
-        bytes memory encryptedFromBalance = bytes("");
-        bytes memory encryptedToBalance = bytes("");
-        uint256 encryptedArgumentsLength = 0;
-        uint256 fromIndex = 0;
-        uint256 toIndex = 0;
-        if (from != address(0)) {
-            encryptedFromBalance = _getEncryptedBalance(from);
-            fromIndex = encryptedArgumentsLength;
-            ++encryptedArgumentsLength;
-        }
-        if (to != address(0)) {
-            encryptedToBalance = _getEncryptedBalance(to);
-            toIndex = encryptedArgumentsLength;
-            ++encryptedArgumentsLength;
-        }
-        uint256 valueIndex = encryptedArgumentsLength;
-        ++encryptedArgumentsLength;
-
-        bytes[] memory encryptedArguments = new bytes[](encryptedArgumentsLength);
-        if (from != address(0)) {
-            encryptedArguments[fromIndex] = encryptedFromBalance;
-        }
-        if (to != address(0)) {
-            encryptedArguments[toIndex] = encryptedToBalance;
-        }
-        encryptedArguments[valueIndex] = encryptedValue;
-
+        bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
         bytes[] memory plaintextArguments = new bytes[](1);
 
-        // msg.sender will be ignored in callback if transferFrom is false
-        plaintextArguments[0] = abi.encode(from, to, spender);
+        plaintextArguments[0] = abi.encode(TransferInfo({
+            from: from,
+            to: to,
+            spender: spender,
+            gasPayer: gasPayer,
+            submittedBlockNumber: block.number
+        }));
 
         address payable callback = BITE.submitCTX(
             submitCTXAddress,
@@ -473,7 +494,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
-        _encryptedUpdate(from, to, msg.sender, value);
+        _encryptedUpdate({
+            from: from,
+            to: to,
+            spender: msg.sender,
+            gasPayer: msg.sender,
+            encryptedValue: value
+        });
     }
 
     /// @notice Transfers a `encryptedValue` amount of tokens from `from` to `to`
@@ -487,13 +514,20 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
-        _encryptedUpdate(from, to, address(0), value);
+        _encryptedUpdate({
+            from: from,
+            to: to,
+            spender: address(0),
+            gasPayer: msg.sender,
+            encryptedValue: value
+        });
     }
 
     // Private functions
 
     function _setBalance(address holder, uint256 balance) private {
         _thresholdBalances[holder] = BITE.encryptTE(encryptTEAddress, abi.encodePacked(balance));
+        _lastChanged[holder] = block.number;
         if (_viewerIsRegistered(holder)) {
             PublicKey memory viewerPublicKey = _getViewKey(holder);
             _userBalances[holder] = BITE.encryptECIES(
@@ -502,6 +536,43 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
                 viewerPublicKey
             );
         }
+    }
+
+    function _encryptArguments(
+        address from,
+        address to,
+        bytes memory encryptedValue
+    )
+        private
+        view
+        returns (bytes[] memory encryptedArguments)
+    {
+        bytes memory encryptedFromBalance = bytes("");
+        bytes memory encryptedToBalance = bytes("");
+        uint256 encryptedArgumentsLength = 0;
+        uint256 fromIndex = 0;
+        uint256 toIndex = 0;
+        if (from != address(0)) {
+            encryptedFromBalance = _getEncryptedBalance(from);
+            fromIndex = encryptedArgumentsLength;
+            ++encryptedArgumentsLength;
+        }
+        if (to != address(0)) {
+            encryptedToBalance = _getEncryptedBalance(to);
+            toIndex = encryptedArgumentsLength;
+            ++encryptedArgumentsLength;
+        }
+        uint256 valueIndex = encryptedArgumentsLength;
+        ++encryptedArgumentsLength;
+
+        encryptedArguments = new bytes[](encryptedArgumentsLength);
+        if (from != address(0)) {
+            encryptedArguments[fromIndex] = encryptedFromBalance;
+        }
+        if (to != address(0)) {
+            encryptedArguments[toIndex] = encryptedToBalance;
+        }
+        encryptedArguments[valueIndex] = encryptedValue;
     }
 
     function _getEncryptedBalance(address holder) private view returns (bytes memory encryptedBalance) {

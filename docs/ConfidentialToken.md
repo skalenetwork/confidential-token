@@ -4,6 +4,18 @@
 
 ERC20-like token with encrypted balances
 
+### TransferInfo
+
+```solidity
+struct TransferInfo {
+  address from;
+  address to;
+  address spender;
+  address gasPayer;
+  uint256 submittedBlockNumber;
+}
+```
+
 ### callbackFee
 
 Specifies number of ETH to be sent to pay for callback execution
@@ -192,6 +204,20 @@ event ViewerChanged(address holder, address newViewer)
 | ---- | ---- | ----------- |
 | holder | address | Address of the holder whose viewer is changed |
 | newViewer | address | Address of the new viewer |
+
+### CTXResubmitted
+
+Emitted when a CTX is resubmitted due to outdated decrypted information
+
+```solidity
+event CTXResubmitted(address callbackSender)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| callbackSender | address | Address of the CTX sender that triggered the resubmission |
 
 ### AccessViolation
 
@@ -588,13 +614,19 @@ function _update(address from, address to, uint256 value) internal virtual
 | to | address | Address to transfer tokens to |
 | value | uint256 | Amount of tokens to be transferred |
 
+### _updateWithGasPayer
+
+```solidity
+function _updateWithGasPayer(address from, address to, address gasPayer, uint256 value) internal
+```
+
 ### _encryptedUpdate
 
 Transfers a `encryptedValue` amount of tokens from `from` to `to`
 or alternatively mints (or burns) if `from` (or `to`) is the zero address.
 
 ```solidity
-function _encryptedUpdate(address from, address to, address spender, bytes encryptedValue) internal virtual
+function _encryptedUpdate(address from, address to, address spender, address gasPayer, bytes encryptedValue) internal virtual
 ```
 
 #### Parameters
@@ -604,6 +636,7 @@ function _encryptedUpdate(address from, address to, address spender, bytes encry
 | from | address | Address to transfer tokens from |
 | to | address | Address to transfer tokens to |
 | spender | address | Address of the spender for transferFrom operations |
+| gasPayer | address | Address of the account paying for the gas |
 | encryptedValue | bytes | TE-encrypted amount of tokens to be transferred |
 
 ### _transferFrom
