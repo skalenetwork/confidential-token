@@ -1,5 +1,16 @@
-import { BrowserProvider, Contract, formatUnits, parseUnits } from 'ethers';
-import { CONFIDENTIAL_TOKEN_ADDRESS, CONTRACT_ABI } from './config.js';
+import { BrowserProvider, Contract, MaxUint256, formatUnits, parseUnits } from 'ethers';
+import ConfidentialWrapperArtifact from '../artifacts/ConfidentialWrapper.json';
+import { getOriginTokenAddress } from './deployWrapper.js';
+
+const ERC20_APPROVE_ABI = [
+  'function approve(address spender, uint256 value) returns (bool)',
+];
+
+const DEPOSIT_MULTIPLIER = 10n;
+
+export function getActiveContractAddress() {
+  return sessionStorage.getItem('confidential_wrapper_address');
+}
 
 export async function getSignerAndContract() {
   const provider = window.ethereum;
