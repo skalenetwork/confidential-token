@@ -25,7 +25,7 @@ let cachedCallbackFee = null;
 let cachedSymbol = null;
 
 export function getCachedSymbol() {
-  return cachedSymbol ?? 'CTK';
+  return cachedSymbol ?? 'CNF';
 }
 
 export async function fetchSymbol() {
@@ -33,7 +33,7 @@ export async function fetchSymbol() {
     const { contract } = await getSignerAndContract();
     cachedSymbol = await contract.symbol();
   } catch (_) {
-    cachedSymbol = 'CTK';
+    cachedSymbol = 'CNF';
   }
 }
 
