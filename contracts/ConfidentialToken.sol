@@ -189,16 +189,6 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         uint256 valueIndex = decryptedArguments.length - 1;
         value = _decodeBalance(decryptedArguments[valueIndex]);
 
-        if (_lastChanged[transferInfo.from] > transferInfo.submittedBlockNumber ||
-            _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber) {
-            // The account was changed by another CTX.
-            // Decrypted information is outdated.
-            // Resending updated encrypted balances to perform the transfer
-            emit CTXResubmitted(msg.sender);
-            _updateWithGasPayer(transferInfo.from, transferInfo.to, transferInfo.gasPayer, value);
-            return;
-        }
-
         uint256 fromBalance = 0;
         uint256 toBalance = 0;
         if (transferInfo.from == address(0)) {
@@ -216,6 +206,17 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
             fromBalance = _decodeBalance(decryptedArguments[0]);
             toBalance = _decodeBalance(decryptedArguments[1]);
         }
+
+        if (_lastChanged[transferInfo.from] > transferInfo.submittedBlockNumber ||
+            _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber) {
+            // The account was changed by another CTX.
+            // Decrypted information is outdated.
+            // Resending updated encrypted balances to perform the transfer
+            emit CTXResubmitted(msg.sender);
+            _updateWithGasPayer(transferInfo.from, transferInfo.to, transferInfo.gasPayer, value);
+            return;
+        }
+
         _decryptedUpdate({
             from: transferInfo.from,
             to: transferInfo.to,

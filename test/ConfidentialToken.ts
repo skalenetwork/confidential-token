@@ -454,4 +454,37 @@ describe("ConfidentialToken", () => {
         (await balanceOf(token, bite, user1)).should.be.equal(amount);
         (await balanceOf(token, bite, user2)).should.be.equal(amount);
     });
+
+    it("should not allow hacker to transferFrom without allowance", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [alice, bob, hacker] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        await token.connect(alice).setViewerPublicKey(
+            await getPublicKey(alice)
+        );
+        await bite.sendCallback();
+
+        await token.deposit(bob, {value: await token.callbackFee()});
+        await token.connect(bob).setViewerPublicKey(
+            await getPublicKey(bob)
+        );
+        await bite.sendCallback();
+
+        await token.deposit(hacker, {value: (await token.callbackFee()) * 3n});
+        await token.connect(hacker).setViewerPublicKey(
+            await getPublicKey(hacker)
+        );
+        await bite.sendCallback();
+
+        // alice makes a legitimate transfer to bob
+        await token.connect(alice).transfer(bob, amount);
+        // hacker attempts transferFrom alice to hacker without any allowance
+        await token.connect(hacker).transferFrom(alice, hacker, amount);
+
+        // Stop mining so both callbacks are submitted before being included in a block
+        await bite.sendCallback();
+        await bite.sendCallback()
+            .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+    });
 });
