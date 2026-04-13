@@ -134,11 +134,9 @@ library HistoricView {
         uint256 transferId
     )
         internal
-        returns (bool removed)
     {
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
-        removed = auth.transferIds.remove(transferId);
-        if (removed) {
+        if (auth.transferIds.remove(transferId)) {
             emit HistoricViewTransferIdRevoked(holder, viewer, transferId);
         }
     }
@@ -165,11 +163,9 @@ library HistoricView {
         uint256 transferId
     )
         internal
-        returns (bool added)
     {
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
-        added = auth.transferIds.add(transferId);
-        if (added) {
+        if (auth.transferIds.add(transferId)) {
             emit HistoricViewTransferIdAuthorized(holder, viewer, transferId);
         }
     }

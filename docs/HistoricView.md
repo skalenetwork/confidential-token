@@ -136,7 +136,7 @@ function revokeAll(struct HistoricView.AuthStorage authStorage, address holder, 
 ### revokeTransferId
 
 ```solidity
-function revokeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal returns (bool removed)
+function revokeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal
 ```
 
 ### authorizeTimeRange
@@ -148,6 +148,6 @@ function authorizeTimeRange(struct HistoricView.AuthStorage authStorage, address
 ### authorizeTransferId
 
 ```solidity
-function authorizeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal returns (bool added)
+function authorizeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal
 ```
 

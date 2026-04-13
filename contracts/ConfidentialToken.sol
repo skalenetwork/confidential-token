@@ -242,7 +242,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         returns (bool success)
     {
         require(transferId < _transferId, InvalidTransferId(transferId));
-        return _historicViewAuth.revokeTransferId(msg.sender, viewer, transferId);
+        _historicViewAuth.revokeTransferId(msg.sender, viewer, transferId);
+        return true;
     }
 
     /// @inheritdoc IConfidentialToken
@@ -271,7 +272,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         returns (bool success)
     {
         require(transferId < _transferId, InvalidTransferId(transferId));
-        return _historicViewAuth.authorizeTransferId(msg.sender, viewer, transferId);
+        _historicViewAuth.authorizeTransferId(msg.sender, viewer, transferId);
+        return true;
     }
 
     /// @inheritdoc IConfidentialToken
