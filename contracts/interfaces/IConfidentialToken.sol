@@ -4,6 +4,7 @@
  *   IConfidentialToken.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Dmytro Stebaiev
+ *   @author Eduardo Vasques
  *
  *   confidential-token is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU Affero General Public License as published
@@ -29,6 +30,7 @@ import { IBiteSupplicant } from "@skalenetwork/bite-solidity/interfaces/IBiteSup
 
 /// @title IConfidentialToken
 /// @author Dmytro Stebaiev
+/// @author Eduardo Vasques
 /// @notice Interface of the ConfidentialToken contract
 interface IConfidentialToken is IBiteSupplicant {
 

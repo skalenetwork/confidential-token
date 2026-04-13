@@ -4,6 +4,7 @@
  *   ConfidentialToken.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Dmytro Stebaiev
+ *   @author Eduardo Vasques
  *
  *   confidential-token is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU Affero General Public License as published
@@ -38,6 +39,7 @@ import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialT
 
 /// @title ConfidentialToken
 /// @author Dmytro Stebaiev
+/// @author Eduardo Vasques
 /// @notice ERC20-like token with encrypted balances
 contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, IConfidentialToken {
     using Address for address;
@@ -108,7 +110,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     // Errors - Internally relevant
     error AccessViolation();
     error ValueWasNotEncryptedCorrectly();
-    error ActionNotReccognized();
+    error ActionNotRecognized();
 
     /// @notice Modifier to check if the user is registered
     /// @param user The address of the user to check
@@ -165,7 +167,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         } else if (action == OnDecryptAction.TRANSFER) {
             _handleTransferRequest(decryptedArguments, plaintextArguments);
         } else {
-            revert ActionNotReccognized();
+            revert ActionNotRecognized();
         }
     }
 

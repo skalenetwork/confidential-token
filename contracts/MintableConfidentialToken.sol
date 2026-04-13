@@ -27,6 +27,7 @@ import { IMintableERC20 } from "./interfaces/IMintableERC20.sol";
 
 /// @title MintableConfidentialToken
 /// @author Dmytro Stebaiev
+/// @author Eduardo Vasques
 /// @notice ConfidentialToken with minting functionality
 contract MintableConfidentialToken is ConfidentialToken, IMintableERC20 {
     /// @notice Constructor of the MintableConfidentialToken contract

@@ -95,10 +95,10 @@ error AccessViolation()
 error ValueWasNotEncryptedCorrectly()
 ```
 
-### ActionNotReccognized
+### ActionNotRecognized
 
 ```solidity
-error ActionNotReccognized()
+error ActionNotRecognized()
 ```
 
 ### onlyRegisteredUser
