@@ -21,7 +21,7 @@
 
 // cspell:words ECIES
 
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { AccessManaged } from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -30,10 +30,9 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { BITE, PublicKey } from "@skalenetwork/bite-solidity/BITE.sol";
-
 import { ConfidentialEIP3009 } from "./eip3009/ConfidentialEIP3009.sol";
-
-import { ZeroAddress } from "./errors.sol";
+import { DecryptionBadFormat, ZeroAddress } from "./errors.sol";
+import { HistoricView } from "./HistoricView.sol";
 import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 
 
@@ -46,6 +45,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     using Math for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
+    using HistoricView for HistoricView.AuthStorage;
+
+
+    enum OnDecryptAction {
+        TRANSFER,
+        HISTORIC_VIEW
+    }
 
     struct TransferInfo {
         address from;
@@ -78,7 +84,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     string public version;
 
     /// @notice Mapping of holder addresses to their authorized viewers' settings to decrypt historic transfers
-    mapping(address holder => mapping(address viewer => HistoricViewAuth settings)) private _historicViewAuth;
+    HistoricView.AuthStorage private _historicViewAuth;
 
     /// @notice Encrypted with BITE Threshold Key (T_Key) - Used for contract logic
     mapping(address holder => bytes encryptedBalance) private _thresholdBalances;
@@ -101,8 +107,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     // Errors - Internally relevant
     error AccessViolation();
-    error DecryptionBadFormat();
     error ValueWasNotEncryptedCorrectly();
+    error ActionNotReccognized();
 
     /// @notice Modifier to check if the user is registered
     /// @param user The address of the user to check
@@ -145,12 +151,22 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
+        OnDecryptAction action = OnDecryptAction(uint8(bytes1(plaintextArguments[0])));
+        if(action == OnDecryptAction.HISTORIC_VIEW) {
+            address sender = address(bytes20(plaintextArguments[1]));
+            require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
 
-        if(decryptedArguments.length == 1 && plaintextArguments.length == 1) {
-            _handleRequestDecryptHistoricTransfer(decryptedArguments[0], plaintextArguments[0]);
-            return;
+            _historicViewAuth.handleDecrypt({
+                sender: sender,
+                senderPublicKey: publicKeys[sender],
+                encryptECIESAddress: encryptECIESAddress,
+                decryptedTransferData: decryptedArguments[0]
+            });
+        } else if (action == OnDecryptAction.TRANSFER) {
+            _handleTransferRequest(decryptedArguments, plaintextArguments);
+        } else {
+            revert ActionNotReccognized();
         }
-        _handleTransferRequest(decryptedArguments, plaintextArguments);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -185,8 +201,9 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] memory encryptedArguments = new bytes[](1);
         encryptedArguments[0] = encryptedTransferData;
 
-        bytes[] memory plaintextArguments = new bytes[](1);
-        plaintextArguments[0] = abi.encode(msg.sender);
+        bytes[] memory plaintextArguments = new bytes[](2);
+        plaintextArguments[0] = abi.encodePacked(uint8(OnDecryptAction.HISTORIC_VIEW));
+        plaintextArguments[1] = abi.encodePacked(msg.sender);
 
         address payable callback = BITE.submitCTX(
             submitCTXAddress,
@@ -208,11 +225,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         onlyRegisteredUser(viewer)
         returns (bool success)
     {
-        HistoricViewAuth storage auth = _historicViewAuth[msg.sender][viewer];
-        auth.fromTimestamp = type(uint256).max;
-        auth.toTimestamp = type(uint256).max;
-        auth.transferIds.clear();
-        emit HistoricViewPermissionsRevoked(msg.sender, viewer);
+        _historicViewAuth.revokeAll(msg.sender, viewer);
         return true;
     }
 
@@ -227,11 +240,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         returns (bool success)
     {
         require(transferId < _transferId, InvalidTransferId(transferId));
-        HistoricViewAuth storage auth = _historicViewAuth[msg.sender][viewer];
-        if(auth.transferIds.remove(transferId)) {
-            emit HistoricViewTransferIdRevoked(msg.sender, viewer, transferId);
-        }
-        return true;
+        return _historicViewAuth.revokeTransferId(msg.sender, viewer, transferId);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -245,10 +254,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         onlyRegisteredUser(viewer)
         returns (bool success)
     {
-        HistoricViewAuth storage auth = _historicViewAuth[msg.sender][viewer];
-        auth.fromTimestamp = fromTimestamp;
-        auth.toTimestamp = toTimestamp;
-        emit HistoricViewTimeRangeAuthorized(msg.sender, viewer, fromTimestamp, toTimestamp);
+        _historicViewAuth.authorizeTimeRange(msg.sender, viewer, fromTimestamp, toTimestamp);
         return true;
     }
 
@@ -263,13 +269,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         returns (bool success)
     {
         require(transferId < _transferId, InvalidTransferId(transferId));
-        HistoricViewAuth storage auth = _historicViewAuth[msg.sender][viewer];
-
-        // Irrelevant to revert if already authorized
-        if(auth.transferIds.add(transferId)) {
-            emit HistoricViewTransferIdAuthorized(msg.sender, viewer, transferId);
-        }
-        return true;
+        return _historicViewAuth.authorizeTransferId(msg.sender, viewer, transferId);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -389,74 +389,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     // Internal functions
 
-    function _handleRequestDecryptHistoricTransfer(
-        bytes calldata decryptedTransferData,
-        bytes calldata encodedSender
-    )
-        internal
-    {
-        require(encodedSender.length == 32, DecryptionBadFormat());
-        require(decryptedTransferData.length == 160, DecryptionBadFormat());
-        // Account who requested the decryption
-        address sender = abi.decode(encodedSender, (address));
-        require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
-
-        TransferData memory transferData = abi.decode(decryptedTransferData, (TransferData));
-
-        // Ensure authorized
-        address from = transferData.from;
-        address to = transferData.to;
-        if (sender == from) {
-            _emitReEncryptedTransferEvent(transferData, sender);
-            return;
-        }
-        if (sender == to) {
-            _emitReEncryptedTransferEvent(transferData, sender);
-            return;
-        }
-        HistoricViewAuth storage fromAuth = _historicViewAuth[from][sender];
-        bool isAuthorizedByFromTimestamp = fromAuth.fromTimestamp < transferData.timestamp &&
-            fromAuth.toTimestamp > transferData.timestamp;
-
-        if(isAuthorizedByFromTimestamp){
-            _emitReEncryptedTransferEvent(transferData, sender);
-            return;
-        }
-        HistoricViewAuth storage toAuth = _historicViewAuth[to][sender];
-        bool isAuthorizedByToTimestamp = toAuth.fromTimestamp < transferData.timestamp &&
-            toAuth.toTimestamp > transferData.timestamp;
-
-        if(isAuthorizedByToTimestamp){
-            _emitReEncryptedTransferEvent(transferData, sender);
-            return;
-        }
-        uint256 transferId = transferData.transferId;
-        bool isAuthorizedByTransferId = fromAuth.transferIds.contains(transferId) ||
-            toAuth.transferIds.contains(transferId);
-
-        if(isAuthorizedByTransferId) {
-            _emitReEncryptedTransferEvent(transferData, sender);
-            return;
-        }
-
-        revert UserIsNotAuthorizedToDecryptTransfer(sender, transferId);
-    }
-
-    function _emitReEncryptedTransferEvent(TransferData memory transferData, address sender) internal {
-        emit ReEncryptedTransfer(
-            sender,
-            transferData.from,
-            transferData.to,
-            BITE.encryptECIES(
-                encryptECIESAddress,
-                abi.encodePacked(transferData.value),
-                publicKeys[sender]
-            )
-        );
-    }
-
     function _handleTransferRequest(bytes[] calldata decryptedArguments, bytes[] calldata plaintextArguments) internal {
-        TransferInfo memory transferInfo = abi.decode(plaintextArguments[0], (TransferInfo));
+        TransferInfo memory transferInfo = abi.decode(plaintextArguments[1], (TransferInfo));
 
         _validateDecryptedArguments(decryptedArguments, transferInfo.from, transferInfo.to);
 
@@ -557,7 +491,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
         // Time is required to be used by decryption authorization logic
         // It does not control any critical structural logic like balance or allowance updates
-        bytes memory encodedTransfer = abi.encode(TransferData({
+        bytes memory encodedTransfer = abi.encode(HistoricView.TransferData({
             from: from,
             to: to,
             value: value,
@@ -570,7 +504,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         unchecked{++_transferId;}
 
         // Emit event with ECIES-encrypted value readable by the recipient
-        if(to != from && _knownPublicKey(to)) {
+        if(from != to && _knownPublicKey(to)) {
             emit TransferValueEncryptedForRecipient(
                 from,
                 to,
@@ -626,9 +560,10 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         _ethBalance[gasPayer] -= callbackFee;
 
         bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
-        bytes[] memory plaintextArguments = new bytes[](1);
+        bytes[] memory plaintextArguments = new bytes[](2);
+        plaintextArguments[0] = abi.encodePacked(uint8(OnDecryptAction.TRANSFER));
 
-        plaintextArguments[0] = abi.encode(TransferInfo({
+        plaintextArguments[1] = abi.encode(TransferInfo({
             from: from,
             to: to,
             spender: spender,

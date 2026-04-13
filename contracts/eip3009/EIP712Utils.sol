@@ -30,7 +30,7 @@
 // /licenses/LICENSE_COINBASE
 // ----------------------------------------------------------------------------
 
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";

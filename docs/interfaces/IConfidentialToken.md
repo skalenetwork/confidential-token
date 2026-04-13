@@ -4,32 +4,6 @@
 
 Interface of the ConfidentialToken contract
 
-### TransferData
-
-Canonical payload schema for encrypted transfer metadata
-
-```solidity
-struct TransferData {
-  address from;
-  address to;
-  uint256 value;
-  uint256 timestamp;
-  uint256 transferId;
-}
-```
-
-### HistoricViewAuth
-
-Struct to store authorized viewers settings to decrypt historic transfers
-
-```solidity
-struct HistoricViewAuth {
-  uint256 fromTimestamp;
-  uint256 toTimestamp;
-  struct EnumerableSet.UintSet transferIds;
-}
-```
-
 ### CallbackFeeChanged
 
 Emitted when callback fee is changed
@@ -43,6 +17,20 @@ event CallbackFeeChanged(uint256 newFee)
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | newFee | uint256 | New callback fee |
+
+### CTXResubmitted
+
+Emitted when a CTX is resubmitted due to outdated decrypted information
+
+```solidity
+event CTXResubmitted(address callbackSender)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| callbackSender | address | Address of the CTX sender that triggered the resubmission |
 
 ### EthBalanceToppedUp
 
@@ -149,23 +137,6 @@ event EncryptedTransfer(uint256 transferId, address from, address to, bytes encr
 | to | address | Address of the recipient |
 | encryptedData | bytes | TE-Encrypted data of the transfer |
 
-### ReEncryptedTransfer
-
-Emitted when a transfer event is decrypted for a viewer
-
-```solidity
-event ReEncryptedTransfer(address viewer, address from, address to, bytes encryptedValue)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| viewer | address | The account who paid and had rights for the decryption of the transfer event |
-| from | address | Address of the sender |
-| to | address | Address of the recipient |
-| encryptedValue | bytes | ECIES-Encrypted value of the transferred tokens |
-
 ### TransferValueEncryptedForRecipient
 
 Emitted during a transfer when the recipient has a registered public key
@@ -183,70 +154,6 @@ event TransferValueEncryptedForRecipient(address from, address to, bytes encrypt
 | from | address | Address of the sender |
 | to | address | Address of the recipient — also the holder of the decryption key |
 | encryptedValue | bytes | ECIES-Encrypted transfer value for `to` Public Key |
-
-### HistoricViewTimeRangeAuthorized
-
-Emitted when a holder grants a viewer access to transfers within a time range
-
-```solidity
-event HistoricViewTimeRangeAuthorized(address holder, address viewer, uint256 fromTimestamp, uint256 toTimestamp)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| holder | address | Address of the holder granting access |
-| viewer | address | Address of the viewer receiving access |
-| fromTimestamp | uint256 | Non-inclusive lower bound of the authorized time range |
-| toTimestamp | uint256 | Non-inclusive upper bound of the authorized time range |
-
-### HistoricViewTransferIdAuthorized
-
-Emitted when a holder grants a viewer access to a specific transfer
-
-```solidity
-event HistoricViewTransferIdAuthorized(address holder, address viewer, uint256 transferId)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| holder | address | Address of the holder granting access |
-| viewer | address | Address of the viewer receiving access |
-| transferId | uint256 | ID of the transfer being authorized |
-
-### HistoricViewPermissionsRevoked
-
-Emitted when a holder revokes all historic view permissions for a viewer
-
-```solidity
-event HistoricViewPermissionsRevoked(address holder, address viewer)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| holder | address | Address of the holder revoking access |
-| viewer | address | Address of the viewer whose permissions are revoked |
-
-### HistoricViewTransferIdRevoked
-
-Emitted when a holder revokes a viewer's access to a specific transfer
-
-```solidity
-event HistoricViewTransferIdRevoked(address holder, address viewer, uint256 transferId)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| holder | address | Address of the holder revoking access |
-| viewer | address | Address of the viewer losing access |
-| transferId | uint256 | ID of the transfer being revoked |
 
 ### PublicKeyRegistered
 
@@ -311,12 +218,6 @@ error NoViewerRegisteredForHolder(address holder)
 
 ```solidity
 error PublicKeyIsNotRegistered(address viewer)
-```
-
-### UserIsNotAuthorizedToDecryptTransfer
-
-```solidity
-error UserIsNotAuthorizedToDecryptTransfer(address user, uint256 transferId)
 ```
 
 ### ValueIsEncrypted

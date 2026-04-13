@@ -21,9 +21,8 @@
 
 // cspell:words ECIES
 
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { PublicKey } from "@skalenetwork/bite-solidity/BITE.sol";
 import { IBiteSupplicant } from "@skalenetwork/bite-solidity/interfaces/IBiteSupplicant.sol";
 
@@ -32,22 +31,6 @@ import { IBiteSupplicant } from "@skalenetwork/bite-solidity/interfaces/IBiteSup
 /// @author Dmytro Stebaiev
 /// @notice Interface of the ConfidentialToken contract
 interface IConfidentialToken is IBiteSupplicant {
-
-    /// @notice Canonical payload schema for encrypted transfer metadata
-    struct TransferData {
-        address from;
-        address to;
-        uint256 value;
-        uint256 timestamp;
-        uint256 transferId;
-    }
-
-    /// @notice Struct to store authorized viewers settings to decrypt historic transfers
-    struct HistoricViewAuth {
-        uint256 fromTimestamp;
-        uint256 toTimestamp;
-        EnumerableSet.UintSet transferIds;
-    }
 
     /// @notice Emitted when callback fee is changed
     /// @param newFee New callback fee
@@ -92,52 +75,12 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param encryptedData TE-Encrypted data of the transfer
     event EncryptedTransfer(uint256 indexed transferId, address indexed from, address indexed to, bytes encryptedData);
 
-    /// @notice Emitted when a transfer event is decrypted for a viewer
-    /// @param viewer The account who paid and had rights for the decryption of the transfer event
-    /// @param from Address of the sender
-    /// @param to Address of the recipient
-    /// @param encryptedValue ECIES-Encrypted value of the transferred tokens
-    event ReEncryptedTransfer(address indexed viewer, address indexed from, address indexed to, bytes encryptedValue);
-
     /// @notice Emitted during a transfer when the recipient has a registered public key
     /// @dev Emitted automatically at transfer time — no explicit request or fee required
     /// @param from Address of the sender
     /// @param to Address of the recipient — also the holder of the decryption key
     /// @param encryptedValue ECIES-Encrypted transfer value for `to` Public Key
     event TransferValueEncryptedForRecipient(address indexed from, address indexed to, bytes encryptedValue);
-
-    // Irrelevant to index any of the next parameters here
-    // solhint-disable gas-indexed-events
-    /// @notice Emitted when a holder grants a viewer access to transfers within a time range
-    /// @param holder Address of the holder granting access
-    /// @param viewer Address of the viewer receiving access
-    /// @param fromTimestamp Non-inclusive lower bound of the authorized time range
-    /// @param toTimestamp Non-inclusive upper bound of the authorized time range
-    event HistoricViewTimeRangeAuthorized(
-        address indexed holder,
-        address indexed viewer,
-        uint256 fromTimestamp,
-        uint256 toTimestamp
-    );
-    // solhint-enable gas-indexed-events
-
-
-    /// @notice Emitted when a holder grants a viewer access to a specific transfer
-    /// @param holder Address of the holder granting access
-    /// @param viewer Address of the viewer receiving access
-    /// @param transferId ID of the transfer being authorized
-    event HistoricViewTransferIdAuthorized(address indexed holder, address indexed viewer, uint256 indexed transferId);
-
-    /// @notice Emitted when a holder revokes all historic view permissions for a viewer
-    /// @param holder Address of the holder revoking access
-    /// @param viewer Address of the viewer whose permissions are revoked
-    event HistoricViewPermissionsRevoked(address indexed holder, address indexed viewer);
-
-    /// @notice Emitted when a holder revokes a viewer's access to a specific transfer
-    /// @param holder Address of the holder revoking access
-    /// @param viewer Address of the viewer losing access
-    /// @param transferId ID of the transfer being revoked
-    event HistoricViewTransferIdRevoked(address indexed holder, address indexed viewer, uint256 indexed transferId);
 
     /// @notice Emitted when a public key is registered for a viewer address
     /// @param viewer Address of the viewer whose public key is registered
@@ -155,7 +98,6 @@ interface IConfidentialToken is IBiteSupplicant {
     error InvalidTransferId(uint256 transferId);
     error NoViewerRegisteredForHolder(address holder);
     error PublicKeyIsNotRegistered(address viewer);
-    error UserIsNotAuthorizedToDecryptTransfer(address user, uint256 transferId);
     error ValueIsEncrypted();
 
     /// @notice Allows the contract to receive ETH to pay for callback execution

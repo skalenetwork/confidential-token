@@ -19,7 +19,7 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { IConfidentialToken } from "./IConfidentialToken.sol";
 

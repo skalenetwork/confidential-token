@@ -25,7 +25,7 @@
 
 // cspell:words typehash
 
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import { EIP3009, EIP712Utils } from "./EIP3009.sol";
 

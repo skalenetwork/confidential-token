@@ -4,6 +4,15 @@
 
 ERC20-like token with encrypted balances
 
+### OnDecryptAction
+
+```solidity
+enum OnDecryptAction {
+  TRANSFER,
+  HISTORIC_VIEW
+}
+```
+
 ### TransferInfo
 
 ```solidity
@@ -80,16 +89,16 @@ string version
 error AccessViolation()
 ```
 
-### DecryptionBadFormat
-
-```solidity
-error DecryptionBadFormat()
-```
-
 ### ValueWasNotEncryptedCorrectly
 
 ```solidity
 error ValueWasNotEncryptedCorrectly()
+```
+
+### ActionNotReccognized
+
+```solidity
+error ActionNotReccognized()
 ```
 
 ### onlyRegisteredUser
@@ -506,18 +515,6 @@ function balanceOf(address) public pure virtual returns (uint256)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
-
-### _handleRequestDecryptHistoricTransfer
-
-```solidity
-function _handleRequestDecryptHistoricTransfer(bytes decryptedTransferData, bytes encodedSender) internal
-```
-
-### _emitReEncryptedTransferEvent
-
-```solidity
-function _emitReEncryptedTransferEvent(struct IConfidentialToken.TransferData transferData, address sender) internal
-```
 
 ### _handleTransferRequest
 
