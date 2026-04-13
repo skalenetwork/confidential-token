@@ -2,7 +2,7 @@
 
 
 /**
- *   ConfidentialWrapper.sol - confidential-token
+ *   HistoricView.sol - confidential-token
  *   Copyright (C) 2026-Present SKALE Labs
  *   @author Eduardo Vasques
  *
