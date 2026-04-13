@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.27;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { BITE, PublicKey } from "@skalenetwork/bite-solidity/BITE.sol";

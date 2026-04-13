@@ -19,7 +19,7 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.27;
 
 // It's used in the deploy script
 // solhint-disable-next-line no-unused-import

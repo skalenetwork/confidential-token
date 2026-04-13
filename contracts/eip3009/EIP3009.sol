@@ -32,7 +32,7 @@
 
 // cspell:words typehash
 
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.27;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";

@@ -19,7 +19,7 @@
     along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.27;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";
