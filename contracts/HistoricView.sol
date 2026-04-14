@@ -165,6 +165,10 @@ library HistoricView {
         }
 
         HistoricViewAuth storage fromAuth = authStorage.data[from][sender];
+
+        // Keep inclusive lower bound and exclusive upper bound for auth window.
+        // Using strict inequalities only would change semantics.
+        // solhint-disable gas-strict-inequalities
         if (fromAuth.fromTimestamp <= transferData.timestamp && fromAuth.toTimestamp > transferData.timestamp) {
             return true;
         }
@@ -173,6 +177,7 @@ library HistoricView {
         if (toAuth.fromTimestamp <= transferData.timestamp && toAuth.toTimestamp > transferData.timestamp) {
             return true;
         }
+        // solhint-enable gas-strict-inequalities
 
         return
             fromAuth.transferIds.contains(transferData.transferId) ||
