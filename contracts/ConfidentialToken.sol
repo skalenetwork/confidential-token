@@ -524,9 +524,6 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         });
         // Emit event with TE-encrypted transfer metadata
         emit EncryptedTransfer(_transferId, from, to, BITE.encryptTE(encryptTEAddress, encodedTransfer));
-
-        unchecked{++_transferId;}
-
         // Emit event with ECIES-encrypted value readable by the recipient
         if(from != to && _knownPublicKey(to)) {
             emit TransferValueEncryptedForRecipient(
@@ -536,6 +533,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
                 BITE.encryptECIES(encryptECIESAddress, abi.encodePacked(value), publicKeys[to])
             );
         }
+        unchecked{++_transferId;}
     }
 
     /// @notice Transfers a `value` amount of tokens from `from` to `to`
