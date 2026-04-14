@@ -118,6 +118,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     error PublicKeyIsNotRegistered(address viewer);
     error ValueIsEncrypted();
     error ValueWasNotEncryptedCorrectly();
+    error WrongPlaintextFormat();
 
     /// @notice Modifier to check if the user is registered
     /// @param user The address of the user to check
@@ -160,8 +161,12 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
+        // Both actions require more than 1 plaintext argument in the array
+        require(plaintextArguments.length > 1, WrongPlaintextFormat());
+        require(plaintextArguments[0].length == 1, WrongPlaintextFormat());
         OnDecryptAction action = OnDecryptAction(uint8(bytes1(plaintextArguments[0])));
         if(action == OnDecryptAction.HISTORIC_VIEW) {
+            require(plaintextArguments[1].length == 20, WrongPlaintextFormat());
             address sender = address(bytes20(plaintextArguments[1]));
             require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
 

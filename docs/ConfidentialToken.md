@@ -143,6 +143,12 @@ error ValueIsEncrypted()
 error ValueWasNotEncryptedCorrectly()
 ```
 
+### WrongPlaintextFormat
+
+```solidity
+error WrongPlaintextFormat()
+```
+
 ### onlyRegisteredUser
 
 Modifier to check if the user is registered

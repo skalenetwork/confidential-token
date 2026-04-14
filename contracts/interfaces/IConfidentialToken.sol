@@ -106,7 +106,7 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Emitted when a holder grants a viewer access to transfers within a time range.
     /// @param holder Address of the holder granting access.
     /// @param viewer Address of the viewer receiving access.
-    /// @param fromTimestamp Non-inclusive lower bound of the authorized time range.
+    /// @param fromTimestamp Inclusive lower bound of the authorized time range.
     /// @param toTimestamp Non-inclusive upper bound of the authorized time range.
     event HistoricViewTimeRangeAuthorized(
         address indexed holder,

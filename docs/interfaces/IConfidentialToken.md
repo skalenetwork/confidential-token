@@ -215,7 +215,7 @@ event HistoricViewTimeRangeAuthorized(address holder, address viewer, uint256 fr
 | ---- | ---- | ----------- |
 | holder | address | Address of the holder granting access. |
 | viewer | address | Address of the viewer receiving access. |
-| fromTimestamp | uint256 | Non-inclusive lower bound of the authorized time range. |
+| fromTimestamp | uint256 | Inclusive lower bound of the authorized time range. |
 | toTimestamp | uint256 | Non-inclusive upper bound of the authorized time range. |
 
 ### TransferValueEncryptedForRecipient
