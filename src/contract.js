@@ -17,7 +17,7 @@ export async function getSignerAndContract() {
   if (!provider) throw new Error('Wallet not connected');
   const ethersProvider = new BrowserProvider(provider);
   const signer = await ethersProvider.getSigner();
-  const contract = new Contract(CONFIDENTIAL_TOKEN_ADDRESS, CONTRACT_ABI, signer);
+  const contract = new Contract(getActiveContractAddress(), ConfidentialWrapperArtifact.abi, signer);
   return { signer, contract };
 }
 
@@ -63,4 +63,33 @@ export async function getDepositAmount(depositInputValue) {
   const fee = cachedCallbackFee ?? (await contract.callbackFee());
   return fee * DEPOSIT_MULTIPLIER;
 }
+
+export async function mintWrapped(amount, onProgress) {
+  const provider = window.ethereum;
+  if (!provider) throw new Error('Wallet not connected');
+  const ethersProvider = new BrowserProvider(provider);
+  const signer = await ethersProvider.getSigner();
+  const userAddress = await signer.getAddress();
+  const wrapperAddress = getActiveContractAddress();
+  const originTokenAddress = getOriginTokenAddress();
+  if (!originTokenAddress)
+    throw new Error('Origin token address not set');
+
+  const originToken = new Contract(originTokenAddress, ERC20_APPROVE_ABI, signer);
+  const approveTx = await originToken.approve(wrapperAddress, amount);
+  onProgress?.('Mining approval...');
+  await approveTx.wait();
+
+  const wrapper = new Contract(wrapperAddress, ConfidentialWrapperArtifact.abi, signer);
+  onProgress?.('Confirm wrap tx...');
+  const depositTx = await wrapper.depositFor(userAddress, amount);
+  onProgress?.('Wrapping...');
+  await depositTx.wait();
+}
+
+export async function withdrawWrapped() {
+  const { signer, contract } = await getSignerAndContract();
+  const userAddress = await signer.getAddress();
+  const tx = await contract.releaseTo(userAddress, MaxUint256);
+  await tx.wait();
 }
