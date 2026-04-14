@@ -760,7 +760,7 @@ describe("ConfidentialToken", () => {
 
         // Time range edge cases
 
-        it("should NOT emit ReEncryptedTransfer if transfer timestamp is exactly on the time range boundary", async () => {
+        it("should emit ReEncryptedTransfer if fromTimestamp is exactly on the time range boundary", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
             await registerViewer(token, bite, owner);
@@ -768,15 +768,15 @@ describe("ConfidentialToken", () => {
             await registerViewer(token, bite, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
-            const transferTimestamp = BigInt((await ethers.provider.getBlock("latest"))!.timestamp);            // fromTimestamp + 2n == timestamp of block at callback (strict < fails)
+            const transferTimestamp = BigInt((await ethers.provider.getBlock("latest"))!.timestamp);
             await token.connect(owner).authorizeHistoricViewTimeRange(
                 viewer, transferTimestamp, transferTimestamp + 1000n
             );
-            const snapshot = await takeSnapshot();
+            // fromTimestamp == timestamp of block at callback, but should still work because we allow [from, to) range]
             await token.connect(viewer).requestDecryptHistoricTransfer(event.encryptedData);
             await bite.sendCallback()
-                .should.be.revertedWithCustomError(token, "UserIsNotAuthorizedToDecryptTransfer");
-            await snapshot.restore(); // Need to use snapshot between callback reverts to force "flushing" the queue
+                .should.not.be.revertedWithCustomError(token, "UserIsNotAuthorizedToDecryptTransfer");
+
             // toTimestamp == timestamp of block at callback (strict > fails)
             await token.connect(owner).authorizeHistoricViewTimeRange(
                 viewer, 0, transferTimestamp

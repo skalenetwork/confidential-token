@@ -216,7 +216,7 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Authorizes a viewer to decrypt transfers from msg.sender within a time range
     /// @notice setting fromTimestamp >= toTimestamp means no time range is authorized
     /// @param viewer Address to authorize
-    /// @param fromTimestamp Non-inclusive lower bound timestamp
+    /// @param fromTimestamp Inclusive lower bound timestamp
     /// @param toTimestamp Non-inclusive upper bound timestamp
     /// @return success Always returns true
     function authorizeHistoricViewTimeRange(

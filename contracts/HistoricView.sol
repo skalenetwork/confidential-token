@@ -165,12 +165,12 @@ library HistoricView {
         }
 
         HistoricViewAuth storage fromAuth = authStorage.data[from][sender];
-        if (fromAuth.fromTimestamp < transferData.timestamp && fromAuth.toTimestamp > transferData.timestamp) {
+        if (fromAuth.fromTimestamp <= transferData.timestamp && fromAuth.toTimestamp > transferData.timestamp) {
             return true;
         }
 
         HistoricViewAuth storage toAuth = authStorage.data[to][sender];
-        if (toAuth.fromTimestamp < transferData.timestamp && toAuth.toTimestamp > transferData.timestamp) {
+        if (toAuth.fromTimestamp <= transferData.timestamp && toAuth.toTimestamp > transferData.timestamp) {
             return true;
         }
 

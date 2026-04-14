@@ -525,7 +525,7 @@ function authorizeHistoricViewTimeRange(address viewer, uint256 fromTimestamp, u
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | viewer | address | Address to authorize |
-| fromTimestamp | uint256 | Non-inclusive lower bound timestamp |
+| fromTimestamp | uint256 | Inclusive lower bound timestamp |
 | toTimestamp | uint256 | Non-inclusive upper bound timestamp |
 
 #### Return Values
