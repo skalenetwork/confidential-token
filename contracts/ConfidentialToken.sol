@@ -239,11 +239,11 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     )
         external
         override
-        onlyRegisteredUser(viewer)
         returns (bool success)
     {
-        _historicViewAuth.revokeAll(msg.sender, viewer);
-        emit HistoricViewPermissionsRevoked(msg.sender, viewer);
+        if(_historicViewAuth.revokeAll(msg.sender, viewer)) {
+            emit HistoricViewPermissionsRevoked(msg.sender, viewer);
+        }
         return true;
     }
 
@@ -254,7 +254,6 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     )
         external
         override
-        onlyRegisteredUser(viewer)
         returns (bool success)
     {
         require(transferId < _transferId, InvalidTransferId(transferId));
@@ -533,6 +532,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
             emit TransferValueEncryptedForRecipient(
                 from,
                 to,
+                _transferId,
                 BITE.encryptECIES(encryptECIESAddress, abi.encodePacked(value), publicKeys[to])
             );
         }

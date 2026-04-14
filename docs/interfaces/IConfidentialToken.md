@@ -223,7 +223,7 @@ event HistoricViewTimeRangeAuthorized(address holder, address viewer, uint256 fr
 Emitted during a transfer when the recipient has a registered public key
 
 ```solidity
-event TransferValueEncryptedForRecipient(address from, address to, bytes encryptedValue)
+event TransferValueEncryptedForRecipient(address from, address to, uint256 transferId, bytes encryptedValue)
 ```
 
 **dev:** _Emitted automatically at transfer time — no explicit request or fee required_
@@ -234,6 +234,7 @@ event TransferValueEncryptedForRecipient(address from, address to, bytes encrypt
 | ---- | ---- | ----------- |
 | from | address | Address of the sender |
 | to | address | Address of the recipient — also the holder of the decryption key |
+| transferId | uint256 | ID of the transfer |
 | encryptedValue | bytes | ECIES-Encrypted transfer value for `to` Public Key |
 
 ### PublicKeyRegistered

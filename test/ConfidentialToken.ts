@@ -612,10 +612,6 @@ describe("ConfidentialToken", () => {
                 .should.be.revertedWithCustomError(token, "PublicKeyIsNotRegistered");
             await token.authorizeHistoricViewTransferId(unregistered, 0)
                 .should.be.revertedWithCustomError(token, "PublicKeyIsNotRegistered");
-            await token.removeHistoricViewAuth(unregistered)
-                .should.be.revertedWithCustomError(token, "PublicKeyIsNotRegistered");
-            await token.removeHistoricViewTransferId(unregistered, 0)
-                .should.be.revertedWithCustomError(token, "PublicKeyIsNotRegistered");
         });
 
         it("should revert if the decryption request is for a transfer that does not exist yet", async () => {

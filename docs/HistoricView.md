@@ -43,13 +43,13 @@ error UserIsNotAuthorizedToDecryptTransfer(address viewer, uint256 transferId)
 ### revokeAll
 
 ```solidity
-function revokeAll(struct HistoricView.AuthStorage authStorage, address holder, address viewer) internal
+function revokeAll(struct HistoricView.AuthStorage authStorage, address holder, address viewer) internal returns (bool hadPermissions)
 ```
 
 ### revokeTransferId
 
 ```solidity
-function revokeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal returns (bool success)
+function revokeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal returns (bool removed)
 ```
 
 ### authorizeTimeRange
@@ -61,7 +61,7 @@ function authorizeTimeRange(struct HistoricView.AuthStorage authStorage, address
 ### authorizeTransferId
 
 ```solidity
-function authorizeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal returns (bool success)
+function authorizeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal returns (bool authorized)
 ```
 
 ### canDecrypt

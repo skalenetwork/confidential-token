@@ -60,10 +60,12 @@ library HistoricView {
         address viewer
     )
         internal
+        returns (bool hadPermissions)
     {
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
-        auth.fromTimestamp = type(uint256).max;
-        auth.toTimestamp = type(uint256).max;
+        hadPermissions = auth.fromTimestamp < auth.toTimestamp || auth.transferIds.length() > 0;
+        auth.fromTimestamp = 0;
+        auth.toTimestamp = 0;
         auth.transferIds.clear();
     }
 
@@ -74,7 +76,7 @@ library HistoricView {
         uint256 transferId
     )
         internal
-        returns (bool success)
+        returns (bool removed)
     {
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
         return auth.transferIds.remove(transferId);
@@ -90,6 +92,7 @@ library HistoricView {
         internal
     {
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
+        // Allow any values. If from >= to, there will be no permissions basically
         auth.fromTimestamp = fromTimestamp;
         auth.toTimestamp = toTimestamp;
     }
@@ -101,7 +104,7 @@ library HistoricView {
         uint256 transferId
     )
         internal
-        returns (bool success)
+        returns (bool authorized)
     {
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
         return auth.transferIds.add(transferId);

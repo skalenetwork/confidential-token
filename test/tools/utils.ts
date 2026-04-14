@@ -3,7 +3,7 @@
 import crypto from "node:crypto";
 import { SigningKey } from "ethers";
 
-export type PublicKey = {
+type PublicKey = {
     x: string;
     y: string;
 };

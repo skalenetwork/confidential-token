@@ -5,7 +5,7 @@ import chalk from "chalk";
 import { MintableConfidentialToken, AccessManager } from "../typechain-types";
 import { HDNodeWallet, LogDescription, parseEther } from "ethers";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { privateKeyToPublicKey, decrypt } from "./utils";
+import { privateKeyToPublicKey, decrypt } from "../test/tools/utils";
 
 const TOKEN_NAME = "Test Confidential Token";
 const TOKEN_SYMBOL = "tCTK";

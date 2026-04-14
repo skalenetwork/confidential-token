@@ -120,8 +120,14 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @dev Emitted automatically at transfer time — no explicit request or fee required
     /// @param from Address of the sender
     /// @param to Address of the recipient — also the holder of the decryption key
+    /// @param transferId ID of the transfer
     /// @param encryptedValue ECIES-Encrypted transfer value for `to` Public Key
-    event TransferValueEncryptedForRecipient(address indexed from, address indexed to, bytes encryptedValue);
+    event TransferValueEncryptedForRecipient(
+        address indexed from,
+        address indexed to,
+        uint256 indexed transferId,
+        bytes encryptedValue
+    );
 
     /// @notice Emitted when a public key is registered for a viewer address
     /// @param viewer Address of the viewer whose public key is registered
