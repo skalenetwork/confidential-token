@@ -107,10 +107,17 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @notice Internal ID of the next transfer
     uint256 private _transferId;
 
-    // Errors - Internally relevant
+    // Errors
     error AccessViolation();
-    error ValueWasNotEncryptedCorrectly();
     error ActionNotRecognized();
+    error InsufficientBalance();
+    error InsufficientEth(uint256 required, uint256 available);
+    error InvalidPublicKey();
+    error InvalidTransferId(uint256 transferId);
+    error NoViewerRegisteredForHolder(address holder);
+    error PublicKeyIsNotRegistered(address viewer);
+    error ValueIsEncrypted();
+    error ValueWasNotEncryptedCorrectly();
 
     /// @notice Modifier to check if the user is registered
     /// @param user The address of the user to check
@@ -158,12 +165,20 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
             address sender = address(bytes20(plaintextArguments[1]));
             require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
 
-            _historicViewAuth.handleDecrypt({
-                sender: sender,
-                senderPublicKey: publicKeys[sender],
-                encryptECIESAddress: encryptECIESAddress,
-                decryptedTransferData: decryptedArguments[0]
-            });
+            (address from, address to, uint256 value) = _historicViewAuth.canDecrypt(
+                sender,
+                decryptedArguments[0]
+            );
+            emit ReEncryptedTransfer(
+                sender,
+                from,
+                to,
+                BITE.encryptECIES(
+                    encryptECIESAddress,
+                    abi.encodePacked(value),
+                    publicKeys[sender]
+                )
+            );
         } else if (action == OnDecryptAction.TRANSFER) {
             _handleTransferRequest(decryptedArguments, plaintextArguments);
         } else {
@@ -228,6 +243,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         returns (bool success)
     {
         _historicViewAuth.revokeAll(msg.sender, viewer);
+        emit HistoricViewPermissionsRevoked(msg.sender, viewer);
         return true;
     }
 
@@ -242,7 +258,9 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         returns (bool success)
     {
         require(transferId < _transferId, InvalidTransferId(transferId));
-        _historicViewAuth.revokeTransferId(msg.sender, viewer, transferId);
+        if (_historicViewAuth.revokeTransferId(msg.sender, viewer, transferId)) {
+            emit HistoricViewTransferIdRevoked(msg.sender, viewer, transferId);
+        }
         return true;
     }
 
@@ -258,6 +276,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         returns (bool success)
     {
         _historicViewAuth.authorizeTimeRange(msg.sender, viewer, fromTimestamp, toTimestamp);
+        emit HistoricViewTimeRangeAuthorized(msg.sender, viewer, fromTimestamp, toTimestamp);
         return true;
     }
 
@@ -272,7 +291,9 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         returns (bool success)
     {
         require(transferId < _transferId, InvalidTransferId(transferId));
-        _historicViewAuth.authorizeTransferId(msg.sender, viewer, transferId);
+        if(_historicViewAuth.authorizeTransferId(msg.sender, viewer, transferId)) {
+            emit HistoricViewTransferIdAuthorized(msg.sender, viewer, transferId);
+        }
         return true;
     }
 
@@ -389,7 +410,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     function balanceOf(address) public pure virtual override returns (uint256) {
         revert ValueIsEncrypted();
     }
-    // solhint-disable-enable gas-named-return-values
+    // solhint-enable gas-named-return-values
 
     // Internal functions
 
@@ -495,13 +516,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
         // Time is required to be used by decryption authorization logic
         // It does not control any critical structural logic like balance or allowance updates
-        bytes memory encodedTransfer = abi.encode(HistoricView.TransferData({
+        bytes memory encodedTransfer = HistoricView.encodedTransferData({
             from: from,
             to: to,
             value: value,
             timestamp: block.timestamp, // solhint-disable-line not-rely-on-time
             transferId: _transferId
-        }));
+        });
         // Emit event with TE-encrypted transfer metadata
         emit EncryptedTransfer(_transferId, from, to, BITE.encryptTE(encryptTEAddress, encodedTransfer));
 
@@ -699,19 +720,19 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         viewKey = publicKeys[viewerAddresses[holder]];
     }
 
-    function _viewerIsRegistered(address holder) private view returns (bool) {
+    function _viewerIsRegistered(address holder) private view returns (bool isRegistered) {
         address viewer = viewerAddresses[holder];
         return viewer != address(0) && _knownPublicKey(viewer);
     }
 
     /// @notice Checks if a public key is known for a given holder address
     /// @param holder The address of the holder
-    /// @return True if the public key is known, false otherwise
-    function _knownPublicKey(address holder) private view returns (bool) {
+    /// @return isKnown True if the public key is known, false otherwise
+    function _knownPublicKey(address holder) private view returns (bool isKnown) {
         return _isValidPublicKey(publicKeys[holder]);
     }
 
-    function _isValidPublicKey(PublicKey memory publicKey) private pure returns (bool) {
+    function _isValidPublicKey(PublicKey memory publicKey) private pure returns (bool isValid) {
         return publicKey.x != bytes32(0) || publicKey.y != bytes32(0);
     }
 

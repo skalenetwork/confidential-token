@@ -89,16 +89,58 @@ string version
 error AccessViolation()
 ```
 
-### ValueWasNotEncryptedCorrectly
-
-```solidity
-error ValueWasNotEncryptedCorrectly()
-```
-
 ### ActionNotRecognized
 
 ```solidity
 error ActionNotRecognized()
+```
+
+### InsufficientBalance
+
+```solidity
+error InsufficientBalance()
+```
+
+### InsufficientEth
+
+```solidity
+error InsufficientEth(uint256 required, uint256 available)
+```
+
+### InvalidPublicKey
+
+```solidity
+error InvalidPublicKey()
+```
+
+### InvalidTransferId
+
+```solidity
+error InvalidTransferId(uint256 transferId)
+```
+
+### NoViewerRegisteredForHolder
+
+```solidity
+error NoViewerRegisteredForHolder(address holder)
+```
+
+### PublicKeyIsNotRegistered
+
+```solidity
+error PublicKeyIsNotRegistered(address viewer)
+```
+
+### ValueIsEncrypted
+
+```solidity
+error ValueIsEncrypted()
+```
+
+### ValueWasNotEncryptedCorrectly
+
+```solidity
+error ValueWasNotEncryptedCorrectly()
 ```
 
 ### onlyRegisteredUser
