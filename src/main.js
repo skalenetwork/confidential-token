@@ -333,7 +333,7 @@ unwrapBtn.addEventListener('click', async () => {
       return;
     }
 
-    setButtonLoading(unwrapBtn, true, 'Confirm tx...');
+    setButtonLoading(unwrapBtn, true, 'Confirm approval...');
     await withdrawWrapped(amount);
     unwrapBtn.textContent = 'Unwrapped ✓';
     setTimeout(() => { unwrapBtn.textContent = unwrapBtn.dataset.label; }, 3000);
