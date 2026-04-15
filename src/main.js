@@ -43,6 +43,14 @@ const fundingWarning = document.getElementById('fundingWarning');
 const transferBtn = document.getElementById('transferBtn');
 const recipientInput = document.getElementById('recipient');
 const amountInput = document.getElementById('amount');
+const deployBtn = document.getElementById('deployBtn');
+const originTokenInput = document.getElementById('originToken');
+const wrapperStatus = document.getElementById('wrapperStatus');
+const wrapperAddressDisplay = document.getElementById('wrapperAddressDisplay');
+const clearWrapperBtn = document.getElementById('clearWrapperBtn');
+const wrapBtn = document.getElementById('wrapBtn');
+const wrapAmountInput = document.getElementById('wrapAmount');
+const unwrapBtn = document.getElementById('unwrapBtn');
 
 // Store original button labels
 [decryptBtn, registerBtn, depositBtn, transferBtn].forEach((btn) => {
