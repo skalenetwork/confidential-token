@@ -242,3 +242,88 @@ transferBtn.addEventListener('click', async () => {
     transferBtn.disabled = false;
   }
 });
+
+// --- Deploy Wrapper ---
+deployBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  const originToken = originTokenInput.value.trim();
+  if (!originToken || !/^0x[0-9a-fA-F]{40}$/.test(originToken)) {
+    originTokenInput.style.borderColor = '#ef4444';
+    originTokenInput.focus();
+    return;
+  }
+  originTokenInput.style.borderColor = '';
+
+  try {
+    setButtonLoading(deployBtn, true, 'Confirm tx...');
+    const ethersProvider = new BrowserProvider(window.ethereum);
+    const signer = await ethersProvider.getSigner();
+    const { wrapperAddress } = await deployWrapper(originToken, signer, (msg) => {
+      deployBtn.textContent = msg;
+    });
+    showWrapperStatus(wrapperAddress);
+    checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
+    fetchSymbol();
+    deployBtn.textContent = 'Deployed ✓';
+    setTimeout(() => { deployBtn.textContent = deployBtn.dataset.label; }, 3000);
+  } catch (err) {
+    console.error('Deploy error:', err);
+    deployBtn.textContent = 'Deploy failed';
+    setTimeout(() => { deployBtn.textContent = deployBtn.dataset.label; }, 3000);
+  } finally {
+    deployBtn.disabled = false;
+  }
+});
+
+// --- Clear deployed wrapper ---
+clearWrapperBtn.addEventListener('click', () => {
+  clearDeployedWrapper();
+  wrapperStatus.style.display = 'none';
+  originTokenInput.value = '';
+});
+
+// --- Wrap Tokens ---
+wrapBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  const amount = wrapAmountInput.value.trim();
+  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    wrapAmountInput.style.borderColor = '#ef4444';
+    wrapAmountInput.focus();
+    return;
+  }
+  wrapAmountInput.style.borderColor = '';
+
+  try {
+    setButtonLoading(wrapBtn, true, 'Confirm approval...');
+    await mintWrapped(amount, (msg) => { wrapBtn.textContent = msg; });
+    wrapAmountInput.value = '';
+    wrapBtn.textContent = 'Wrapped ✓';
+    setTimeout(() => { wrapBtn.textContent = wrapBtn.dataset.label; }, 3000);
+  } catch (err) {
+    console.error('Wrap error:', err);
+    wrapBtn.textContent = 'Wrap failed';
+    setTimeout(() => { wrapBtn.textContent = wrapBtn.dataset.label; }, 3000);
+  } finally {
+    wrapBtn.disabled = false;
+  }
+});
+
+// --- Unwrap All Tokens ---
+unwrapBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  try {
+    setButtonLoading(unwrapBtn, true, 'Confirm tx...');
+    await withdrawWrapped();
+    unwrapBtn.textContent = 'Unwrapped ✓';
+    setTimeout(() => { unwrapBtn.textContent = unwrapBtn.dataset.label; }, 3000);
+  } catch (err) {
+    console.error('Unwrap error:', err);
+    unwrapBtn.textContent = 'Unwrap failed';
+    setTimeout(() => { unwrapBtn.textContent = unwrapBtn.dataset.label; }, 3000);
+  } finally {
+    unwrapBtn.disabled = false;
+  }
+});
