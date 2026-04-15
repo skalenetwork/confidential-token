@@ -3,7 +3,9 @@ import CryptoJS from 'crypto-js';
 import { Buffer } from 'buffer';
 import { Interface } from 'ethers';
 import { BITE } from '@skalenetwork/bite';
-import { CHAIN_RPC, CONFIDENTIAL_TOKEN_ADDRESS, CONTRACT_ABI } from './config.js';
+import { CHAIN_RPC } from './config.js';
+import { getActiveContractAddress } from './contract.js';
+import ConfidentialWrapperArtifact from '../artifacts/ConfidentialWrapper.json';
 
 const ec = new EC('secp256k1');
 
@@ -70,13 +72,14 @@ export function deriveViewerKey(privateKey) {
 }
 
 export async function encryptTransfer(recipient, amount) {
-  const iface = new Interface(CONTRACT_ABI);
+  const contractAddress = getActiveContractAddress();
+  const iface = new Interface(ConfidentialWrapperArtifact.abi);
   const data = iface.encodeFunctionData('transfer', [recipient, BigInt(amount)]);
 
   const bite = new BITE(CHAIN_RPC);
   const encryptedTx = await bite.encryptTransaction({
     data,
-    to: CONFIDENTIAL_TOKEN_ADDRESS,
+    to: contractAddress,
   });
 
   return {
