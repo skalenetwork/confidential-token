@@ -96,13 +96,13 @@ renderAccount(modal.getAccount('eip155'));
 modal.subscribeAccount((account) => {
   renderAccount(account);
   if (account && account.isConnected) {
-    checkFunding(depositInput, fundingWarning);
+    checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
     fetchSymbol();
   }
 });
 
 if (modal.getAccount('eip155')?.isConnected) {
-  checkFunding(depositInput, fundingWarning);
+  checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
   fetchSymbol();
 }
 
@@ -187,7 +187,7 @@ depositBtn.addEventListener('click', async () => {
     await tx.wait();
 
     depositInput.value = '';
-    await checkFunding(depositInput, fundingWarning);
+    await checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
   } catch (err) {
     console.error('Deposit error:', err);
     depositBtn.textContent = 'Deposit failed';
