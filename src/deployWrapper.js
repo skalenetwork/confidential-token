@@ -2,20 +2,17 @@ import { ContractFactory } from 'ethers';
 import ConfidentialWrapperArtifact from '../artifacts/ConfidentialWrapper.json';
 import AccessManagerArtifact from '../artifacts/AccessManager.json';
 
-const WRAPPER_ADDRESS_KEY = 'confidential_wrapper_address';
-const ORIGIN_TOKEN_KEY = 'origin_token_address';
-
 export function getDeployedWrapperAddress() {
-  return sessionStorage.getItem(WRAPPER_ADDRESS_KEY);
+  return sessionStorage.getItem('confidential_wrapper_address');
 }
 
 export function getOriginTokenAddress() {
-  return sessionStorage.getItem(ORIGIN_TOKEN_KEY);
+  return sessionStorage.getItem('origin_token_address');
 }
 
 export function clearDeployedWrapper() {
-  sessionStorage.removeItem(WRAPPER_ADDRESS_KEY);
-  sessionStorage.removeItem(ORIGIN_TOKEN_KEY);
+  sessionStorage.removeItem('confidential_wrapper_address');
+  sessionStorage.removeItem('origin_token_address');
 }
 
 export async function deployWrapper(originTokenAddress, signer, onProgress) {
@@ -41,8 +38,8 @@ export async function deployWrapper(originTokenAddress, signer, onProgress) {
   await wrapper.waitForDeployment();
   const wrapperAddress = await wrapper.getAddress();
 
-  sessionStorage.setItem(WRAPPER_ADDRESS_KEY, wrapperAddress);
-  sessionStorage.setItem(ORIGIN_TOKEN_KEY, originTokenAddress);
+  sessionStorage.setItem('confidential_wrapper_address', wrapperAddress);
+  sessionStorage.setItem('origin_token_address', originTokenAddress);
 
   return { wrapperAddress, accessManagerAddress };
 }

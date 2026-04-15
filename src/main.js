@@ -2,7 +2,7 @@ import { keccak256, BrowserProvider } from 'ethers';
 import { SIGN_MESSAGE } from './config.js';
 import { initWallet, ensureConnected } from './wallet.js';
 import {
-  getSignerAndContract,
+  getSignerAndWrappedContract,
   fetchSymbol,
   getCachedSymbol,
   checkFunding,
@@ -112,7 +112,7 @@ decryptBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(decryptBtn, true, 'Reading...');
-    const { signer, contract } = await getSignerAndContract();
+    const { signer, contract } = await getSignerAndWrappedContract();
     const address = await signer.getAddress();
 
     let encryptedData;
@@ -149,7 +149,7 @@ registerBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(registerBtn, true, 'Signing...');
-    const { signer, contract } = await getSignerAndContract();
+    const { signer, contract } = await getSignerAndWrappedContract();
     const signature = await signer.signMessage(SIGN_MESSAGE);
     const derivedPrivateKey = keccak256(signature);
 
@@ -178,7 +178,7 @@ depositBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(depositBtn, true, 'Confirm tx...');
-    const { signer, contract } = await getSignerAndContract();
+    const { signer, contract } = await getSignerAndWrappedContract();
     const address = await signer.getAddress();
     const amount = await getDepositAmount(depositInput.value);
 
@@ -221,7 +221,7 @@ transferBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(transferBtn, true, 'Encrypting...');
-    const { signer } = await getSignerAndContract();
+    const { signer } = await getSignerAndWrappedContract();
     const encryptedTx = await encryptTransfer(recipient, amount);
 
     setButtonLoading(transferBtn, true, 'Confirm tx...');
@@ -316,7 +316,7 @@ unwrapBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(unwrapBtn, true, 'Signing...');
-    const { signer, contract } = await getSignerAndContract();
+    const { signer, contract } = await getSignerAndWrappedContract();
     const userAddress = await signer.getAddress();
 
     const encryptedData = await contract.encryptedBalanceOf(userAddress);

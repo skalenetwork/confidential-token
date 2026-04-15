@@ -8,16 +8,16 @@ const ERC20_APPROVE_ABI = [
 
 const DEPOSIT_MULTIPLIER = 10n;
 
-export function getActiveContractAddress() {
+export function getConfidentialWrapperAddress() {
   return sessionStorage.getItem('confidential_wrapper_address');
 }
 
-export async function getSignerAndContract() {
+export async function getSignerAndWrappedContract() {
   const provider = window.ethereum;
   if (!provider) throw new Error('Wallet not connected');
   const ethersProvider = new BrowserProvider(provider);
   const signer = await ethersProvider.getSigner();
-  const contract = new Contract(getActiveContractAddress(), ConfidentialWrapperArtifact.abi, signer);
+  const contract = new Contract(getConfidentialWrapperAddress(), ConfidentialWrapperArtifact.abi, signer);
   return { signer, contract };
 }
 
@@ -30,7 +30,7 @@ export function getCachedSymbol() {
 
 export async function fetchSymbol() {
   try {
-    const { contract } = await getSignerAndContract();
+    const { contract } = await getSignerAndWrappedContract();
     cachedSymbol = await contract.symbol();
   } catch (_) {
     cachedSymbol = 'CNF';
@@ -39,7 +39,7 @@ export async function fetchSymbol() {
 
 export async function checkFunding(depositInput, fundingWarning, gatedButtons = []) {
   try {
-    const { signer, contract } = await getSignerAndContract();
+    const { signer, contract } = await getSignerAndWrappedContract();
     const address = await signer.getAddress();
     const [balance, fee] = await Promise.all([
       contract.ethBalanceOf(address),
@@ -59,7 +59,7 @@ export async function getDepositAmount(depositInputValue) {
   if (depositInputValue && parseFloat(depositInputValue) > 0) {
     return parseUnits(depositInputValue, 18);
   }
-  const { contract } = await getSignerAndContract();
+  const { contract } = await getSignerAndWrappedContract();
   const fee = cachedCallbackFee ?? (await contract.callbackFee());
   return fee * DEPOSIT_MULTIPLIER;
 }
@@ -70,7 +70,7 @@ export async function mintWrapped(amount, onProgress) {
   const ethersProvider = new BrowserProvider(provider);
   const signer = await ethersProvider.getSigner();
   const userAddress = await signer.getAddress();
-  const wrapperAddress = getActiveContractAddress();
+  const wrapperAddress = getConfidentialWrapperAddress();
   const originTokenAddress = getOriginTokenAddress();
   if (!originTokenAddress)
     throw new Error('Origin token address not set');
@@ -88,11 +88,11 @@ export async function mintWrapped(amount, onProgress) {
 }
 
 export async function withdrawWrapped(amount) {
-  const { signer, contract } = await getSignerAndContract();
+  const { signer, contract } = await getSignerAndWrappedContract();
   const userAddress = await signer.getAddress();
-  const wrapperAddress = getActiveContractAddress();
+  const originTokenAddress = getOriginTokenAddress();
 
-  const approveTx = await contract.approve(wrapperAddress, amount);
+  const approveTx = await contract.approve(originTokenAddress, amount);
   await approveTx.wait();
 
   const tx = await contract.releaseTo(userAddress, amount);
