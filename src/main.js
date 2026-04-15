@@ -1,4 +1,4 @@
-import { keccak256 } from 'ethers';
+import { keccak256, BrowserProvider } from 'ethers';
 import { SIGN_MESSAGE } from './config.js';
 import { initWallet, ensureConnected } from './wallet.js';
 import {
@@ -7,9 +7,27 @@ import {
   getCachedSymbol,
   checkFunding,
   getDepositAmount,
+  mintWrapped,
+  withdrawWrapped,
 } from './contract.js';
+import {
+  deployWrapper,
+  getDeployedWrapperAddress,
+  getOriginTokenAddress,
+  clearDeployedWrapper,
+} from './deployWrapper.js';
 import { decryptBalance, deriveViewerKey, encryptTransfer } from './encryption.js';
-import { setButtonLoading } from './ui.js';
+
+function setButtonLoading(button, loading, text) {
+  button.disabled = loading;
+  button.textContent = loading ? text : button.dataset.label;
+}
+
+document.addEventListener('wheel', () => {
+  if (document.activeElement?.type === 'number') {
+    document.activeElement.blur();
+  }
+});
 
 // --- Initialize wallet ---
 const modal = initWallet();
