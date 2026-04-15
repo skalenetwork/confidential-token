@@ -315,8 +315,26 @@ unwrapBtn.addEventListener('click', async () => {
   if (!ensureConnected(modal)) return;
 
   try {
+    setButtonLoading(unwrapBtn, true, 'Signing...');
+    const { signer, contract } = await getSignerAndContract();
+    const userAddress = await signer.getAddress();
+
+    const encryptedData = await contract.encryptedBalanceOf(userAddress);
+    const signature = await signer.signMessage(SIGN_MESSAGE);
+    const derivedPrivateKey = keccak256(signature);
+
+    setButtonLoading(unwrapBtn, true, 'Decrypting...');
+    const rawBalance = decryptBalance(derivedPrivateKey, encryptedData);
+    const amount = BigInt(rawBalance);
+
+    if (amount === 0n) {
+      unwrapBtn.textContent = 'Nothing to unwrap';
+      setTimeout(() => { unwrapBtn.textContent = unwrapBtn.dataset.label; }, 3000);
+      return;
+    }
+
     setButtonLoading(unwrapBtn, true, 'Confirm tx...');
-    await withdrawWrapped();
+    await withdrawWrapped(amount);
     unwrapBtn.textContent = 'Unwrapped ✓';
     setTimeout(() => { unwrapBtn.textContent = unwrapBtn.dataset.label; }, 3000);
   } catch (err) {
