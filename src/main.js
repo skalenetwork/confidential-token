@@ -53,9 +53,25 @@ const wrapAmountInput = document.getElementById('wrapAmount');
 const unwrapBtn = document.getElementById('unwrapBtn');
 
 // Store original button labels
-[decryptBtn, registerBtn, depositBtn, transferBtn].forEach((btn) => {
+[decryptBtn, registerBtn, depositBtn, transferBtn, deployBtn, wrapBtn, unwrapBtn].forEach((btn) => {
   btn.dataset.label = btn.textContent;
 });
+
+// --- Deploy state ---
+function showWrapperStatus(address) {
+  wrapperAddressDisplay.textContent = address;
+  wrapperStatus.style.display = 'flex';
+}
+
+function initDeployState() {
+  const addr = getDeployedWrapperAddress();
+  if (addr) {
+    showWrapperStatus(addr);
+    const originToken = getOriginTokenAddress();
+    if (originToken) originTokenInput.value = originToken;
+  }
+}
+initDeployState();
 
 // --- Connect button ---
 function renderAccount(account) {
