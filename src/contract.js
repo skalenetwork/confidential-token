@@ -1,4 +1,4 @@
-import { BrowserProvider, Contract, MaxUint256, formatUnits, parseUnits } from 'ethers';
+import { BrowserProvider, Contract, formatUnits, parseUnits } from 'ethers';
 import ConfidentialWrapperArtifact from '../artifacts/ConfidentialWrapper.json';
 import { getOriginTokenAddress } from './deployWrapper.js';
 
@@ -87,9 +87,9 @@ export async function mintWrapped(amount, onProgress) {
   await depositTx.wait();
 }
 
-export async function withdrawWrapped() {
+export async function withdrawWrapped(amount) {
   const { signer, contract } = await getSignerAndContract();
   const userAddress = await signer.getAddress();
-  const tx = await contract.releaseTo(userAddress, MaxUint256);
+  const tx = await contract.releaseTo(userAddress, amount);
   await tx.wait();
 }
