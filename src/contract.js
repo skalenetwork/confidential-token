@@ -90,11 +90,6 @@ export async function mintWrapped(amount, onProgress) {
 export async function withdrawWrapped(amount) {
   const { signer, contract } = await getSignerAndWrappedContract();
   const userAddress = await signer.getAddress();
-  const originTokenAddress = getOriginTokenAddress();
-
-  const approveTx = await contract.approve(originTokenAddress, amount);
-  await approveTx.wait();
-
-  const tx = await contract.releaseTo(userAddress, amount);
+  const tx = await contract.withdrawTo(userAddress, amount);
   await tx.wait();
 }
