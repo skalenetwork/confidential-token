@@ -81,8 +81,13 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param viewer The account who paid and had rights for the decryption of the transfer event.
     /// @param from Address of the sender.
     /// @param to Address of the recipient.
-    /// @param encryptedValue ECIES-encrypted transfer value for `viewer`.
-    event ReEncryptedTransfer(address indexed viewer, address indexed from, address indexed to, bytes encryptedValue);
+    /// @param encryptedTransfer ECIES-encrypted transfer data for `viewer`.
+    event ReEncryptedTransfer(
+        address indexed viewer,
+        address indexed from,
+        address indexed to,
+        bytes encryptedTransfer
+    );
 
     /// @notice Emitted when a holder revokes all historic view permissions for a viewer.
     /// @param holder Address of the holder revoking access.
@@ -115,6 +120,11 @@ interface IConfidentialToken is IBiteSupplicant {
         uint256 toTimestamp
     );
     // solhint-enable gas-indexed-events
+
+    /// @notice Emitted when a holder revokes a viewer's access to transfers within a time range.
+    /// @param holder Address of the holder revoking access.
+    /// @param viewer Address of the viewer losing access.
+    event HistoricViewTimeRangeRevoked(address indexed holder,address indexed viewer);
 
     /// @notice Emitted during a transfer when the recipient has a registered public key
     /// @dev Emitted automatically at transfer time — no explicit request or fee required
@@ -207,6 +217,12 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @return success Always returns true
     function removeHistoricViewAuth(address viewer) external returns (bool success);
 
+
+    /// @notice Removes the time range authorization for a viewer
+    /// @param viewer Address whose time range authorization is removed
+    /// @return success Always returns true
+    function removeHistoricViewTimeRange(address viewer) external returns (bool success);
+
     /// @notice Removes one explicitly authorized historic transfer ID for a viewer
     /// @param viewer Address whose transferId authorization is removed
     /// @param transferId Transfer ID to revoke
@@ -214,7 +230,7 @@ interface IConfidentialToken is IBiteSupplicant {
     function removeHistoricViewTransferId(address viewer, uint256 transferId) external returns (bool success);
 
     /// @notice Authorizes a viewer to decrypt transfers from msg.sender within a time range
-    /// @notice setting fromTimestamp >= toTimestamp means no time range is authorized
+    /// @dev Allows only fromTimestamp < toTimestamp, unless fromTimestamp == 0
     /// @param viewer Address to authorize
     /// @param fromTimestamp Inclusive lower bound timestamp
     /// @param toTimestamp Non-inclusive upper bound timestamp

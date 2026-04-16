@@ -5,7 +5,7 @@ import chalk from "chalk";
 import { MintableConfidentialToken, AccessManager } from "../typechain-types";
 import { HDNodeWallet, LogDescription, parseEther } from "ethers";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { privateKeyToPublicKey, decrypt } from "../test/tools/utils";
+import { privateKeyToPublicKey, decodeTransferData, decrypt } from "../test/tools/utils";
 
 const TOKEN_NAME = "Test Confidential Token";
 const TOKEN_SYMBOL = "tCTK";
@@ -299,7 +299,8 @@ const requestHistoricDecryptionExpectSuccess = async (
 
     // Decrypt the ECIES-encrypted transfer value off-chain using the requester's private key
     const decryptedBuf = decrypt(requesterPrivateKey, reEncrypted.args[3]);
-    const decryptedValue = BigInt(`0x${decryptedBuf.toString("hex")}`);
+    const decodeTransferDataResult = decodeTransferData(`0x${decryptedBuf.toString("hex")}`);
+    const decryptedValue = decodeTransferDataResult.value;
     console.log(`    Decrypted transfer value: ${ethers.formatEther(decryptedValue)}`);
 
     return { callbackTxHash, reEncryptedEvent: reEncrypted, events, decryptedValue };

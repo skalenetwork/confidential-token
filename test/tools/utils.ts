@@ -1,7 +1,7 @@
 // cspell:words ciphertext
 
 import crypto from "node:crypto";
-import { SigningKey } from "ethers";
+import { ethers, SigningKey } from "ethers";
 
 type PublicKey = {
     x: string;
@@ -38,4 +38,13 @@ export const decrypt = (privateKey: string, encryptedHex: string): Buffer => {
     const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
 
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+};
+
+export const decodeTransferData = (decryptedTransferData: string) => {
+    const [from, to, value, timestamp, transferId] = ethers.AbiCoder.defaultAbiCoder().decode(
+        ["address", "address", "uint256", "uint256", "uint256"],
+        decryptedTransferData
+    ).toArray() as [string, string, bigint, bigint, bigint];
+
+    return { from, to, value, timestamp, transferId };
 };

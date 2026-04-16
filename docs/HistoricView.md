@@ -34,6 +34,12 @@ struct TransferData {
 }
 ```
 
+### InvalidTimeRange
+
+```solidity
+error InvalidTimeRange(uint256 fromTimestamp, uint256 toTimestamp)
+```
+
 ### UserIsNotAuthorizedToDecryptTransfer
 
 ```solidity
@@ -52,6 +58,12 @@ function revokeAll(struct HistoricView.AuthStorage authStorage, address holder, 
 function revokeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal returns (bool removed)
 ```
 
+### revokeTimeRange
+
+```solidity
+function revokeTimeRange(struct HistoricView.AuthStorage authStorage, address holder, address viewer) internal returns (bool hadTimeRange)
+```
+
 ### authorizeTimeRange
 
 ```solidity
@@ -64,10 +76,10 @@ function authorizeTimeRange(struct HistoricView.AuthStorage authStorage, address
 function authorizeTransferId(struct HistoricView.AuthStorage authStorage, address holder, address viewer, uint256 transferId) internal returns (bool authorized)
 ```
 
-### canDecrypt
+### decodeIfAuthorized
 
 ```solidity
-function canDecrypt(struct HistoricView.AuthStorage authStorage, address sender, bytes decryptedTransferData) internal view returns (address from, address to, uint256 value)
+function decodeIfAuthorized(struct HistoricView.AuthStorage authStorage, address sender, bytes decryptedTransferData) internal view returns (address from, address to)
 ```
 
 ### encodedTransferData

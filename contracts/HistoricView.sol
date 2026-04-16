@@ -52,6 +52,7 @@ library HistoricView {
         uint256 transferId;
     }
 
+    error InvalidTimeRange(uint256 fromTimestamp, uint256 toTimestamp);
     error UserIsNotAuthorizedToDecryptTransfer(address viewer, uint256 transferId);
 
     function revokeAll(
@@ -63,7 +64,7 @@ library HistoricView {
         returns (bool hadPermissions)
     {
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
-        hadPermissions = auth.fromTimestamp < auth.toTimestamp || auth.transferIds.length() > 0;
+        hadPermissions = auth.toTimestamp > 0 && auth.transferIds.length() > 0;
         auth.fromTimestamp = 0;
         auth.toTimestamp = 0;
         auth.transferIds.clear();
@@ -82,6 +83,20 @@ library HistoricView {
         return auth.transferIds.remove(transferId);
     }
 
+    function revokeTimeRange(
+        AuthStorage storage authStorage,
+        address holder,
+        address viewer
+    )
+        internal
+        returns (bool hadTimeRange)
+    {
+        HistoricViewAuth storage auth = authStorage.data[holder][viewer];
+        hadTimeRange = auth.toTimestamp > 0;
+        auth.fromTimestamp = 0;
+        auth.toTimestamp = 0;
+    }
+
     function authorizeTimeRange(
         AuthStorage storage authStorage,
         address holder,
@@ -91,8 +106,8 @@ library HistoricView {
     )
         internal
     {
+        require(fromTimestamp < toTimestamp, InvalidTimeRange(fromTimestamp, toTimestamp));
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
-        // Allow any values. If from >= to, there will be no permissions basically
         auth.fromTimestamp = fromTimestamp;
         auth.toTimestamp = toTimestamp;
     }
@@ -110,22 +125,24 @@ library HistoricView {
         return auth.transferIds.add(transferId);
     }
 
-    function canDecrypt(
+    function decodeIfAuthorized(
         AuthStorage storage authStorage,
         address sender,
         bytes calldata decryptedTransferData
     )
         internal
         view
-        returns (address from, address to, uint256 value)
+        returns (address from, address to)
     {
         require(decryptedTransferData.length == 160, DecryptionBadFormat());
         TransferData memory transferData = abi.decode(decryptedTransferData, (TransferData));
 
-        if (!_isAuthorized(authStorage, transferData, sender)) {
-            revert UserIsNotAuthorizedToDecryptTransfer(sender, transferData.transferId);
-        }
-        return (transferData.from, transferData.to, transferData.value);
+        require(
+            _isAuthorized(authStorage, transferData, sender),
+            UserIsNotAuthorizedToDecryptTransfer(sender, transferData.transferId)
+        );
+
+        return (transferData.from, transferData.to);
     }
 
     function encodedTransferData(

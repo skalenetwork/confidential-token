@@ -286,6 +286,26 @@ function removeHistoricViewAuth(address viewer) external returns (bool success)
 | ---- | ---- | ----------- |
 | success | bool | Always returns true |
 
+### removeHistoricViewTimeRange
+
+Removes the time range authorization for a viewer
+
+```solidity
+function removeHistoricViewTimeRange(address viewer) external returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address whose time range authorization is removed |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
 ### removeHistoricViewTransferId
 
 Removes one explicitly authorized historic transfer ID for a viewer
@@ -310,11 +330,12 @@ function removeHistoricViewTransferId(address viewer, uint256 transferId) extern
 ### authorizeHistoricViewTimeRange
 
 Authorizes a viewer to decrypt transfers from msg.sender within a time range
-setting fromTimestamp >= toTimestamp means no time range is authorized
 
 ```solidity
 function authorizeHistoricViewTimeRange(address viewer, uint256 fromTimestamp, uint256 toTimestamp) external returns (bool success)
 ```
+
+**dev:** _Allows only fromTimestamp < toTimestamp, unless fromTimestamp == 0_
 
 #### Parameters
 
@@ -563,6 +584,12 @@ function balanceOf(address) public pure virtual returns (uint256)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
+
+### _handleHistoricViewRequest
+
+```solidity
+function _handleHistoricViewRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+```
 
 ### _handleTransferRequest
 

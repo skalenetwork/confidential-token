@@ -166,24 +166,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         require(plaintextArguments[0].length == 1, WrongPlaintextFormat());
         OnDecryptAction action = OnDecryptAction(uint8(bytes1(plaintextArguments[0])));
         if(action == OnDecryptAction.HISTORIC_VIEW) {
-            require(plaintextArguments[1].length == 20, WrongPlaintextFormat());
-            address sender = address(bytes20(plaintextArguments[1]));
-            require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
-
-            (address from, address to, uint256 value) = _historicViewAuth.canDecrypt(
-                sender,
-                decryptedArguments[0]
-            );
-            emit ReEncryptedTransfer(
-                sender,
-                from,
-                to,
-                BITE.encryptECIES(
-                    encryptECIESAddress,
-                    abi.encodePacked(value),
-                    publicKeys[sender]
-                )
-            );
+            _handleHistoricViewRequest(decryptedArguments, plaintextArguments);
         } else if (action == OnDecryptAction.TRANSFER) {
             _handleTransferRequest(decryptedArguments, plaintextArguments);
         } else {
@@ -248,6 +231,20 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     {
         if(_historicViewAuth.revokeAll(msg.sender, viewer)) {
             emit HistoricViewPermissionsRevoked(msg.sender, viewer);
+        }
+        return true;
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function removeHistoricViewTimeRange(
+        address viewer
+    )
+        external
+        override
+        returns (bool success)
+    {
+        if(_historicViewAuth.revokeTimeRange(msg.sender, viewer)) {
+            emit HistoricViewTimeRangeRevoked(msg.sender, viewer);
         }
         return true;
     }
@@ -417,6 +414,27 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     // solhint-enable gas-named-return-values
 
     // Internal functions
+
+    function _handleHistoricViewRequest(bytes[] calldata decryptedArguments, bytes[] calldata plaintextArguments) internal {
+        require(plaintextArguments[1].length == 20, WrongPlaintextFormat());
+        address sender = address(bytes20(plaintextArguments[1]));
+        require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
+
+        (address from, address to) = _historicViewAuth.decodeIfAuthorized(
+            sender,
+            decryptedArguments[0]
+        );
+        emit ReEncryptedTransfer(
+            sender,
+            from,
+            to,
+            BITE.encryptECIES(
+                encryptECIESAddress,
+                decryptedArguments[0],
+                publicKeys[sender]
+            )
+        );
+    }
 
     function _handleTransferRequest(bytes[] calldata decryptedArguments, bytes[] calldata plaintextArguments) internal {
         TransferInfo memory transferInfo = abi.decode(plaintextArguments[1], (TransferInfo));

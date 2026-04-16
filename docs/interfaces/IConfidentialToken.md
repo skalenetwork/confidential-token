@@ -142,7 +142,7 @@ event EncryptedTransfer(uint256 transferId, address from, address to, bytes encr
 Emitted when a transfer event is decrypted for a viewer.
 
 ```solidity
-event ReEncryptedTransfer(address viewer, address from, address to, bytes encryptedValue)
+event ReEncryptedTransfer(address viewer, address from, address to, bytes encryptedTransfer)
 ```
 
 #### Parameters
@@ -152,7 +152,7 @@ event ReEncryptedTransfer(address viewer, address from, address to, bytes encryp
 | viewer | address | The account who paid and had rights for the decryption of the transfer event. |
 | from | address | Address of the sender. |
 | to | address | Address of the recipient. |
-| encryptedValue | bytes | ECIES-encrypted transfer value for `viewer`. |
+| encryptedTransfer | bytes | ECIES-encrypted transfer data for `viewer`. |
 
 ### HistoricViewPermissionsRevoked
 
@@ -217,6 +217,21 @@ event HistoricViewTimeRangeAuthorized(address holder, address viewer, uint256 fr
 | viewer | address | Address of the viewer receiving access. |
 | fromTimestamp | uint256 | Inclusive lower bound of the authorized time range. |
 | toTimestamp | uint256 | Non-inclusive upper bound of the authorized time range. |
+
+### HistoricViewTimeRangeRevoked
+
+Emitted when a holder revokes a viewer's access to transfers within a time range.
+
+```solidity
+event HistoricViewTimeRangeRevoked(address holder, address viewer)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| holder | address | Address of the holder revoking access. |
+| viewer | address | Address of the viewer losing access. |
 
 ### TransferValueEncryptedForRecipient
 
@@ -490,6 +505,26 @@ function removeHistoricViewAuth(address viewer) external returns (bool success)
 | ---- | ---- | ----------- |
 | success | bool | Always returns true |
 
+### removeHistoricViewTimeRange
+
+Removes the time range authorization for a viewer
+
+```solidity
+function removeHistoricViewTimeRange(address viewer) external returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address whose time range authorization is removed |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
 ### removeHistoricViewTransferId
 
 Removes one explicitly authorized historic transfer ID for a viewer
@@ -514,11 +549,12 @@ function removeHistoricViewTransferId(address viewer, uint256 transferId) extern
 ### authorizeHistoricViewTimeRange
 
 Authorizes a viewer to decrypt transfers from msg.sender within a time range
-setting fromTimestamp >= toTimestamp means no time range is authorized
 
 ```solidity
 function authorizeHistoricViewTimeRange(address viewer, uint256 fromTimestamp, uint256 toTimestamp) external returns (bool success)
 ```
+
+**dev:** _Allows only fromTimestamp < toTimestamp, unless fromTimestamp == 0_
 
 #### Parameters
 

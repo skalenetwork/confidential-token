@@ -64,9 +64,10 @@ Additionally, if the recipient has a registered public key at the time of transf
 For third-party viewers (auditors, accounting tools, delegated observers), holders can grant selective decryption access to their own transfers:
 
 - `requestDecryptHistoricTransfer(encryptedTransferData)`: Submit a TE-encrypted transfer payload for decryption. Requires the caller to be a registered user and have sufficient ETH balance for the callback fee. On successful callback, emits a `ReEncryptedTransfer` event with the value ECIES-encrypted for the requester's public key. The fee is charged even if the requester turns out not to be authorized — authorization is only checked inside the callback.
-- `authorizeHistoricViewTimeRange(viewer, fromTimestamp, toTimestamp)`: Grant a viewer decryption access to all transfers whose timestamp falls within `[fromTimestamp, toTimestamp)` (inclusive of `fromTimestamp`, exclusive of `toTimestamp`). Setting `fromTimestamp >= toTimestamp` effectively disables the range. Emits `HistoricViewTimeRangeAuthorized`.
+- `authorizeHistoricViewTimeRange(viewer, fromTimestamp, toTimestamp)`: Grant a viewer decryption access to all transfers whose timestamp falls within `[fromTimestamp, toTimestamp)` (inclusive of `fromTimestamp`, exclusive of `toTimestamp`). Setting `fromTimestamp == toTimestamp == 0` effectively disables the access. Emits `HistoricViewTimeRangeAuthorized`.
 - `authorizeHistoricViewTransferId(viewer, transferId)`: Grant a viewer access to one specific transfer by its on-chain ID. The transfer ID must already exist. Emits `HistoricViewTransferIdAuthorized`.
 - `removeHistoricViewTransferId(viewer, transferId)`: Revoke access to a single previously authorized transfer ID. Emits `HistoricViewTransferIdRevoked` only if the ID was present.
+- `removeHistoricViewTimeRange(viewer)`: Revoke historic access via time range.
 - `removeHistoricViewAuth(viewer)`: Revoke all historic view permissions for a viewer at once (both time range and all individual transfer IDs). Emits `HistoricViewPermissionsRevoked`.
 
 > **Note:** The `from` and `to` parties of a transfer can always decrypt their own transfers without any explicit authorization.

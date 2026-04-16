@@ -9,7 +9,7 @@ import { expect } from "chai";
 import { BiteMock, MintableConfidentialToken } from "../typechain-types";
 import { Signer, TransactionResponse } from "ethers";
 import { takeSnapshot, mine } from "@nomicfoundation/hardhat-network-helpers";
-
+import { decodeTransferData } from "./tools/utils";
 
 describe("ConfidentialToken", () => {
 
@@ -567,8 +567,9 @@ describe("ConfidentialToken", () => {
                         const requesterAddress = await requester.getAddress();
                         const publicKey = await token.publicKeys(requesterAddress);
                         const decryptionKey = await bite.pubKeyToUint256(publicKey.x, publicKey.y);
-                        const decrypted = await bite.decryptECIES(parsed.args.encryptedValue, decryptionKey);
-                        return ethers.toBigInt(decrypted);
+                        const decrypted = await bite.decryptECIES(parsed.args.encryptedTransfer, decryptionKey);
+
+                        return decodeTransferData(decrypted).value;
                     }
                 } catch { /* not a token event */ }
             }
@@ -696,6 +697,32 @@ describe("ConfidentialToken", () => {
                 .to.equal(transferAmount);
         });
 
+        it("should be able to revoke granted historic view permission to a viewer", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, viewer] = await ethers.getSigners();
+            await registerViewer(token, bite, owner);
+            await registerViewer(token, bite, recipient);
+            await registerViewer(token, bite, viewer);
+
+            const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
+
+            await token.connect(owner).authorizeHistoricViewTimeRange(viewer, 0, 2n ** 64n);
+
+            await token.connect(viewer).requestDecryptHistoricTransfer(event.encryptedData);
+            const callbackTx = await bite.sendCallback();
+            await expect(callbackTx).to.emit(token, "ReEncryptedTransfer");
+            expect(await decryptReEncryptedTransferValue(token, bite, viewer, callbackTx))
+                .to.equal(transferAmount);
+
+            await token.connect(owner).removeHistoricViewTimeRange(
+                viewer
+            ).should.emit(token, "HistoricViewTimeRangeRevoked").withArgs(owner.address, viewer.address);
+            await token.connect(viewer).requestDecryptHistoricTransfer(event.encryptedData);
+            await bite.sendCallback().should.be.revertedWithCustomError(token, "UserIsNotAuthorizedToDecryptTransfer");
+
+
+        });
+
         it("should be able to grant historic view permission to a viewer to a specific transfer Id and decrypt a transfer event", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
@@ -805,33 +832,27 @@ describe("ConfidentialToken", () => {
                 .should.be.revertedWithCustomError(token, "UserIsNotAuthorizedToDecryptTransfer");
         });
 
-        it("should treat fromTimestamp >= toTimestamp as a no-op range that never authorizes any transfer", async () => {
+        it("should revert if fromTimestamp >= toTimestamp", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
             await registerViewer(token, bite, owner);
             await registerViewer(token, bite, recipient);
             await registerViewer(token, bite, viewer);
 
-            const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
+            await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
             const transferTimestamp = BigInt((await ethers.provider.getBlock("latest"))!.timestamp);
 
             // from == to: impossible range
             await token.connect(owner).authorizeHistoricViewTimeRange(
                 viewer, transferTimestamp, transferTimestamp
-            );
-            const snapshot = await takeSnapshot();
-            await token.connect(viewer).requestDecryptHistoricTransfer(event.encryptedData);
-            await bite.sendCallback()
-                .should.be.revertedWithCustomError(token, "UserIsNotAuthorizedToDecryptTransfer");
-            await snapshot.restore();
+            ).should.be.revertedWithCustomError(token, "InvalidTimeRange");
+
 
             // from > to: inverted range
             await token.connect(owner).authorizeHistoricViewTimeRange(
                 viewer, transferTimestamp + 1000n, transferTimestamp
-            );
-            await token.connect(viewer).requestDecryptHistoricTransfer(event.encryptedData);
-            await bite.sendCallback()
-                .should.be.revertedWithCustomError(token, "UserIsNotAuthorizedToDecryptTransfer");
+            ).should.be.revertedWithCustomError(token, "InvalidTimeRange");
+
         });
 
         it("should allow updating the time range with a new authorizeHistoricViewTimeRange call", async () => {
