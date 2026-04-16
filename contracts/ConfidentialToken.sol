@@ -415,7 +415,12 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     // Internal functions
 
-    function _handleHistoricViewRequest(bytes[] calldata decryptedArguments, bytes[] calldata plaintextArguments) internal {
+    function _handleHistoricViewRequest(
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    )
+        internal
+    {
         require(plaintextArguments[1].length == 20, WrongPlaintextFormat());
         address sender = address(bytes20(plaintextArguments[1]));
         require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
