@@ -64,7 +64,7 @@ library HistoricView {
         returns (bool hadPermissions)
     {
         HistoricViewAuth storage auth = authStorage.data[holder][viewer];
-        hadPermissions = auth.toTimestamp > 0 && auth.transferIds.length() > 0;
+        hadPermissions = auth.toTimestamp > 0 || auth.transferIds.length() > 0;
         auth.fromTimestamp = 0;
         auth.toTimestamp = 0;
         auth.transferIds.clear();

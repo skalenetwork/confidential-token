@@ -335,7 +335,7 @@ Authorizes a viewer to decrypt transfers from msg.sender within a time range
 function authorizeHistoricViewTimeRange(address viewer, uint256 fromTimestamp, uint256 toTimestamp) external returns (bool success)
 ```
 
-**dev:** _Allows only fromTimestamp < toTimestamp, unless fromTimestamp == 0_
+**dev:** _Allows only fromTimestamp < toTimestamp_
 
 #### Parameters
 

@@ -46,7 +46,6 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     using Address for address payable;
     using Math for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
-    using EnumerableSet for EnumerableSet.UintSet;
     using HistoricView for HistoricView.AuthStorage;
 
 

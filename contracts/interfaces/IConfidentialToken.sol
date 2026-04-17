@@ -230,7 +230,7 @@ interface IConfidentialToken is IBiteSupplicant {
     function removeHistoricViewTransferId(address viewer, uint256 transferId) external returns (bool success);
 
     /// @notice Authorizes a viewer to decrypt transfers from msg.sender within a time range
-    /// @dev Allows only fromTimestamp < toTimestamp, unless fromTimestamp == 0
+    /// @dev Allows only fromTimestamp < toTimestamp
     /// @param viewer Address to authorize
     /// @param fromTimestamp Inclusive lower bound timestamp
     /// @param toTimestamp Non-inclusive upper bound timestamp
