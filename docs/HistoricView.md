@@ -82,6 +82,12 @@ function authorizeTransferId(struct HistoricView.AuthStorage authStorage, addres
 function decodeIfAuthorized(struct HistoricView.AuthStorage authStorage, address sender, bytes decryptedTransferData) internal view returns (address from, address to)
 ```
 
+### canDecrypt
+
+```solidity
+function canDecrypt(struct HistoricView.AuthStorage authStorage, address from, address to, uint256 timestamp, uint256 transferId, address viewer) internal view returns (bool authorized)
+```
+
 ### encodedTransferData
 
 ```solidity

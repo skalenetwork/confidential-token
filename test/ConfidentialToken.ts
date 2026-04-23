@@ -513,10 +513,11 @@ describe("ConfidentialToken", () => {
         const registerViewer = async (
             token: MintableConfidentialToken,
             bite: BiteMock,
-            signer: Signer
+            holder: Signer,
+            viewer: Signer
         ) => {
-            await token.connect(signer).setViewerPublicKey(
-                await getPublicKey(signer),
+            await token.connect(holder).setViewerPublicKey(
+                await getPublicKey(viewer),
                 { value: ethFunding }
             );
             await bite.sendCallback();
@@ -579,8 +580,8 @@ describe("ConfidentialToken", () => {
         it("should emit event with TE-encrypted data and correct parameters", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
 
             await token.connect(owner).transfer(recipient, transferAmount);
             const callbackTx = await bite.sendCallback();
@@ -595,8 +596,8 @@ describe("ConfidentialToken", () => {
         it("should revert if the decryptionRequest is from an unregistered user", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, unregistered] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -618,8 +619,8 @@ describe("ConfidentialToken", () => {
         it("should revert if the decryption request is for a transfer that does not exist yet", async () => {
             const { token, bite } = await cleanMintableDeployment();
             const [owner, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, viewer, viewer);
 
             await token.connect(owner).authorizeHistoricViewTransferId(viewer, 9999)
                 .should.be.revertedWithCustomError(token, "InvalidTransferId");
@@ -628,9 +629,9 @@ describe("ConfidentialToken", () => {
         it("should allow to request decryption of a valid transfer, but revert on callback due to no permissions", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -642,10 +643,10 @@ describe("ConfidentialToken", () => {
         it("should revert on callback when a viewer is authorized by a holder who was not part of the transfer", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, outsider, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, outsider);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, outsider, outsider);
+            await registerViewer(token, bite, viewer, viewer);
 
             // Transfer is between owner and recipient — outsider is not involved
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
@@ -661,8 +662,8 @@ describe("ConfidentialToken", () => {
         it("should allow to/from to request decryption of a transfer IF registered", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -679,12 +680,75 @@ describe("ConfidentialToken", () => {
                 .to.equal(transferAmount);
         });
 
+        it("should return correct permissions from canDecryptHistoricTransfer", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, viewer] = await ethers.getSigners();
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
+
+            const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
+            const transferTimestamp = BigInt((await ethers.provider.getBlock("latest"))!.timestamp);
+
+            expect(
+                await token.canDecryptHistoricTransfer(
+                    viewer,
+                    event.transferId,
+                    event.from,
+                    event.to,
+                    transferTimestamp
+                )
+            ).to.equal(false);
+
+            await token.connect(owner).authorizeHistoricViewTimeRange(viewer, 0, 2n ** 64n);
+            expect(
+                await token.canDecryptHistoricTransfer(
+                    viewer,
+                    event.transferId,
+                    event.from,
+                    event.to,
+                    transferTimestamp
+                )
+            ).to.equal(true);
+
+            await token.connect(owner).removeHistoricViewTimeRange(viewer);
+            expect(
+                await token.canDecryptHistoricTransfer(
+                    viewer,
+                    event.transferId,
+                    event.from,
+                    event.to,
+                    transferTimestamp
+                )
+            ).to.equal(false);
+        });
+
+        it("should allow requesting historic decryption via requestDecryptHistoricTransferFor", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, viewer, payer] = await ethers.getSigners();
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
+
+            const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
+
+            await token.connect(owner).authorizeHistoricViewTransferId(viewer, event.transferId);
+            // Deposit just for the callback fee
+            await token.connect(payer).deposit(payer, {value: await token.callbackFee()});
+            await token.connect(payer).requestDecryptHistoricTransferFor(event.encryptedData, viewer);
+            const callbackTx = await bite.sendCallback();
+
+            await expect(callbackTx).to.emit(token, "ReEncryptedTransfer");
+            expect(await decryptReEncryptedTransferValue(token, bite, viewer, callbackTx))
+                .to.equal(transferAmount);
+        });
+
         it("should be able to grant historic view permission to a viewer with fromTimestamp and toTimestamp valid, and decrypt a transfer event", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -700,9 +764,9 @@ describe("ConfidentialToken", () => {
         it("should be able to revoke granted historic view permission to a viewer", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -726,9 +790,9 @@ describe("ConfidentialToken", () => {
         it("should be able to grant historic view permission to a viewer to a specific transfer Id and decrypt a transfer event", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -744,10 +808,10 @@ describe("ConfidentialToken", () => {
         it("should be able to remove all permissions at once, after verifying decryption works via both time range and transfer ID independently", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewerByTime, viewerById] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewerByTime);
-            await registerViewer(token, bite, viewerById);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewerByTime, viewerByTime);
+            await registerViewer(token, bite, viewerById, viewerById);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -790,9 +854,9 @@ describe("ConfidentialToken", () => {
         it("should emit ReEncryptedTransfer if fromTimestamp is exactly on the time range boundary", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
             const transferTimestamp = BigInt((await ethers.provider.getBlock("latest"))!.timestamp);
@@ -816,9 +880,9 @@ describe("ConfidentialToken", () => {
         it("should NOT emit ReEncryptedTransfer if transfer timestamp is outside the authorized time range", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
             const transferTimestamp = BigInt((await ethers.provider.getBlock("latest"))!.timestamp);
@@ -835,9 +899,9 @@ describe("ConfidentialToken", () => {
         it("should revert if fromTimestamp >= toTimestamp", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
             const transferTimestamp = BigInt((await ethers.provider.getBlock("latest"))!.timestamp);
@@ -858,9 +922,9 @@ describe("ConfidentialToken", () => {
         it("should allow updating the time range with a new authorizeHistoricViewTimeRange call", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
             const transferTimestamp = BigInt((await ethers.provider.getBlock("latest"))!.timestamp);
@@ -884,9 +948,9 @@ describe("ConfidentialToken", () => {
         it("should allow authorizing multiple transfer IDs for the same viewer", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event1 = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
             const event2 = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
@@ -904,9 +968,9 @@ describe("ConfidentialToken", () => {
         it("should NOT emit ReEncryptedTransfer after removeHistoricViewTransferId removes the specific ID, while other IDs remain valid", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event1 = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
             const event2 = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
@@ -932,9 +996,9 @@ describe("ConfidentialToken", () => {
         it("should allow a viewer authorized by the recipient via time range to decrypt", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -951,9 +1015,9 @@ describe("ConfidentialToken", () => {
         it("should allow a viewer authorized by the recipient via transfer ID to decrypt", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -972,8 +1036,8 @@ describe("ConfidentialToken", () => {
         it("should deduct callbackFee when requesting historic decryption", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -988,9 +1052,9 @@ describe("ConfidentialToken", () => {
         it("should revert requestDecryptHistoricTransfer if ETH balance is insufficient", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -1007,8 +1071,8 @@ describe("ConfidentialToken", () => {
         it("should allow the same transfer to be requested multiple times by the same authorized viewer", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -1024,10 +1088,10 @@ describe("ConfidentialToken", () => {
         it("should allow two different authorized viewers to each independently request decryption of the same transfer", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer1, viewer2] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-            await registerViewer(token, bite, viewer1);
-            await registerViewer(token, bite, viewer2);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer1, viewer1);
+            await registerViewer(token, bite, viewer2, viewer2);
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
@@ -1052,8 +1116,8 @@ describe("ConfidentialToken", () => {
         it("should silently succeed when removing a transferId that exists but was never authorized", async () => {
             const { token, bite } = await withMintedTokens();
             const [owner, viewer] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, viewer);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, viewer, viewer);
 
             // Remove a transferId that was never authorized but Exists — should not revert
             await token.connect(owner).removeHistoricViewTransferId(viewer, 0);
@@ -1061,32 +1125,86 @@ describe("ConfidentialToken", () => {
 
         // Automatic TransferValueEncryptedForRecipient on transfer
 
-        it("should automatically emit TransferValueEncryptedForRecipient readable by the recipient when recipient has a registered public key", async () => {
+        it("should automatically emit TransferValueEncryptedForRecipient & Sender readable by the viewers when they have a registered viewer", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
 
             await token.connect(owner).transfer(recipient, transferAmount);
             const callbackTx = await bite.sendCallback();
             const receipt = await callbackTx.wait();
 
-            await expect(callbackTx).to.emit(token, "TransferValueEncryptedForRecipient");
+            await expect(callbackTx).to.emit(token, "TransferValueEncryptedForRecipient").and.to.emit(token, "TransferValueEncryptedForSender");
 
-            const event = receipt!.logs
+            const eventReceiver = receipt!.logs
                 .map(log => { try { return token.interface.parseLog({ topics: [...log.topics], data: log.data }); } catch { return null; } })
                 .find(parsed => parsed?.name === "TransferValueEncryptedForRecipient");
 
-            const publicKey = await token.publicKeys(recipient.address);
-            const decryptionKey = await bite.pubKeyToUint256(publicKey.x, publicKey.y);
-            const decrypted = await bite.decryptECIES(event!.args.encryptedValue, decryptionKey);
-            expect(ethers.toBigInt(decrypted)).to.equal(transferAmount);
+            const eventSender = receipt!.logs
+                .map(log => { try { return token.interface.parseLog({ topics: [...log.topics], data: log.data }); } catch { return null; } })
+                .find(parsed => parsed?.name === "TransferValueEncryptedForSender");
+
+            const publicKeyReceiver = await token.publicKeys(recipient.address);
+            const decryptionKeyReceiver = await bite.pubKeyToUint256(publicKeyReceiver.x, publicKeyReceiver.y);
+            const decryptedReceiver = await bite.decryptECIES(eventReceiver!.args.encryptedValue, decryptionKeyReceiver);
+            expect(ethers.toBigInt(decryptedReceiver)).to.equal(transferAmount);
+
+            const publicKeySender = await token.publicKeys(owner.address);
+            const decryptionKeySender = await bite.pubKeyToUint256(publicKeySender.x, publicKeySender.y);
+            const decryptedSender = await bite.decryptECIES(eventSender!.args.encryptedValue, decryptionKeySender);
+            expect(ethers.toBigInt(decryptedSender)).to.equal(transferAmount);
         });
 
-        it("should NOT automatically emit TransferValueEncryptedForRecipient if recipient has no registered public key", async () => {
+        it("should encrypt recipient/sender transfer values for external viewer key, not holder own keys", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, externalViewer] = await ethers.getSigners();
+
+            // Register owner/recipient with the same external viewer key
+            await registerViewer(token, bite, owner, externalViewer);
+            await registerViewer(token, bite, recipient, externalViewer);
+            // Ensure own keys exist so we can prove they cannot decrypt these values
+            await token.connect(owner).registerPublicKey(await getPublicKey(owner));
+            await token.connect(recipient).registerPublicKey(await getPublicKey(recipient));
+
+            await token.connect(owner).transfer(recipient, transferAmount);
+            const callbackTx = await bite.sendCallback();
+            const receipt = await callbackTx.wait();
+
+            await expect(callbackTx).to.emit(token, "TransferValueEncryptedForRecipient").and.to.emit(token, "TransferValueEncryptedForSender");
+
+            const eventRecipient = receipt!.logs
+                .map(log => { try { return token.interface.parseLog({ topics: [...log.topics], data: log.data }); } catch { return null; } })
+                .find(parsed => parsed?.name === "TransferValueEncryptedForRecipient");
+
+            const eventSender = receipt!.logs
+                .map(log => { try { return token.interface.parseLog({ topics: [...log.topics], data: log.data }); } catch { return null; } })
+                .find(parsed => parsed?.name === "TransferValueEncryptedForSender");
+
+            const viewerPublicKey = await token.publicKeys(externalViewer.address);
+            const viewerDecryptionKey = await bite.pubKeyToUint256(viewerPublicKey.x, viewerPublicKey.y);
+
+            const recipientOwnPublicKey = await token.publicKeys(recipient.address);
+            const recipientOwnDecryptionKey = await bite.pubKeyToUint256(recipientOwnPublicKey.x, recipientOwnPublicKey.y);
+
+            const ownerOwnPublicKey = await token.publicKeys(owner.address);
+            const ownerOwnDecryptionKey = await bite.pubKeyToUint256(ownerOwnPublicKey.x, ownerOwnPublicKey.y);
+
+            const recipientValueByViewer = await bite.decryptECIES(eventRecipient!.args.encryptedValue, viewerDecryptionKey);
+            const senderValueByViewer = await bite.decryptECIES(eventSender!.args.encryptedValue, viewerDecryptionKey);
+            expect(ethers.toBigInt(recipientValueByViewer)).to.equal(transferAmount);
+            expect(ethers.toBigInt(senderValueByViewer)).to.equal(transferAmount);
+
+            const recipientValueByOwnKey = await bite.decryptECIES(eventRecipient!.args.encryptedValue, recipientOwnDecryptionKey);
+            const senderValueByOwnKey = await bite.decryptECIES(eventSender!.args.encryptedValue, ownerOwnDecryptionKey);
+            expect(ethers.toBigInt(recipientValueByOwnKey)).to.not.equal(transferAmount);
+            expect(ethers.toBigInt(senderValueByOwnKey)).to.not.equal(transferAmount);
+        });
+
+        it("should NOT automatically emit TransferValueEncryptedForRecipient if recipient has no registered view key", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
+            await registerViewer(token, bite, owner, owner);
             // recipient deliberately NOT registered
 
             await token.connect(owner).transfer(recipient, transferAmount);
@@ -1097,31 +1215,12 @@ describe("ConfidentialToken", () => {
 
         it("should NOT automatically emit TransferValueEncryptedForRecipient on self-transfer", async () => {
             const { token, bite, owner } = await withMintedTokens();
-            await registerViewer(token, bite, owner);
+            await registerViewer(token, bite, owner, owner);
 
             await token.connect(owner).transfer(owner, transferAmount);
             const callbackTx = await bite.sendCallback();
 
             await expect(callbackTx).to.not.emit(token, "TransferValueEncryptedForRecipient");
-        });
-
-        it("should automatically emit TransferValueEncryptedForRecipient for recipient only, not trigger one for sender", async () => {
-            const { token, bite, owner } = await withMintedTokens();
-            const [, recipient] = await ethers.getSigners();
-            await registerViewer(token, bite, owner);
-            await registerViewer(token, bite, recipient);
-
-            await token.connect(owner).transfer(recipient, transferAmount);
-            const callbackTx = await bite.sendCallback();
-            const receipt = await callbackTx.wait();
-
-            const autoEvents = receipt!.logs
-                .map(log => { try { return token.interface.parseLog({ topics: [...log.topics], data: log.data }); } catch { return null; } })
-                .filter(parsed => parsed?.name === "TransferValueEncryptedForRecipient");
-
-            expect(autoEvents).to.have.lengthOf(1);
-            expect(autoEvents[0]!.args.from).to.equal(owner.address);
-            expect(autoEvents[0]!.args.to).to.equal(recipient.address);
         });
     });
 });

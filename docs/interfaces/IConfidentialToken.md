@@ -235,7 +235,7 @@ event HistoricViewTimeRangeRevoked(address holder, address viewer)
 
 ### TransferValueEncryptedForRecipient
 
-Emitted during a transfer when the recipient has a registered public key
+Emitted during a transfer when the recipient has viewer registered
 
 ```solidity
 event TransferValueEncryptedForRecipient(address from, address to, uint256 transferId, bytes encryptedValue)
@@ -250,7 +250,26 @@ event TransferValueEncryptedForRecipient(address from, address to, uint256 trans
 | from | address | Address of the sender |
 | to | address | Address of the recipient — also the holder of the decryption key |
 | transferId | uint256 | ID of the transfer |
-| encryptedValue | bytes | ECIES-Encrypted transfer value for `to` Public Key |
+| encryptedValue | bytes | ECIES-Encrypted transfer value for `to` viewer's Public Key |
+
+### TransferValueEncryptedForSender
+
+Emitted during a transfer when the sender has a viewer registered
+
+```solidity
+event TransferValueEncryptedForSender(address from, address to, uint256 transferId, bytes encryptedValue)
+```
+
+**dev:** _Emitted automatically at transfer time — no explicit request or fee required_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address of the sender |
+| to | address | Address of the recipient — also the holder of the decryption key |
+| transferId | uint256 | ID of the transfer |
+| encryptedValue | bytes | ECIES-Encrypted transfer value for `from` viewer's Public Key |
 
 ### PublicKeyRegistered
 
@@ -469,7 +488,7 @@ function encryptedTransferFrom(address from, address to, bytes value) external
 
 ### requestDecryptHistoricTransfer
 
-Requests decryption of a single historic encrypted transfer payload
+Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
 
 ```solidity
 function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
@@ -482,6 +501,23 @@ function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
+
+### requestDecryptHistoricTransferFor
+
+Requests decryption of a single historic encrypted transfer payload
+
+```solidity
+function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) external
+```
+
+**dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
+| historicViewer | address | Address of the viewer who will receive the decrypted transfer event if authorized |
 
 ### removeHistoricViewAuth
 
@@ -590,6 +626,32 @@ function authorizeHistoricViewTransferId(address viewer, uint256 transferId) ext
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | success | bool | Always returns true |
+
+### canDecryptHistoricTransfer
+
+Checks if a viewer is authorized to decrypt a historic transfer
+
+```solidity
+function canDecryptHistoricTransfer(address viewer, uint256 transferId, address from, address to, uint256 timestamp) external view returns (bool canDecrypt)
+```
+
+**dev:** _The transfer content is made up, and viewer may have access through time range or transfer ID_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address of the viewer requesting decryption |
+| transferId | uint256 | ID of the transfer to check authorization for |
+| from | address | Address of the sender of the transfer |
+| to | address | Address of the recipient of the transfer |
+| timestamp | uint256 | Timestamp of the transfer |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| canDecrypt | bool | True if the viewer is authorized to decrypt the transfer, false otherwise |
 
 ### encryptedBalanceOf
 

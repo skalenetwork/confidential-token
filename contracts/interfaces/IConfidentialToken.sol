@@ -126,13 +126,26 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param viewer Address of the viewer losing access.
     event HistoricViewTimeRangeRevoked(address indexed holder,address indexed viewer);
 
-    /// @notice Emitted during a transfer when the recipient has a registered public key
+    /// @notice Emitted during a transfer when the recipient has viewer registered
     /// @dev Emitted automatically at transfer time — no explicit request or fee required
     /// @param from Address of the sender
     /// @param to Address of the recipient — also the holder of the decryption key
     /// @param transferId ID of the transfer
-    /// @param encryptedValue ECIES-Encrypted transfer value for `to` Public Key
+    /// @param encryptedValue ECIES-Encrypted transfer value for `to` viewer's Public Key
     event TransferValueEncryptedForRecipient(
+        address indexed from,
+        address indexed to,
+        uint256 indexed transferId,
+        bytes encryptedValue
+    );
+
+    /// @notice Emitted during a transfer when the sender has a viewer registered
+    /// @dev Emitted automatically at transfer time — no explicit request or fee required
+    /// @param from Address of the sender
+    /// @param to Address of the recipient — also the holder of the decryption key
+    /// @param transferId ID of the transfer
+    /// @param encryptedValue ECIES-Encrypted transfer value for `from` viewer's Public Key
+    event TransferValueEncryptedForSender(
         address indexed from,
         address indexed to,
         uint256 indexed transferId,
@@ -206,10 +219,16 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param value The TE-encrypted amount of tokens to transfer
     function encryptedTransferFrom(address from, address to, bytes calldata value) external;
 
-    /// @notice Requests decryption of a single historic encrypted transfer payload
+    /// @notice Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
     /// @dev Charges callbackFee from msg.sender even if not authorized to decrypt the payload
     /// @param encryptedTransferData TE-encrypted transfer payload emitted by the token
     function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external;
+
+    /// @notice Requests decryption of a single historic encrypted transfer payload
+    /// @dev Charges callbackFee from msg.sender even if not authorized to decrypt the payload
+    /// @param encryptedTransferData TE-encrypted transfer payload emitted by the token
+    /// @param historicViewer Address of the viewer who will receive the decrypted transfer event if authorized
+    function requestDecryptHistoricTransferFor(bytes calldata encryptedTransferData, address historicViewer) external;
 
     /// @notice Removes all historic view permissions for a viewer for msg.sender's history
     /// @dev Resets time window and clears explicitly authorized transfer IDs
@@ -246,6 +265,22 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param transferId Transfer ID to authorize
     /// @return success Always returns true
     function authorizeHistoricViewTransferId(address viewer, uint256 transferId) external returns (bool success);
+
+    /// @notice Checks if a viewer is authorized to decrypt a historic transfer
+    /// @dev The transfer content is made up, and viewer may have access through time range or transfer ID
+    /// @param viewer Address of the viewer requesting decryption
+    /// @param transferId ID of the transfer to check authorization for
+    /// @param from Address of the sender of the transfer
+    /// @param to Address of the recipient of the transfer
+    /// @param timestamp Timestamp of the transfer
+    /// @return canDecrypt True if the viewer is authorized to decrypt the transfer, false otherwise
+    function canDecryptHistoricTransfer(
+        address viewer,
+        uint256 transferId,
+        address from,
+        address to,
+        uint256 timestamp
+    ) external view returns (bool canDecrypt);
 
     /// @notice Gets the encrypted balance of a holder
     /// @param holder The address of the holder

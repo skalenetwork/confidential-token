@@ -187,37 +187,10 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         _encryptedTransferFrom(from, to, value);
     }
 
-
     /// @inheritdoc IConfidentialToken
-    function requestDecryptHistoricTransfer(
-        bytes calldata encryptedTransferData
-    )
-        external
-        override
-        onlyRegisteredUser(msg.sender)
-    {
-        // value is not a constant
-        // so no ability to save some gas here
-        // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[msg.sender] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[msg.sender]));
-        _ethBalance[msg.sender] -= callbackFee;
-
-        bytes[] memory encryptedArguments = new bytes[](1);
-        encryptedArguments[0] = encryptedTransferData;
-
-        bytes[] memory plaintextArguments = new bytes[](2);
-        plaintextArguments[0] = abi.encodePacked(uint8(OnDecryptAction.HISTORIC_VIEW));
-        plaintextArguments[1] = abi.encodePacked(msg.sender);
-
-        address payable callback = BITE.submitCTX(
-            submitCTXAddress,
-            callbackFee / tx.gasprice,
-            encryptedArguments,
-            plaintextArguments
-        );
-
-        require(_callbackSenders.add(callback), AccessViolation());
-        callback.sendValue(callbackFee);
+    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external override {
+        // This function is kept for backward compatibility with older versions of the contract
+        requestDecryptHistoricTransferFor(encryptedTransferData, msg.sender);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -352,7 +325,62 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         return _ethBalance[holder];
     }
 
+    ///@inheritdoc IConfidentialToken
+    function canDecryptHistoricTransfer(
+        address viewer,
+        uint256 transferId,
+        address from,
+        address to,
+        uint256 timestamp
+    )
+        external
+        view
+        override
+        returns (bool canDecrypt)
+    {
+        return _historicViewAuth.canDecrypt({
+            from: from,
+            to: to,
+            transferId: transferId,
+            timestamp: timestamp,
+            viewer: viewer
+        });
+    }
+
     // Public functions
+
+    /// @inheritdoc IConfidentialToken
+    function requestDecryptHistoricTransferFor(
+        bytes calldata encryptedTransferData,
+        address historicViewer
+    )
+        public
+        override
+        onlyRegisteredUser(historicViewer)
+    {
+        // value is not a constant
+        // so no ability to save some gas here
+        // solhint-disable-next-line gas-strict-inequalities
+        require(_ethBalance[msg.sender] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[msg.sender]));
+        _ethBalance[msg.sender] -= callbackFee;
+
+        bytes[] memory encryptedArguments = new bytes[](1);
+        encryptedArguments[0] = encryptedTransferData;
+
+        bytes[] memory plaintextArguments = new bytes[](2);
+        plaintextArguments[0] = abi.encodePacked(uint8(OnDecryptAction.HISTORIC_VIEW));
+        plaintextArguments[1] = abi.encodePacked(historicViewer);
+
+        address payable callback = BITE.submitCTX(
+            submitCTXAddress,
+            callbackFee / tx.gasprice,
+            encryptedArguments,
+            plaintextArguments
+        );
+
+        require(_callbackSenders.add(callback), AccessViolation());
+        callback.sendValue(callbackFee);
+    }
 
     /// @inheritdoc IConfidentialToken
     function deposit(address receiver) public payable override {
@@ -552,13 +580,23 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         // Emit event with TE-encrypted transfer metadata
         emit EncryptedTransfer(_transferId, from, to, BITE.encryptTE(encryptTEAddress, encodedTransfer));
         // Emit event with ECIES-encrypted value readable by the recipient
-        if(from != to && _knownPublicKey(to)) {
-            emit TransferValueEncryptedForRecipient(
-                from,
-                to,
-                _transferId,
-                BITE.encryptECIES(encryptECIESAddress, abi.encodePacked(value), publicKeys[to])
-            );
+        if(from != to) {
+            if(_viewerIsRegistered(to)) {
+                emit TransferValueEncryptedForRecipient(
+                    from,
+                    to,
+                    _transferId,
+                    BITE.encryptECIES(encryptECIESAddress, abi.encodePacked(value), _getViewKey(to))
+                );
+            }
+            if(_viewerIsRegistered(from)) {
+                emit TransferValueEncryptedForSender(
+                    from,
+                    to,
+                    _transferId,
+                    BITE.encryptECIES(encryptECIESAddress, abi.encodePacked(value), _getViewKey(from))
+                );
+            }
         }
         unchecked{++_transferId;}
     }

@@ -250,7 +250,7 @@ function encryptedTransferFrom(address from, address to, bytes value) external
 
 ### requestDecryptHistoricTransfer
 
-Requests decryption of a single historic encrypted transfer payload
+Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
 
 ```solidity
 function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
@@ -498,6 +498,49 @@ function ethBalanceOf(address holder) external view returns (uint256 balance)
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | balance | uint256 | The ETH balance of the holder |
+
+### canDecryptHistoricTransfer
+
+Checks if a viewer is authorized to decrypt a historic transfer
+
+```solidity
+function canDecryptHistoricTransfer(address viewer, uint256 transferId, address from, address to, uint256 timestamp) external view returns (bool canDecrypt)
+```
+
+**dev:** _The transfer content is made up, and viewer may have access through time range or transfer ID_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address of the viewer requesting decryption |
+| transferId | uint256 | ID of the transfer to check authorization for |
+| from | address | Address of the sender of the transfer |
+| to | address | Address of the recipient of the transfer |
+| timestamp | uint256 | Timestamp of the transfer |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| canDecrypt | bool | True if the viewer is authorized to decrypt the transfer, false otherwise |
+
+### requestDecryptHistoricTransferFor
+
+Requests decryption of a single historic encrypted transfer payload
+
+```solidity
+function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public
+```
+
+**dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
+| historicViewer | address | Address of the viewer who will receive the decrypted transfer event if authorized |
 
 ### deposit
 

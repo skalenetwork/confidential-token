@@ -145,6 +145,31 @@ library HistoricView {
         return (transferData.from, transferData.to);
     }
 
+    function canDecrypt(
+        AuthStorage storage authStorage,
+        address from,
+        address to,
+        uint256 timestamp,
+        uint256 transferId,
+        address viewer
+    )
+        internal
+        view
+        returns (bool authorized)
+    {
+        return _isAuthorized(
+            authStorage,
+            TransferData({
+                from: from,
+                to: to,
+                value: 0,
+                timestamp: timestamp,
+                transferId: transferId
+            }),
+            viewer
+        );
+    }
+
     function encodedTransferData(
         address from,
         address to,
