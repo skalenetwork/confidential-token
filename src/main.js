@@ -6,10 +6,13 @@ import {
   fetchSymbol,
   getCachedSymbol,
   checkFunding,
+  checkTokenFunding,
   getDepositAmount,
   mintWrapped,
   withdrawWrapped,
   mintToken,
+  getConfidentialWrapperAddress,
+  getConfidentialTokenAddress,
 } from './contract.js';
 import {
   deployWrapper,
@@ -114,16 +117,25 @@ connectBtn.addEventListener('click', () => {
 
 renderAccount(modal.getAccount('eip155'));
 
+function checkAllFunding() {
+  if (getConfidentialWrapperAddress()) {
+    checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
+  }
+  if (getConfidentialTokenAddress()) {
+    checkTokenFunding(depositInput, fundingWarning, [mintTokenBtn]);
+  }
+}
+
 modal.subscribeAccount((account) => {
   renderAccount(account);
   if (account && account.isConnected) {
-    checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
+    checkAllFunding();
     fetchSymbol();
   }
 });
 
 if (modal.getAccount('eip155')?.isConnected) {
-  checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
+  checkAllFunding();
   fetchSymbol();
 }
 
@@ -208,7 +220,7 @@ depositBtn.addEventListener('click', async () => {
     await tx.wait();
 
     depositInput.value = '';
-    await checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
+    await checkAllFunding();
   } catch (err) {
     console.error('Deposit error:', err);
     depositBtn.textContent = 'Deposit failed';
@@ -284,7 +296,7 @@ deployBtn.addEventListener('click', async () => {
       deployBtn.textContent = msg;
     });
     showWrapperStatus(wrapperAddress);
-    checkFunding(depositInput, fundingWarning, [wrapBtn, transferBtn]);
+    checkAllFunding();
     fetchSymbol();
     deployBtn.textContent = 'Deployed ✓';
     setTimeout(() => { deployBtn.textContent = deployBtn.dataset.label; }, 3000);
@@ -394,7 +406,7 @@ deployTokenBtn.addEventListener('click', async () => {
       deployTokenBtn.textContent = msg;
     });
     showTokenStatus(tokenAddress);
-    deployTokenBtn.textContent = 'Deployed ✓';
+    checkAllFunding();
     setTimeout(() => { deployTokenBtn.textContent = deployTokenBtn.dataset.label; }, 3000);
   } catch (err) {
     console.error('Deploy token error:', err);
