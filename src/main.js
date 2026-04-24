@@ -3,6 +3,7 @@ import { SIGN_MESSAGE } from './config.js';
 import { initWallet, ensureConnected } from './wallet.js';
 import {
   getSignerAndWrappedContract,
+  getSignerAndTokenContract,
   fetchSymbol,
   getCachedSymbol,
   checkFunding,
@@ -211,7 +212,10 @@ depositBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(depositBtn, true, 'Confirm tx...');
-    const { signer, contract } = await getSignerAndWrappedContract();
+    const getContract = getConfidentialWrapperAddress()
+      ? getSignerAndWrappedContract
+      : getSignerAndTokenContract;
+    const { signer, contract } = await getContract();
     const address = await signer.getAddress();
     const amount = await getDepositAmount(depositInput.value);
 
