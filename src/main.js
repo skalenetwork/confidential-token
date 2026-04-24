@@ -9,6 +9,7 @@ import {
   getDepositAmount,
   mintWrapped,
   withdrawWrapped,
+  mintToken,
 } from './contract.js';
 import {
   deployWrapper,
@@ -16,6 +17,11 @@ import {
   getOriginTokenAddress,
   clearDeployedWrapper,
 } from './deployWrapper.js';
+import {
+  deployToken,
+  getDeployedTokenAddress,
+  clearDeployedToken,
+} from './deployToken.js';
 import { decryptBalance, deriveViewerKey, encryptTransfer } from './encryption.js';
 
 function setButtonLoading(button, loading, text) {
@@ -51,9 +57,17 @@ const clearWrapperBtn = document.getElementById('clearWrapperBtn');
 const wrapBtn = document.getElementById('wrapBtn');
 const wrapAmountInput = document.getElementById('wrapAmount');
 const unwrapBtn = document.getElementById('unwrapBtn');
+const deployTokenBtn = document.getElementById('deployTokenBtn');
+const tokenNameInput = document.getElementById('tokenName');
+const tokenSymbolInput = document.getElementById('tokenSymbol');
+const tokenStatus = document.getElementById('tokenStatus');
+const tokenAddressDisplay = document.getElementById('tokenAddressDisplay');
+const clearTokenBtn = document.getElementById('clearTokenBtn');
+const mintTokenBtn = document.getElementById('mintTokenBtn');
+const mintAmountInput = document.getElementById('mintAmount');
 
 // Store original button labels
-[decryptBtn, registerBtn, depositBtn, transferBtn, deployBtn, wrapBtn, unwrapBtn].forEach((btn) => {
+[decryptBtn, registerBtn, depositBtn, transferBtn, deployBtn, wrapBtn, unwrapBtn, deployTokenBtn, mintTokenBtn].forEach((btn) => {
   btn.dataset.label = btn.textContent;
 });
 
@@ -63,6 +77,11 @@ function showWrapperStatus(address) {
   wrapperStatus.style.display = 'flex';
 }
 
+function showTokenStatus(address) {
+  tokenAddressDisplay.textContent = address;
+  tokenStatus.style.display = 'flex';
+}
+
 function initDeployState() {
   const addr = getDeployedWrapperAddress();
   if (addr) {
@@ -70,6 +89,8 @@ function initDeployState() {
     const originToken = getOriginTokenAddress();
     if (originToken) originTokenInput.value = originToken;
   }
+  const tokenAddr = getDeployedTokenAddress();
+  if (tokenAddr) showTokenStatus(tokenAddr);
 }
 initDeployState();
 
@@ -343,5 +364,78 @@ unwrapBtn.addEventListener('click', async () => {
     setTimeout(() => { unwrapBtn.textContent = unwrapBtn.dataset.label; }, 3000);
   } finally {
     unwrapBtn.disabled = false;
+  }
+});
+
+// --- Deploy Confidential Token ---
+deployTokenBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  const name = tokenNameInput.value.trim();
+  const symbol = tokenSymbolInput.value.trim();
+  if (!name) {
+    tokenNameInput.style.borderColor = '#ef4444';
+    tokenNameInput.focus();
+    return;
+  }
+  tokenNameInput.style.borderColor = '';
+  if (!symbol) {
+    tokenSymbolInput.style.borderColor = '#ef4444';
+    tokenSymbolInput.focus();
+    return;
+  }
+  tokenSymbolInput.style.borderColor = '';
+
+  try {
+    setButtonLoading(deployTokenBtn, true, 'Confirm tx...');
+    const ethersProvider = new BrowserProvider(window.ethereum);
+    const signer = await ethersProvider.getSigner();
+    const { tokenAddress } = await deployToken(name, symbol, signer, (msg) => {
+      deployTokenBtn.textContent = msg;
+    });
+    showTokenStatus(tokenAddress);
+    deployTokenBtn.textContent = 'Deployed ✓';
+    setTimeout(() => { deployTokenBtn.textContent = deployTokenBtn.dataset.label; }, 3000);
+  } catch (err) {
+    console.error('Deploy token error:', err);
+    deployTokenBtn.textContent = 'Deploy failed';
+    setTimeout(() => { deployTokenBtn.textContent = deployTokenBtn.dataset.label; }, 3000);
+  } finally {
+    deployTokenBtn.disabled = false;
+  }
+});
+
+// --- Clear deployed token ---
+clearTokenBtn.addEventListener('click', () => {
+  clearDeployedToken();
+  tokenStatus.style.display = 'none';
+  tokenNameInput.value = '';
+  tokenSymbolInput.value = '';
+});
+
+// --- Mint Confidential Token ---
+mintTokenBtn.addEventListener('click', async () => {
+  if (!ensureConnected(modal)) return;
+
+  const amount = mintAmountInput.value.trim();
+  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    mintAmountInput.style.borderColor = '#ef4444';
+    mintAmountInput.focus();
+    return;
+  }
+  mintAmountInput.style.borderColor = '';
+
+  try {
+    setButtonLoading(mintTokenBtn, true, 'Confirm tx...');
+    await mintToken(amount);
+    mintAmountInput.value = '';
+    mintTokenBtn.textContent = 'Minted ✓';
+    setTimeout(() => { mintTokenBtn.textContent = mintTokenBtn.dataset.label; }, 3000);
+  } catch (err) {
+    console.error('Mint error:', err);
+    mintTokenBtn.textContent = 'Mint failed';
+    setTimeout(() => { mintTokenBtn.textContent = mintTokenBtn.dataset.label; }, 3000);
+  } finally {
+    mintTokenBtn.disabled = false;
   }
 });
