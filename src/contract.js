@@ -88,8 +88,11 @@ export async function getDepositAmount(depositInputValue) {
   if (depositInputValue && parseFloat(depositInputValue) > 0) {
     return parseUnits(depositInputValue, 18);
   }
-  const { contract } = await getSignerAndWrappedContract();
-  const fee = cachedCallbackFee ?? (await contract.callbackFee());
+  if (cachedCallbackFee) return cachedCallbackFee * DEPOSIT_MULTIPLIER;
+  const getContract = getConfidentialWrapperAddress() ? getSignerAndWrappedContract : getSignerAndTokenContract;
+  const { contract } = await getContract();
+  const fee = await contract.callbackFee();
+  cachedCallbackFee = fee;
   return fee * DEPOSIT_MULTIPLIER;
 }
 
