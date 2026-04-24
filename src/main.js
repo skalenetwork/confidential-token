@@ -127,6 +127,13 @@ function checkAllFunding() {
   }
 }
 
+// Pick whichever contract is currently deployed (wrapper takes priority)
+function getActiveContract() {
+  return getConfidentialWrapperAddress()
+    ? getSignerAndWrappedContract
+    : getSignerAndTokenContract;
+}
+
 modal.subscribeAccount((account) => {
   renderAccount(account);
   if (account && account.isConnected) {
@@ -146,7 +153,7 @@ decryptBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(decryptBtn, true, 'Reading...');
-    const { signer, contract } = await getSignerAndWrappedContract();
+    const { signer, contract } = await getActiveContract()();
     const address = await signer.getAddress();
 
     let encryptedData;
@@ -183,7 +190,7 @@ registerBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(registerBtn, true, 'Signing...');
-    const { signer, contract } = await getSignerAndWrappedContract();
+    const { signer, contract } = await getActiveContract()();
     const signature = await signer.signMessage(SIGN_MESSAGE);
     const derivedPrivateKey = keccak256(signature);
 
@@ -258,7 +265,7 @@ transferBtn.addEventListener('click', async () => {
 
   try {
     setButtonLoading(transferBtn, true, 'Encrypting...');
-    const { signer } = await getSignerAndWrappedContract();
+    const { signer } = await getActiveContract()();
     const encryptedTx = await encryptTransfer(recipient, amount);
 
     setButtonLoading(transferBtn, true, 'Confirm tx...');
