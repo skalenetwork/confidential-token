@@ -1,5 +1,6 @@
 import { BrowserProvider, Contract, formatUnits, parseUnits } from 'ethers';
 import ConfidentialWrapperArtifact from '../artifacts/ConfidentialWrapper.json';
+import ConfidentialTokenArtifact from '../artifacts/ConfidentialToken.json';
 import { getOriginTokenAddress } from './deployWrapper.js';
 
 const ERC20_APPROVE_ABI = [
@@ -12,12 +13,25 @@ export function getConfidentialWrapperAddress() {
   return sessionStorage.getItem('confidential_wrapper_address');
 }
 
+export function getConfidentialTokenAddress() {
+  return sessionStorage.getItem('confidential_token_address');
+}
+
 export async function getSignerAndWrappedContract() {
   const provider = window.ethereum;
   if (!provider) throw new Error('Wallet not connected');
   const ethersProvider = new BrowserProvider(provider);
   const signer = await ethersProvider.getSigner();
   const contract = new Contract(getConfidentialWrapperAddress(), ConfidentialWrapperArtifact.abi, signer);
+  return { signer, contract };
+}
+
+export async function getSignerAndTokenContract() {
+  const provider = window.ethereum;
+  if (!provider) throw new Error('Wallet not connected');
+  const ethersProvider = new BrowserProvider(provider);
+  const signer = await ethersProvider.getSigner();
+  const contract = new Contract(getConfidentialTokenAddress(), ConfidentialTokenArtifact.abi, signer);
   return { signer, contract };
 }
 
@@ -91,5 +105,13 @@ export async function withdrawWrapped(amount) {
   const { signer, contract } = await getSignerAndWrappedContract();
   const userAddress = await signer.getAddress();
   const tx = await contract.withdrawTo(userAddress, amount);
+  await tx.wait();
+}
+
+export async function mintToken(amount) {
+  const { signer, contract } = await getSignerAndTokenContract();
+  const userAddress = await signer.getAddress();
+  const parsedAmount = parseUnits(amount.toString(), 18);
+  const tx = await contract.mint(userAddress, parsedAmount);
   await tx.wait();
 }
