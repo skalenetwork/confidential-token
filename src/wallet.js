@@ -14,8 +14,6 @@ function patchProvider(provider) {
     try {
       return await orig(args);
     } catch (err) {
-      // MetaMask already has a pending request (common during Vite HMR reloads)
-      if (err.code === -32002) return;
       if (
         (err.code === 4902 || err.code === -32603) &&
         args.method === 'wallet_switchEthereumChain'
