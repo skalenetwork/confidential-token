@@ -129,7 +129,6 @@ export async function withdrawWrapped(amount) {
 export async function mintToken(amount) {
   const { signer, contract } = await getSignerAndTokenContract();
   const userAddress = await signer.getAddress();
-  const parsedAmount = parseUnits(amount.toString(), 18);
-  const tx = await contract.mint(userAddress, parsedAmount);
+  const tx = await contract.mint(userAddress, BigInt(amount));
   await tx.wait();
 }
