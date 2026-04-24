@@ -51,21 +51,36 @@ export async function fetchSymbol() {
   }
 }
 
+async function runFundingCheck(getContractFn, depositInput, fundingWarning, gatedButtons) {
+  const { signer, contract } = await getContractFn();
+  const address = await signer.getAddress();
+  const [balance, fee] = await Promise.all([
+    contract.ethBalanceOf(address),
+    contract.callbackFee(),
+  ]);
+  cachedCallbackFee = fee;
+  depositInput.value = formatUnits(fee * DEPOSIT_MULTIPLIER, 18);
+  const insufficient = balance < fee;
+  if (insufficient) fundingWarning.style.display = 'block';
+  gatedButtons.forEach(btn => { btn.disabled = insufficient; });
+  return insufficient;
+}
+
 export async function checkFunding(depositInput, fundingWarning, gatedButtons = []) {
   try {
-    const { signer, contract } = await getSignerAndWrappedContract();
-    const address = await signer.getAddress();
-    const [balance, fee] = await Promise.all([
-      contract.ethBalanceOf(address),
-      contract.callbackFee(),
-    ]);
-    cachedCallbackFee = fee;
-    depositInput.value = formatUnits(fee * DEPOSIT_MULTIPLIER, 18);
-    const insufficient = balance < fee;
-    fundingWarning.style.display = insufficient ? 'block' : 'none';
-    gatedButtons.forEach(btn => { btn.disabled = insufficient; });
+    const insufficient = await runFundingCheck(getSignerAndWrappedContract, depositInput, fundingWarning, gatedButtons);
+    if (!insufficient) fundingWarning.style.display = 'none';
   } catch (e) {
     console.error('checkFunding error:', e);
+  }
+}
+
+export async function checkTokenFunding(depositInput, fundingWarning, gatedButtons = []) {
+  try {
+    const insufficient = await runFundingCheck(getSignerAndTokenContract, depositInput, fundingWarning, gatedButtons);
+    if (!insufficient) fundingWarning.style.display = 'none';
+  } catch (e) {
+    console.error('checkTokenFunding error:', e);
   }
 }
 
