@@ -449,21 +449,21 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         internal
     {
         require(plaintextArguments[1].length == 20, WrongPlaintextFormat());
-        address sender = address(bytes20(plaintextArguments[1]));
-        require(_knownPublicKey(sender), PublicKeyIsNotRegistered(sender));
+        address historicViewer = address(bytes20(plaintextArguments[1]));
+        require(_knownPublicKey(historicViewer), PublicKeyIsNotRegistered(historicViewer));
 
         (address from, address to) = _historicViewAuth.decodeIfAuthorized(
-            sender,
+            historicViewer,
             decryptedArguments[0]
         );
         emit ReEncryptedTransfer(
-            sender,
+            historicViewer,
             from,
             to,
             BITE.encryptECIES(
                 encryptECIESAddress,
                 decryptedArguments[0],
-                publicKeys[sender]
+                publicKeys[historicViewer]
             )
         );
     }
