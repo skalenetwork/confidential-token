@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.4.0",
-    "@skalenetwork/bite-solidity": "^1.0.0-develop.13",
+    "@skalenetwork/bite-solidity": "^1.0.1-stable.0",
     "@skalenetwork/upgrade-tools": "4.0.0-develop.4",
     "dotenv": "^17.2.3"
   }

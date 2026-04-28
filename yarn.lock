@@ -2478,12 +2478,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@skalenetwork/bite-solidity@npm:^1.0.0-develop.13":
-  version: 1.0.0
-  resolution: "@skalenetwork/bite-solidity@npm:1.0.0"
+"@skalenetwork/bite-solidity@npm:^1.0.1-stable.0":
+  version: 1.0.1
+  resolution: "@skalenetwork/bite-solidity@npm:1.0.1"
   dependencies:
     "@openzeppelin/contracts": "npm:5.6.1"
-  checksum: 10c0/11aeb260bfdc666b96481ba20d7f5e19f47ae316464b4495abfc68aa31b663bf5338d247d6a545bff981bc69b70b49a6192c721ac09a0429f586a8c193ec8496
+  checksum: 10c0/4272b8fe8b7f21d11f68b4c6df57aceeea383cac5cfba87f14901c2f6b93be38e0521e669705402dbfd33d3a1df4991d15f956e418acd1d9eadf2c190d39ae05
   languageName: node
   linkType: hard
 
@@ -4498,7 +4498,7 @@ __metadata:
     "@nomicfoundation/hardhat-ethers": "npm:^3.1.2"
     "@nomicfoundation/hardhat-network-helpers": "npm:^1.1.2"
     "@openzeppelin/contracts": "npm:5.4.0"
-    "@skalenetwork/bite-solidity": "npm:^1.0.0-develop.13"
+    "@skalenetwork/bite-solidity": "npm:^1.0.1-stable.0"
     "@skalenetwork/upgrade-tools": "npm:4.0.0-develop.4"
     "@typechain/ethers-v6": "npm:^0.5.1"
     "@typechain/hardhat": "npm:^9.1.0"

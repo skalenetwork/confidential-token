@@ -4,6 +4,7 @@
  *   errors.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Dmytro Stebaiev
+ *   @author Eduardo Vasques
  *
  *   confidential-token is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU Affero General Public License as published
@@ -19,8 +20,9 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.27;
 
 
 error NotImplemented();
 error ZeroAddress();
+error DecryptionBadFormat();

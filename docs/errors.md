@@ -12,3 +12,9 @@ error NotImplemented()
 error ZeroAddress()
 ```
 
+## DecryptionBadFormat
+
+```solidity
+error DecryptionBadFormat()
+```
+

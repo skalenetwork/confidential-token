@@ -4,6 +4,15 @@
 
 ERC20-like token with encrypted balances
 
+### OnDecryptAction
+
+```solidity
+enum OnDecryptAction {
+  TRANSFER,
+  HISTORIC_VIEW
+}
+```
+
 ### TransferInfo
 
 ```solidity
@@ -74,161 +83,16 @@ string version
 
 **dev:** _Is used to get proper ABI_
 
-### CallbackFeeChanged
-
-Emitted when callback fee is changed
-
-```solidity
-event CallbackFeeChanged(uint256 newFee)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newFee | uint256 | New callback fee |
-
-### EthBalanceToppedUp
-
-Emitted when ETH balance is topped up
-
-```solidity
-event EthBalanceToppedUp(address sender, address receiver, uint256 value)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| sender | address | Address of the sender |
-| receiver | address | Address of the receiver |
-| value | uint256 | Amount of ETH topped up |
-
-### EthWithdrawn
-
-Emitted when ETH is withdrawn
-
-```solidity
-event EthWithdrawn(address receiver, uint256 value)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| receiver | address | Address of the receiver |
-| value | uint256 | Amount of ETH withdrawn |
-
-### Transfer
-
-Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
-
-```solidity
-event Transfer(address from, address to)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| from | address | Address tokens are moved from |
-| to | address | Address tokens are moved to |
-
-### SubmitCTXAddressChanged
-
-Emitted when SubmitCTX precompiled contract address is changed
-
-```solidity
-event SubmitCTXAddressChanged(address newAddress)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newAddress | address | New address of the SubmitCTX precompiled contract |
-
-### EncryptECIESAddressChanged
-
-Emitted when EncryptECIES precompiled contract address is changed
-
-```solidity
-event EncryptECIESAddressChanged(address newAddress)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newAddress | address | New address of the EncryptECIES precompiled contract |
-
-### EncryptTEAddressChanged
-
-Emitted when EncryptTE precompiled contract address is changed
-
-```solidity
-event EncryptTEAddressChanged(address newAddress)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newAddress | address | New address of the EncryptTE precompiled contract |
-
-### PublicKeyRegistered
-
-Emitted when a public key is registered for a viewer address
-
-```solidity
-event PublicKeyRegistered(address viewer)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| viewer | address | Address of the viewer whose public key is registered |
-
-### ViewerChanged
-
-Emitted when a viewer is changed for a holder
-
-```solidity
-event ViewerChanged(address holder, address newViewer)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| holder | address | Address of the holder whose viewer is changed |
-| newViewer | address | Address of the new viewer |
-
-### CTXResubmitted
-
-Emitted when a CTX is resubmitted due to outdated decrypted information
-
-```solidity
-event CTXResubmitted(address callbackSender)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| callbackSender | address | Address of the CTX sender that triggered the resubmission |
-
 ### AccessViolation
 
 ```solidity
 error AccessViolation()
 ```
 
-### DecryptionBadFormat
+### ActionNotRecognized
 
 ```solidity
-error DecryptionBadFormat()
+error ActionNotRecognized()
 ```
 
 ### InsufficientBalance
@@ -247,6 +111,12 @@ error InsufficientEth(uint256 required, uint256 available)
 
 ```solidity
 error InvalidPublicKey()
+```
+
+### InvalidTransferId
+
+```solidity
+error InvalidTransferId(uint256 transferId)
 ```
 
 ### NoViewerRegisteredForHolder
@@ -272,6 +142,26 @@ error ValueIsEncrypted()
 ```solidity
 error ValueWasNotEncryptedCorrectly()
 ```
+
+### WrongPlaintextFormat
+
+```solidity
+error WrongPlaintextFormat()
+```
+
+### onlyRegisteredUser
+
+Modifier to check if the user is registered
+
+```solidity
+modifier onlyRegisteredUser(address user)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| user | address | The address of the user to check |
 
 ### constructor
 
@@ -357,6 +247,130 @@ function encryptedTransferFrom(address from, address to, bytes value) external
 | from | address | The address of the sender holder |
 | to | address | The address of the recipient holder |
 | value | bytes | The TE-encrypted amount of tokens to transfer |
+
+### requestDecryptHistoricTransfer
+
+Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
+
+```solidity
+function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
+```
+
+**dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
+
+### removeHistoricViewAuth
+
+Removes all historic view permissions for a viewer for msg.sender's history
+
+```solidity
+function removeHistoricViewAuth(address viewer) external returns (bool success)
+```
+
+**dev:** _Resets time window and clears explicitly authorized transfer IDs_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address whose historic view permissions are removed |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### removeHistoricViewTimeRange
+
+Removes the time range authorization for a viewer
+
+```solidity
+function removeHistoricViewTimeRange(address viewer) external returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address whose time range authorization is removed |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### removeHistoricViewTransferId
+
+Removes one explicitly authorized historic transfer ID for a viewer
+
+```solidity
+function removeHistoricViewTransferId(address viewer, uint256 transferId) external returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address whose transferId authorization is removed |
+| transferId | uint256 | Transfer ID to revoke |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### authorizeHistoricViewTimeRange
+
+Authorizes a viewer to decrypt transfers from msg.sender within a time range
+
+```solidity
+function authorizeHistoricViewTimeRange(address viewer, uint256 fromTimestamp, uint256 toTimestamp) external returns (bool success)
+```
+
+**dev:** _Allows only fromTimestamp < toTimestamp_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address to authorize |
+| fromTimestamp | uint256 | Inclusive lower bound timestamp |
+| toTimestamp | uint256 | Non-inclusive upper bound timestamp |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### authorizeHistoricViewTransferId
+
+Authorizes a viewer to decrypt one historic transfer by transfer ID
+
+```solidity
+function authorizeHistoricViewTransferId(address viewer, uint256 transferId) external returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address to authorize |
+| transferId | uint256 | Transfer ID to authorize |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
 
 ### setViewerPublicKey
 
@@ -485,6 +499,49 @@ function ethBalanceOf(address holder) external view returns (uint256 balance)
 | ---- | ---- | ----------- |
 | balance | uint256 | The ETH balance of the holder |
 
+### canDecryptHistoricTransfer
+
+Checks if a viewer is authorized to decrypt a historic transfer
+
+```solidity
+function canDecryptHistoricTransfer(address viewer, uint256 transferId, address from, address to, uint256 timestamp) external view returns (bool canDecrypt)
+```
+
+**dev:** _The transfer content is made up, and viewer may have access through time range or transfer ID_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address of the viewer requesting decryption |
+| transferId | uint256 | ID of the transfer to check authorization for |
+| from | address | Address of the sender of the transfer |
+| to | address | Address of the recipient of the transfer |
+| timestamp | uint256 | Timestamp of the transfer |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| canDecrypt | bool | True if the viewer is authorized to decrypt the transfer, false otherwise |
+
+### requestDecryptHistoricTransferFor
+
+Requests decryption of a single historic encrypted transfer payload
+
+```solidity
+function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public
+```
+
+**dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
+| historicViewer | address | Address of the viewer who will receive the decrypted transfer event if authorized |
+
 ### deposit
 
 Deposits ETH to any holder balance
@@ -571,6 +628,18 @@ function balanceOf(address) public pure virtual returns (uint256)
 
 **dev:** _Returns the value of tokens owned by `account`._
 
+### _handleHistoricViewRequest
+
+```solidity
+function _handleHistoricViewRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+```
+
+### _handleTransferRequest
+
+```solidity
+function _handleTransferRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+```
+
 ### _decryptedUpdate
 
 Internal function to handle decrypted balance updates
@@ -594,7 +663,7 @@ function _decryptedUpdate(address from, address to, uint256 fromBalance, uint256
 ### _onUpdate
 
 ```solidity
-function _onUpdate(address from, address to, uint256) internal virtual
+function _onUpdate(address from, address to, uint256 value) internal virtual
 ```
 
 ### _update
