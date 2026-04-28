@@ -124,7 +124,7 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Emitted when a holder revokes a viewer's access to transfers within a time range.
     /// @param holder Address of the holder revoking access.
     /// @param viewer Address of the viewer losing access.
-    event HistoricViewTimeRangeRevoked(address indexed holder,address indexed viewer);
+    event HistoricViewTimeRangeRevoked(address indexed holder, address indexed viewer);
 
     /// @notice Emitted during a transfer when the recipient has viewer registered
     /// @dev Emitted automatically at transfer time — no explicit request or fee required
