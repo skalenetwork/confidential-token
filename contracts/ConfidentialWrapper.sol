@@ -81,7 +81,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
 
     /// @inheritdoc ERC20Wrapper
     function depositFor(address account, uint256 value) public override returns (bool success) {
-        requestedMints[msg.sender] += value;
+        requestedMints[account] += value;
         return super.depositFor(account, value);
     }
 

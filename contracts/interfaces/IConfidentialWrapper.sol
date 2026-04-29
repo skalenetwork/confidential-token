@@ -28,8 +28,8 @@ import { IConfidentialToken } from "./IConfidentialToken.sol";
 /// @author Dmytro Stebaiev
 /// @notice Interface of ConfidentialWrapper that adds confidentiality to an ERC20 token
 interface IConfidentialWrapper is IConfidentialToken {
-    /// @notice Releases the wrapped tokens to the caller
-    /// @notice Almost never is used and is required only if callback call fails
+    /// @notice Releases caller's pending wrapped tokens to a beneficiary account
+    /// @notice Mostly used as a recovery path if a mint callback fails or is delayed
     /// @param account The address to release tokens to
     /// @param value The amount of tokens to release
     function releaseTo(address account, uint256 value) external;

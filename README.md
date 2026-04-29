@@ -97,7 +97,7 @@ Wraps an existing ERC20 token to add confidentiality features.
 **Main Functions:**
 - `depositFor(account, value)`: Wrap underlying tokens to receive confidential tokens
 - `withdrawTo(account, value)`: Unwrap confidential tokens to recover underlying tokens
-- `releaseTo(account, value)`: Emergency release mechanism if callbacks fail
+- `releaseTo(account, value)`: Emergency recovery path; debits caller's pending `requestedMints` and transfers underlying to `account`
 
 #### [MintableConfidentialToken.sol](contracts/MintableConfidentialToken.sol)
 Extends ConfidentialToken with minting capabilities for token supply management.

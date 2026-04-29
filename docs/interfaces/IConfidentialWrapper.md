@@ -6,8 +6,8 @@ Interface of ConfidentialWrapper that adds confidentiality to an ERC20 token
 
 ### releaseTo
 
-Releases the wrapped tokens to the caller
-Almost never is used and is required only if callback call fails
+Releases caller's pending wrapped tokens to a beneficiary account
+Mostly used as a recovery path if a mint callback fails or is delayed
 
 ```solidity
 function releaseTo(address account, uint256 value) external
