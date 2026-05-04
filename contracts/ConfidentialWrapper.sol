@@ -80,6 +80,8 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     }
 
     /// @inheritdoc ERC20Wrapper
+    /// @dev Pending mint accounting is keyed by the recipient `account`, so only
+    /// `account` can later call `releaseTo` for this deposit.
     function depositFor(address account, uint256 value) public override returns (bool success) {
         requestedMints[account] += value;
         return super.depositFor(account, value);
