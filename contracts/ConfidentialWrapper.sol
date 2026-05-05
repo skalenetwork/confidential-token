@@ -30,6 +30,7 @@ import { SafeERC20 }      from "@openzeppelin/contracts/token/ERC20/utils/SafeER
 import { Math }           from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { ConfidentialToken }    from "./ConfidentialToken.sol";
+import { IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 
 
@@ -54,6 +55,10 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     /// @dev At most one pending withdraw per `from` is allowed; this is what
     ///      lets the recipient survive across the async CTX boundary without
     ///      threading data through `ConfidentialToken`
+    /// @dev This one-at-a-time constraint means a resubmission loop (gas-griefing, see I-01)
+    ///      can keep a holder locked in `WithdrawalPending` until the CTX finalizes or
+    ///      they call `cancelWithdrawTo`. A queue-based design would remove this limitation
+    ///      but is deferred pending the planned resubmission remediation.
     mapping (address holder => PendingBurn pending) public pendingBurns;
 
     error OutdatedMint(address to, uint256 value);
@@ -107,6 +112,11 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     function depositFor(address account, uint256 value) public override returns (bool success) {
         requestedMints[account] += value;
         return super.depositFor(account, value);
+    }
+
+    /// @inheritdoc ConfidentialToken
+    function burn(uint256 value) external override(ConfidentialToken, IConfidentialToken) {
+        _burnTo(msg.sender, msg.sender, value);
     }
 
     /// @inheritdoc ERC20Wrapper

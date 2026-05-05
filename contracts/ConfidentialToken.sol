@@ -150,7 +150,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     }
 
     /// @inheritdoc IConfidentialToken
-    function burn(uint256 value) external override {
+    function burn(uint256 value) external virtual override {
         _burn(msg.sender, value);
     }
 

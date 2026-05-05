@@ -35,7 +35,11 @@ mapping(address => struct ConfidentialWrapper.PendingBurn) pendingBurns
 **dev:** _`value` is non-zero only between `withdrawTo` and its `_onBurn` callback
 At most one pending withdraw per `from` is allowed; this is what
      lets the recipient survive across the async CTX boundary without
-     threading data through `ConfidentialToken`_
+     threading data through `ConfidentialToken`
+This one-at-a-time constraint means a resubmission loop (gas-griefing, see I-01)
+     can keep a holder locked in `WithdrawalPending` until the CTX finalizes or
+     they call `cancelWithdrawTo`. A queue-based design would remove this limitation
+     but is deferred pending the planned resubmission remediation._
 
 ### OutdatedMint
 
@@ -131,6 +135,20 @@ function depositFor(address account, uint256 value) public returns (bool success
 
 **dev:** _Pending mint accounting is keyed by the recipient `account`, so only
 `account` can later call `releaseTo` for this deposit._
+
+### burn
+
+Burns tokens from the caller's balance
+
+```solidity
+function burn(uint256 value) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| value | uint256 |  |
 
 ### withdrawTo
 

@@ -7,6 +7,7 @@ import { balanceOf, feedAccounts } from "./tools/helpers";
 import { expect } from "chai";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ConfidentialWrapper, TestERC20 } from "../typechain-types";
+import { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("ConfidentialWrapper", () => {
     const expectWrapperInvariant = async (
@@ -217,6 +218,91 @@ describe("ConfidentialWrapper", () => {
         (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
         (await underlyingToken.balanceOf(owner)).should.be.equal(amount);
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
+    });
+
+    it("burn(value) sends underlying to msg.sender and clears pendingBurns", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const burnAmount = wrapped / 2n;
+
+        await token.connect(owner).burn(burnAmount);
+        const snapshot = await takeSnapshot();
+        await bite.sendCallback().should.emit(token, "Transfer(address,address)").withArgs(owner, ethers.ZeroAddress);
+        await snapshot.restore();
+
+        const pending = await token.pendingBurns(owner);
+        pending.recipient.should.be.equal(await ethers.resolveAddress(owner));
+        pending.value.should.be.equal(burnAmount);
+
+        await bite.sendCallback();
+
+        const cleared = await token.pendingBurns(owner);
+        cleared.value.should.be.equal(0);
+
+        (await token.totalSupply()).should.be.equal(wrapped - burnAmount);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(burnAmount);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped - burnAmount);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("burn(value) preserves wrapper invariant while pending and after finalization", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const burnAmount = wrapped / 2n;
+
+        await expectWrapperInvariant(token, underlyingToken);
+
+        await token.connect(owner).burn(burnAmount);
+        // cnf already debited, underlying still in wrapper — invariant still holds
+        // because totalSupply decreased by burnAmount and underlying hasn't moved yet
+        await expectWrapperInvariant(token, underlyingToken);
+
+        await bite.sendCallback();
+        // after callback: underlying sent out, both sides balanced
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("burn(value) — full balance releases all underlying", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+
+        await token.connect(owner).burn(wrapped);
+        await bite.sendCallback();
+
+        (await token.totalSupply()).should.be.equal(0);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("burn(value) reverts with WithdrawalPending when a burn is already in flight", async () => {
+        const { token, owner, wrapped } = await withWrappedTokens();
+        const burnAmount = wrapped / 2n;
+
+        await token.connect(owner).burn(burnAmount);
+
+        await token.connect(owner).burn(burnAmount)
+            .should.be.revertedWithCustomError(token, "WithdrawalPending")
+            .withArgs(owner);
+    });
+
+    it("burn(value) can be cancelled and a stale callback cannot release underlying", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const burnAmount = wrapped / 2n;
+
+        await token.connect(owner).burn(burnAmount);
+        await token.cancelWithdrawTo();
+
+        const cancelled = await token.pendingBurns(owner);
+        cancelled.recipient.should.be.equal(ethers.ZeroAddress);
+        cancelled.value.should.be.equal(0);
+
+        await bite.sendCallback()
+            .should.be.revertedWithCustomError(
+                token, "OutdatedBurn"
+            ).withArgs(owner, burnAmount);
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        await expectWrapperInvariant(token, underlyingToken);
     });
 
     it("should not allow to withdraw to the token itself", async () => {

@@ -193,7 +193,7 @@ receive() external payable
 Burns tokens from the caller's balance
 
 ```solidity
-function burn(uint256 value) external
+function burn(uint256 value) external virtual
 ```
 
 #### Parameters
