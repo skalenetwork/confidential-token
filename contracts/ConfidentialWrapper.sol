@@ -65,6 +65,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     error OutdatedBurn(address from, uint256 value);
     error WithdrawalPending(address from);
     error NoPendingWithdrawal(address from);
+    error ZeroValue();
 
     constructor(
         IERC20Metadata underlyingToken,
@@ -146,6 +147,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     // Internal functions
 
     function _burnTo(address from, address to, uint256 value) internal {
+        require(value != 0, ZeroValue());
         PendingBurn storage pending = pendingBurns[from];
         require(pending.value == 0, WithdrawalPending(from));
         pending.recipient = to;

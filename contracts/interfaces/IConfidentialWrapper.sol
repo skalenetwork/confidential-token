@@ -35,12 +35,11 @@ interface IConfidentialWrapper is IConfidentialToken {
     /// @param value The amount of tokens to release
     function releaseTo(address account, uint256 value) external;
 
-    /// @notice Cancels a pending withdrawal initiated by `withdrawTo`
-    /// @notice Required only when the burn CTX never
-    ///         finalizes (e.g. resubmission chain reverts) and the caller
-    ///         needs issue a fresh `withdrawTo`
-    /// @dev If the original burn callback later fires, it will revert on
+    /// @notice Cancels a pending withdrawal initiated by `withdrawTo`.
+    /// @dev Required only when the burn CTX never finalizes (e.g. resubmission
+    ///      chain reverts) and the caller needs to issue a fresh `withdrawTo`.
+    ///      If the original burn callback later fires, it will revert on
     ///      `OutdatedBurn` and the cnf burn will roll back; the caller's
-    ///      cnf balance is preserved
+    ///      cnf balance is preserved.
     function cancelWithdrawTo() external;
 }

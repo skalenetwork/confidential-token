@@ -65,6 +65,12 @@ error WithdrawalPending(address from)
 error NoPendingWithdrawal(address from)
 ```
 
+### ZeroValue
+
+```solidity
+error ZeroValue()
+```
+
 ### constructor
 
 ```solidity
@@ -90,18 +96,17 @@ function releaseTo(address account, uint256 value) external
 
 ### cancelWithdrawTo
 
-Cancels a pending withdrawal initiated by `withdrawTo`
-Required only when the burn CTX never
-        finalizes (e.g. resubmission chain reverts) and the caller
-        needs issue a fresh `withdrawTo`
+Cancels a pending withdrawal initiated by `withdrawTo`.
 
 ```solidity
 function cancelWithdrawTo() external
 ```
 
-**dev:** _If the original burn callback later fires, it will revert on
+**dev:** _Required only when the burn CTX never finalizes (e.g. resubmission
+     chain reverts) and the caller needs to issue a fresh `withdrawTo`.
+     If the original burn callback later fires, it will revert on
      `OutdatedBurn` and the cnf burn will roll back; the caller's
-     cnf balance is preserved_
+     cnf balance is preserved._
 
 ### burn
 

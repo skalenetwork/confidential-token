@@ -251,8 +251,8 @@ describe("ConfidentialWrapper", () => {
         await expectWrapperInvariant(token, underlyingToken);
 
         await token.connect(owner).burn(burnAmount);
-        // cnf already debited, underlying still in wrapper — invariant still holds
-        // because totalSupply decreased by burnAmount and underlying hasn't moved yet
+        // CTX is pending: cnf totalSupply and underlying balance are both unchanged —
+        // the actual debit happens in the callback, so the invariant holds trivially here
         await expectWrapperInvariant(token, underlyingToken);
 
         await bite.sendCallback();
@@ -281,6 +281,21 @@ describe("ConfidentialWrapper", () => {
         await token.connect(owner).burn(burnAmount)
             .should.be.revertedWithCustomError(token, "WithdrawalPending")
             .withArgs(owner);
+    });
+
+    it("burn(0) reverts with ZeroValue", async () => {
+        const { token, owner } = await withWrappedTokens();
+
+        await token.connect(owner).burn(0n)
+            .should.be.revertedWithCustomError(token, "ZeroValue");
+    });
+
+    it("withdrawTo(account, 0) reverts with ZeroValue", async () => {
+        const { token, owner } = await withWrappedTokens();
+        const [, recipient] = await ethers.getSigners();
+
+        await token.connect(owner).withdrawTo(recipient, 0n)
+            .should.be.revertedWithCustomError(token, "ZeroValue");
     });
 
     it("burn(value) can be cancelled and a stale callback cannot release underlying", async () => {
