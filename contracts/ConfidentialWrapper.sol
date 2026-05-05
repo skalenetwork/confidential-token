@@ -59,6 +59,9 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     ///      can keep a holder locked in `WithdrawalPending` until the CTX finalizes or
     ///      they call `cancelWithdrawTo`. A queue-based design would remove this limitation
     ///      but is deferred pending the planned resubmission remediation.
+    /// @dev Cancellation clears only the current slot. If a holder cancels and re-issues
+    ///      another burn with the same `value` before the old callback executes, the old
+    ///      callback can match the re-issued pending burn.
     mapping (address holder => PendingBurn pending) public pendingBurns;
 
     error OutdatedMint(address to, uint256 value);
@@ -96,7 +99,11 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
         delete pendingBurns[msg.sender];
     }
 
-    /// @inheritdoc ConfidentialToken
+    /// @notice Burns caller's confidential wrapper balance and withdraws the
+    /// corresponding underlying amount to the caller.
+    /// @dev Wrapper-specific behavior: unlike base `ConfidentialToken.burn`, this
+    /// schedules an async burn callback that releases underlying via `_onBurn`.
+    /// @param value Amount of wrapped tokens to burn and unwrap.
     function burn(uint256 value) external override(ConfidentialToken, IConfidentialToken) {
         _burnTo(msg.sender, msg.sender, value);
     }

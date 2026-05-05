@@ -39,7 +39,10 @@ At most one pending withdraw per `from` is allowed; this is what
 This one-at-a-time constraint means a resubmission loop (gas-griefing, see I-01)
      can keep a holder locked in `WithdrawalPending` until the CTX finalizes or
      they call `cancelWithdrawTo`. A queue-based design would remove this limitation
-     but is deferred pending the planned resubmission remediation._
+     but is deferred pending the planned resubmission remediation.
+Cancellation clears only the current slot. If a holder cancels and re-issues
+     another burn with the same `value` before the old callback executes, the old
+     callback can match the re-issued pending burn._
 
 ### OutdatedMint
 
@@ -104,23 +107,29 @@ function cancelWithdrawTo() external
 
 **dev:** _Required only when the burn CTX never finalizes (e.g. resubmission
      chain reverts) and the caller needs to issue a fresh `withdrawTo`.
-     If the original burn callback later fires, it will revert on
-     `OutdatedBurn` and the cnf burn will roll back; the caller's
-     cnf balance is preserved._
+     If the original burn callback later fires with no new matching
+     pending burn, it reverts on `OutdatedBurn` and the cnf burn rolls
+     back. If the caller re-issues a new burn for the same `value`
+     before that callback executes, the old callback may match and
+     finalize the new pending burn._
 
 ### burn
 
-Burns tokens from the caller's balance
+Burns caller's confidential wrapper balance and withdraws the
+corresponding underlying amount to the caller.
 
 ```solidity
 function burn(uint256 value) external
 ```
 
+**dev:** _Wrapper-specific behavior: unlike base `ConfidentialToken.burn`, this
+schedules an async burn callback that releases underlying via `_onBurn`._
+
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| value | uint256 |  |
+| value | uint256 | Amount of wrapped tokens to burn and unwrap. |
 
 ### transferFrom
 

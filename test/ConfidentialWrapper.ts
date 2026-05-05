@@ -158,6 +158,31 @@ describe("ConfidentialWrapper", () => {
         (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
     });
 
+    it("cancel + reissue same amount allows older callback to finalize newer pending recipient", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const [, firstRecipient, secondRecipient] = await ethers.getSigners();
+        const amount = wrapped / 2n;
+
+        await token.withdrawTo(firstRecipient, amount);
+        await token.cancelWithdrawTo();
+        await token.withdrawTo(secondRecipient, amount);
+
+        await expect(bite.sendCallback()).to.not.be.reverted;
+
+        (await underlyingToken.balanceOf(firstRecipient)).should.be.equal(0);
+        (await underlyingToken.balanceOf(secondRecipient)).should.be.equal(amount);
+
+        // The next queued callback sees stale balances and gets resubmitted first.
+        await bite.sendCallback().should.emit(token, "CTXResubmitted");
+
+        await bite.sendCallback()
+            .should.be.revertedWithCustomError(
+                token, "OutdatedBurn"
+            ).withArgs(owner, amount);
+
+        (await token.totalSupply()).should.be.equal(wrapped - amount);
+    });
+
     it("should preserve wrapper accounting while a withdrawal is pending and after it finalizes", async () => {
         const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
         const [, recipient] = await ethers.getSigners();
