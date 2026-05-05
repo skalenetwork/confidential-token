@@ -95,6 +95,11 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
         delete pendingBurns[msg.sender];
     }
 
+    /// @inheritdoc ConfidentialToken
+    function burn(uint256 value) external override(ConfidentialToken, IConfidentialToken) {
+        _burnTo(msg.sender, msg.sender, value);
+    }
+
     // Public functions
 
     ///@inheritdoc ConfidentialToken
@@ -112,11 +117,6 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     function depositFor(address account, uint256 value) public override returns (bool success) {
         requestedMints[account] += value;
         return super.depositFor(account, value);
-    }
-
-    /// @inheritdoc ConfidentialToken
-    function burn(uint256 value) external override(ConfidentialToken, IConfidentialToken) {
-        _burnTo(msg.sender, msg.sender, value);
     }
 
     /// @inheritdoc ERC20Wrapper

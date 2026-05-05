@@ -103,6 +103,20 @@ function cancelWithdrawTo() external
      `OutdatedBurn` and the cnf burn will roll back; the caller's
      cnf balance is preserved_
 
+### burn
+
+Burns tokens from the caller's balance
+
+```solidity
+function burn(uint256 value) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| value | uint256 |  |
+
 ### transferFrom
 
 Transfers `value` tokens from `from` to `to` using allowance mechanism.
@@ -135,20 +149,6 @@ function depositFor(address account, uint256 value) public returns (bool success
 
 **dev:** _Pending mint accounting is keyed by the recipient `account`, so only
 `account` can later call `releaseTo` for this deposit._
-
-### burn
-
-Burns tokens from the caller's balance
-
-```solidity
-function burn(uint256 value) external
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 |  |
 
 ### withdrawTo
 
