@@ -29,8 +29,9 @@ constructor(contract IERC20Metadata underlyingToken, string version_, address in
 
 ### releaseTo
 
-Releases the wrapped tokens to the caller
-Almost never is used and is required only if callback call fails
+Releases the caller's pending wrapped tokens to `account`.
+Only the recipient of a prior `depositFor` (i.e. an address with a
+non-zero `requestedMints` entry) can call this; the depositor cannot.
 
 ```solidity
 function releaseTo(address account, uint256 value) external
@@ -40,7 +41,7 @@ function releaseTo(address account, uint256 value) external
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| account | address | The address to release tokens to |
+| account | address | The address to release the underlying tokens to |
 | value | uint256 | The amount of tokens to release |
 
 ### transferFrom
@@ -73,7 +74,8 @@ function transferFrom(address from, address to, uint256 value) public virtual re
 function depositFor(address account, uint256 value) public returns (bool success)
 ```
 
-**dev:** _Allow a user to deposit underlying tokens and mint the corresponding number of wrapped tokens._
+**dev:** _Pending mint accounting is keyed by the recipient `account`, so only
+`account` can later call `releaseTo` for this deposit._
 
 ### withdrawTo
 

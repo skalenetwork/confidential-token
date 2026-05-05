@@ -28,9 +28,10 @@ import { IConfidentialToken } from "./IConfidentialToken.sol";
 /// @author Dmytro Stebaiev
 /// @notice Interface of ConfidentialWrapper that adds confidentiality to an ERC20 token
 interface IConfidentialWrapper is IConfidentialToken {
-    /// @notice Releases the wrapped tokens to the caller
-    /// @notice Almost never is used and is required only if callback call fails
-    /// @param account The address to release tokens to
+    /// @notice Releases the caller's pending wrapped tokens to `account`.
+    /// @notice Only the recipient of a prior `depositFor` (i.e. an address with a
+    /// non-zero `requestedMints` entry) can call this; the depositor cannot.
+    /// @param account The address to release the underlying tokens to
     /// @param value The amount of tokens to release
     function releaseTo(address account, uint256 value) external;
 }
