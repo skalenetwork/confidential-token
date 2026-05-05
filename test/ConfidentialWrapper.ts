@@ -2,9 +2,8 @@ import { ethers } from "hardhat";
 import { cleanWrapperDeployment, withWrappedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
 import "chai/register-should";
-import { balanceOf } from "./tools/helpers";
+import { balanceOf, feedAccounts } from "./tools/helpers";
 import { expect } from "chai";
-import { feedAccounts } from "./tools/helpers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ConfidentialWrapper, TestERC20 } from "../typechain-types";
 
