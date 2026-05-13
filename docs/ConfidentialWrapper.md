@@ -4,15 +4,6 @@
 
 Confidential wrapper that adds confidentiality to an ERC20 token
 
-### PendingBurn
-
-```solidity
-struct PendingBurn {
-  address recipient;
-  uint256 value;
-}
-```
-
 ### requestedMints
 
 Amount of tokens requested to be wrapped
@@ -24,48 +15,10 @@ mapping(address => uint256) requestedMints
 **dev:** _Almost always equals to zero
 Has non-zero value only before the callback call is made_
 
-### pendingBurns
-
-Pending burn initiated by `withdrawTo`, awaiting CTX to finalize
-
-```solidity
-mapping(address => struct ConfidentialWrapper.PendingBurn) pendingBurns
-```
-
-**dev:** _`value` is non-zero only between `withdrawTo` and its `_onBurn` callback
-At most one pending withdraw per `from` is allowed; this is what
-     lets the recipient survive across the async CTX boundary without
-     threading data through `ConfidentialToken`
-This one-at-a-time constraint means a resubmission loop (gas-griefing, see I-01)
-     can keep a holder locked in `WithdrawalPending` until the CTX finalizes or
-     they call `cancelWithdrawTo`. A queue-based design would remove this limitation
-     but is deferred pending the planned resubmission remediation.
-Cancellation clears only the current slot. If a holder cancels and re-issues
-     another burn with the same `value` before the old callback executes, the old
-     callback can match the re-issued pending burn._
-
 ### OutdatedMint
 
 ```solidity
 error OutdatedMint(address to, uint256 value)
-```
-
-### OutdatedBurn
-
-```solidity
-error OutdatedBurn(address from, uint256 value)
-```
-
-### WithdrawalPending
-
-```solidity
-error WithdrawalPending(address from)
-```
-
-### NoPendingWithdrawal
-
-```solidity
-error NoPendingWithdrawal(address from)
 ```
 
 ### ZeroValue
@@ -97,22 +50,6 @@ function releaseTo(address account, uint256 value) external
 | account | address | The address to release the underlying tokens to |
 | value | uint256 | The amount of tokens to release |
 
-### cancelWithdrawTo
-
-Cancels a pending withdrawal initiated by `withdrawTo`.
-
-```solidity
-function cancelWithdrawTo() external
-```
-
-**dev:** _Required only when the burn CTX never finalizes (e.g. resubmission
-     chain reverts) and the caller needs to issue a fresh `withdrawTo`.
-     If the original burn callback later fires with no new matching
-     pending burn, it reverts on `OutdatedBurn` and the cnf burn rolls
-     back. If the caller re-issues a new burn for the same `value`
-     before that callback executes, the old callback may match and
-     finalize the new pending burn._
-
 ### burn
 
 Burns caller's confidential wrapper balance and withdraws the
@@ -123,7 +60,8 @@ function burn(uint256 value) external
 ```
 
 **dev:** _Wrapper-specific behavior: unlike base `ConfidentialToken.burn`, this
-schedules an async burn callback that releases underlying via `_onBurn`._
+schedules an async burn callback that releases underlying in
+`_handleWithdrawToRequest`._
 
 #### Parameters
 
@@ -170,7 +108,8 @@ function depositFor(address account, uint256 value) public returns (bool success
 function withdrawTo(address account, uint256 value) public returns (bool success)
 ```
 
-**dev:** _Allow a user to burn a number of wrapped tokens and withdraw the corresponding number of underlying tokens._
+**dev:** _This operation is asynchronous and finalizes in the callback. On
+success, underlying tokens are sent to `account`._
 
 ### decimals
 
@@ -193,6 +132,12 @@ function balanceOf(address account) public pure returns (uint256 balance)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
+
+### _handleAction
+
+```solidity
+function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+```
 
 ### _burnTo
 

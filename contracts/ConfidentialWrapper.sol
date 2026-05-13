@@ -29,7 +29,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { SafeERC20 }      from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math }           from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { ConfidentialToken }    from "./ConfidentialToken.sol";
+import { BITE, ConfidentialToken }    from "./ConfidentialToken.sol";
 import { IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 
@@ -40,34 +40,15 @@ import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWrapper {
     using SafeERC20 for IERC20;
 
-    struct PendingBurn {
-        address recipient;
-        uint256 value;
-    }
+    uint8 private constant _WITHDRAW_TO = 2;
+
 
     /// @notice Amount of tokens requested to be wrapped
     /// @dev Almost always equals to zero
     /// @dev Has non-zero value only before the callback call is made
     mapping (address holder => uint256 value) public requestedMints;
 
-    /// @notice Pending burn initiated by `withdrawTo`, awaiting CTX to finalize
-    /// @dev `value` is non-zero only between `withdrawTo` and its `_onBurn` callback
-    /// @dev At most one pending withdraw per `from` is allowed; this is what
-    ///      lets the recipient survive across the async CTX boundary without
-    ///      threading data through `ConfidentialToken`
-    /// @dev This one-at-a-time constraint means a resubmission loop (gas-griefing, see I-01)
-    ///      can keep a holder locked in `WithdrawalPending` until the CTX finalizes or
-    ///      they call `cancelWithdrawTo`. A queue-based design would remove this limitation
-    ///      but is deferred pending the planned resubmission remediation.
-    /// @dev Cancellation clears only the current slot. If a holder cancels and re-issues
-    ///      another burn with the same `value` before the old callback executes, the old
-    ///      callback can match the re-issued pending burn.
-    mapping (address holder => PendingBurn pending) public pendingBurns;
-
     error OutdatedMint(address to, uint256 value);
-    error OutdatedBurn(address from, uint256 value);
-    error WithdrawalPending(address from);
-    error NoPendingWithdrawal(address from);
     error ZeroValue();
 
     constructor(
@@ -88,24 +69,18 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
 
     /// @inheritdoc IConfidentialWrapper
     function releaseTo(address account, uint256 value) external override {
-        requestedMints[msg.sender] -= value;
+        requestedMints[_msgSender()] -= value;
         underlying().safeTransfer(account, value);
-    }
-
-    /// @inheritdoc IConfidentialWrapper
-    function cancelWithdrawTo() external override {
-        PendingBurn storage pending = pendingBurns[msg.sender];
-        require(pending.value != 0, NoPendingWithdrawal(msg.sender));
-        delete pendingBurns[msg.sender];
     }
 
     /// @notice Burns caller's confidential wrapper balance and withdraws the
     /// corresponding underlying amount to the caller.
     /// @dev Wrapper-specific behavior: unlike base `ConfidentialToken.burn`, this
-    /// schedules an async burn callback that releases underlying via `_onBurn`.
+    /// schedules an async burn callback that releases underlying in
+    /// `_handleWithdrawToRequest`.
     /// @param value Amount of wrapped tokens to burn and unwrap.
     function burn(uint256 value) external override(ConfidentialToken, IConfidentialToken) {
-        _burnTo(msg.sender, msg.sender, value);
+        _burnTo(_msgSender(), _msgSender(), value);
     }
 
     // Public functions
@@ -128,6 +103,8 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     }
 
     /// @inheritdoc ERC20Wrapper
+    /// @dev This operation is asynchronous and finalizes in the callback. On
+    /// success, underlying tokens are sent to `account`.
     function withdrawTo(address account, uint256 value) public override returns (bool success) {
         if (account == address(this)) {
             revert ERC20InvalidReceiver(account);
@@ -153,22 +130,38 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
 
     // Internal functions
 
+    function _handleAction(
+        uint8 action,
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    ) internal override {
+        if (action == _WITHDRAW_TO) {
+            _handleWithdrawToRequest(decryptedArguments, plaintextArguments);
+            return;
+        }
+        super._handleAction(action, decryptedArguments, plaintextArguments);
+    }
+
     function _burnTo(address from, address to, uint256 value) internal {
         require(value != 0, ZeroValue());
-        PendingBurn storage pending = pendingBurns[from];
-        require(pending.value == 0, WithdrawalPending(from));
-        pending.recipient = to;
-        pending.value = value;
-        _burn(from, value);
+        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        bytes[] memory extraArgs = new bytes[](1);
+        extraArgs[0] = abi.encodePacked(to);
+        _encryptedUpdateExtended({
+            from: from,
+            to: address(0),
+            spender: address(0),
+            gasPayer: _msgSender(),
+            encryptedValue: encryptedValue,
+            action: _WITHDRAW_TO,
+            extraPlaintextArguments: extraArgs
+        });
     }
 
     function _onUpdate(address from, address to, uint256 value) internal override {
         ConfidentialToken._onUpdate(from, to, value);
         if (from == address(0)) {
             _onMint(to, value);
-        }
-        if (to == address(0)) {
-            _onBurn(from, value);
         }
     }
 
@@ -187,10 +180,20 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
         require(previouslyRequested, OutdatedMint(to, value));
     }
 
-    function _onBurn(address from, uint256 value) private {
-        PendingBurn memory pending = pendingBurns[from];
-        require(pending.value == value, OutdatedBurn(from, value));
-        delete pendingBurns[from];
-        underlying().safeTransfer(pending.recipient, value);
+    function _handleWithdrawToRequest(
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    )
+        private
+    {
+        (bool finalized, uint256 value) = _handleTransferRequest(decryptedArguments, plaintextArguments);
+        if (!finalized) {
+            return;
+        }
+
+        require(plaintextArguments.length > 2, WrongPlaintextFormat());
+        require(plaintextArguments[2].length == 20, WrongPlaintextFormat());
+        address recipient = address(bytes20(plaintextArguments[2]));
+        underlying().safeTransfer(recipient, value);
     }
 }

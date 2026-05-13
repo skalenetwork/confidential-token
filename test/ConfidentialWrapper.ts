@@ -93,96 +93,6 @@ describe("ConfidentialWrapper", () => {
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
     });
 
-    it("should not allow two pending withdrawals from the same holder", async () => {
-        const { token, owner, wrapped } = await withWrappedTokens();
-        const amount = wrapped / 2n;
-
-        await token.withdrawTo(owner, amount);
-        const pending = await token.pendingBurns(owner);
-        pending.recipient.should.be.equal(await ethers.resolveAddress(owner));
-        pending.value.should.be.equal(amount);
-
-        await token.withdrawTo(owner, amount)
-            .should.be.revertedWithCustomError(
-                token, "WithdrawalPending"
-            ).withArgs(owner);
-    });
-
-    it("should allow cancelling a pending withdrawal before it finalizes", async () => {
-        const { token, owner, wrapped } = await withWrappedTokens();
-        const amount = wrapped / 2n;
-
-        await token.withdrawTo(owner, amount);
-        await token.cancelWithdrawTo();
-
-        const cancelled = await token.pendingBurns(owner);
-        cancelled.recipient.should.be.equal(ethers.ZeroAddress);
-        cancelled.value.should.be.equal(0);
-
-        await token.withdrawTo(owner, amount);
-        const pending = await token.pendingBurns(owner);
-        pending.recipient.should.be.equal(await ethers.resolveAddress(owner));
-        pending.value.should.be.equal(amount);
-    });
-
-    it("should not allow cancelling when there is no pending withdrawal", async () => {
-        const { token, owner } = await withWrappedTokens();
-
-        await token.cancelWithdrawTo()
-            .should.be.revertedWithCustomError(
-                token, "NoPendingWithdrawal"
-            ).withArgs(owner);
-    });
-
-    it("should roll back a cancelled withdrawal if its callback arrives later", async () => {
-        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
-        const [, recipient] = await ethers.getSigners();
-        const amount = wrapped / 2n;
-
-        await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
-        await bite.sendCallback();
-
-        const balanceBefore = await balanceOf(token, bite, owner);
-
-        await token.withdrawTo(recipient, amount);
-        await token.cancelWithdrawTo();
-
-        await bite.sendCallback()
-            .should.be.revertedWithCustomError(
-                token, "OutdatedBurn"
-            ).withArgs(owner, amount);
-
-        (await balanceOf(token, bite, owner)).should.be.equal(balanceBefore);
-        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
-        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
-        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
-    });
-
-    it("cancel + reissue same amount allows older callback to finalize newer pending recipient", async () => {
-        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
-        const [, firstRecipient, secondRecipient] = await ethers.getSigners();
-        const amount = wrapped / 2n;
-
-        await token.withdrawTo(firstRecipient, amount);
-        await token.cancelWithdrawTo();
-        await token.withdrawTo(secondRecipient, amount);
-
-        await expect(bite.sendCallback()).to.not.be.reverted;
-
-        (await underlyingToken.balanceOf(firstRecipient)).should.be.equal(0);
-        (await underlyingToken.balanceOf(secondRecipient)).should.be.equal(amount);
-
-        // The next queued callback sees stale balances and gets resubmitted first.
-        await bite.sendCallback().should.emit(token, "CTXResubmitted");
-
-        await bite.sendCallback()
-            .should.be.revertedWithCustomError(
-                token, "OutdatedBurn"
-            ).withArgs(owner, amount);
-
-        (await token.totalSupply()).should.be.equal(wrapped - amount);
-    });
-
     it("should preserve wrapper accounting while a withdrawal is pending and after it finalizes", async () => {
         const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
         const [, recipient] = await ethers.getSigners();
@@ -191,19 +101,76 @@ describe("ConfidentialWrapper", () => {
         await expectWrapperInvariant(token, underlyingToken, [owner]);
 
         await token.withdrawTo(recipient, amount);
-        const pending = await token.pendingBurns(owner);
-        pending.recipient.should.be.equal(await ethers.resolveAddress(recipient));
-        pending.value.should.be.equal(amount);
 
         await expectWrapperInvariant(token, underlyingToken, [owner]);
 
         await bite.sendCallback();
-        const cleared = await token.pendingBurns(owner);
-        cleared.recipient.should.be.equal(ethers.ZeroAddress);
-        cleared.value.should.be.equal(0);
 
         await expectWrapperInvariant(token, underlyingToken, [owner]);
         (await underlyingToken.balanceOf(recipient)).should.be.equal(amount);
+    });
+
+    it("withdrawTo: stale callback still routes underlying to the original account arg", async () => {
+        // Deposit and withdrawTo are both queued before any callback fires.
+        // The deposit CTX runs first, bumping _lastChanged[owner].
+        // The withdrawTo CTX is now stale and must resubmit.
+        // After resubmit, the recipient encoded in plaintextArguments[2] must be
+        // honoured — it must not fall back to msg.sender or any other address.
+        const { token, underlyingToken, owner, bite } = await cleanWrapperDeployment();
+        const [, recipient] = await ethers.getSigners();
+
+        const amount = ethers.parseEther("1");
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: ethers.parseEther("1.0")
+        });
+        await underlyingToken.mint(owner, amount);
+        await underlyingToken.connect(owner).approve(token, amount);
+
+        // Queue deposit CTX (CTX1), then withdraw CTX (CTX2). CTX2 is submitted
+        // while owner still has 0 cnf, so it captures a stale balance.
+        await token.connect(owner).depositFor(owner, amount);
+        await token.connect(owner).withdrawTo(recipient, amount);
+
+        // CTX1: mint fires, owner gets cnf, _lastChanged[owner] is bumped.
+        await expect(bite.sendCallback()).to.not.be.reverted;
+
+        // CTX2: stale — resubmits; recipient address in plaintextArguments[2] must be preserved.
+        await expect(bite.sendCallback()).to.emit(token, "CTXResubmitted");
+
+        // CTX3 (resubmit of CTX2): finalizes. Underlying must reach recipient, not owner.
+        await expect(bite.sendCallback()).to.not.be.reverted;
+
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(amount);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await token.totalSupply()).should.be.equal(0);
+        (await underlyingToken.balanceOf(token)).should.be.equal(0);
+    });
+
+    it("withdrawTo: two sequential withdrawals to distinct recipients both finalize correctly", async () => {
+        // Two withdrawTo calls are queued before any callback fires. The first CTX
+        // finalizes and bumps _lastChanged[owner], making the second stale.
+        // After one resubmit the second CTX must deliver to its own recipient.
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const [, recipient1, recipient2] = await ethers.getSigners();
+        const half = wrapped / 2n;
+
+        await token.connect(owner).withdrawTo(recipient1, half);
+        await token.connect(owner).withdrawTo(recipient2, half);
+
+        // CTX1 finalizes: underlying goes to recipient1; _lastChanged[owner] is bumped.
+        await expect(bite.sendCallback()).to.not.be.reverted;
+        (await underlyingToken.balanceOf(recipient1)).should.be.equal(half);
+
+        // CTX2 is stale (submitted before CTX1 updated owner's balance).
+        await expect(bite.sendCallback()).to.emit(token, "CTXResubmitted");
+
+        // CTX3 (resubmit of CTX2): fresh balance, delivers to recipient2.
+        await expect(bite.sendCallback()).to.not.be.reverted;
+        (await underlyingToken.balanceOf(recipient2)).should.be.equal(half);
+
+        (await token.totalSupply()).should.be.equal(0);
+        (await underlyingToken.balanceOf(token)).should.be.equal(0);
     });
 
     it("should be possible to unlock underlying tokens if bite transaction fails", async () => {
@@ -245,7 +212,7 @@ describe("ConfidentialWrapper", () => {
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
     });
 
-    it("burn(value) sends underlying to msg.sender and clears pendingBurns", async () => {
+    it("burn(value) sends underlying to msg.sender", async () => {
         const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
         const burnAmount = wrapped / 2n;
 
@@ -254,14 +221,7 @@ describe("ConfidentialWrapper", () => {
         await bite.sendCallback().should.emit(token, "Transfer(address,address)").withArgs(owner, ethers.ZeroAddress);
         await snapshot.restore();
 
-        const pending = await token.pendingBurns(owner);
-        pending.recipient.should.be.equal(await ethers.resolveAddress(owner));
-        pending.value.should.be.equal(burnAmount);
-
         await bite.sendCallback();
-
-        const cleared = await token.pendingBurns(owner);
-        cleared.value.should.be.equal(0);
 
         (await token.totalSupply()).should.be.equal(wrapped - burnAmount);
         (await underlyingToken.balanceOf(owner)).should.be.equal(burnAmount);
@@ -297,17 +257,6 @@ describe("ConfidentialWrapper", () => {
         await expectWrapperInvariant(token, underlyingToken);
     });
 
-    it("burn(value) reverts with WithdrawalPending when a burn is already in flight", async () => {
-        const { token, owner, wrapped } = await withWrappedTokens();
-        const burnAmount = wrapped / 2n;
-
-        await token.connect(owner).burn(burnAmount);
-
-        await token.connect(owner).burn(burnAmount)
-            .should.be.revertedWithCustomError(token, "WithdrawalPending")
-            .withArgs(owner);
-    });
-
     it("burn(0) reverts with ZeroValue", async () => {
         const { token, owner } = await withWrappedTokens();
 
@@ -321,28 +270,6 @@ describe("ConfidentialWrapper", () => {
 
         await token.connect(owner).withdrawTo(recipient, 0n)
             .should.be.revertedWithCustomError(token, "ZeroValue");
-    });
-
-    it("burn(value) can be cancelled and a stale callback cannot release underlying", async () => {
-        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
-        const burnAmount = wrapped / 2n;
-
-        await token.connect(owner).burn(burnAmount);
-        await token.cancelWithdrawTo();
-
-        const cancelled = await token.pendingBurns(owner);
-        cancelled.recipient.should.be.equal(ethers.ZeroAddress);
-        cancelled.value.should.be.equal(0);
-
-        await bite.sendCallback()
-            .should.be.revertedWithCustomError(
-                token, "OutdatedBurn"
-            ).withArgs(owner, burnAmount);
-
-        (await token.totalSupply()).should.be.equal(wrapped);
-        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
-        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
-        await expectWrapperInvariant(token, underlyingToken);
     });
 
     it("should not allow to withdraw to the token itself", async () => {
@@ -768,8 +695,8 @@ describe("ConfidentialWrapper", () => {
             await token.connect(carol).releaseTo(carol, bobAmount / 2n);
             await checkInvariant("after Carol partial releaseTo");
 
-            // Bob's callback finalizes (Carol gets remaining cnf)
-            await bite.sendCallback();
+            // Carol released some, so this should no longer go through
+            await bite.sendCallback().should.be.revertedWithCustomError(token, "OutdatedMint").withArgs(carol, bobAmount);
             await checkInvariant("after Bob/Carol callback");
         });
     });

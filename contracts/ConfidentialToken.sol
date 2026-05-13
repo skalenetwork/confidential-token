@@ -48,12 +48,6 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     using EnumerableSet for EnumerableSet.AddressSet;
     using HistoricView for HistoricView.AuthStorage;
 
-
-    enum OnDecryptAction {
-        TRANSFER,
-        HISTORIC_VIEW
-    }
-
     struct TransferInfo {
         address from;
         address to;
@@ -61,6 +55,9 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         address gasPayer;
         uint256 submittedBlockNumber;
     }
+
+    uint8 private constant _TRANSFER = 0;
+    uint8 private constant _HISTORIC_VIEW = 1;
 
     /// @notice Specifies number of ETH to be sent to pay for callback execution
     uint256 public callbackFee = 1_000 gwei;
@@ -149,28 +146,18 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         deposit(msg.sender);
     }
 
-    /// @inheritdoc IConfidentialToken
-    function burn(uint256 value) external virtual override {
-        _burn(msg.sender, value);
-    }
-
     /// @inheritdoc IBiteSupplicant
     function onDecrypt(
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
     ) external override {
-        require(_callbackSenders.remove(msg.sender), AccessViolation());
-        // Both actions require more than 1 plaintext argument in the array
-        require(plaintextArguments.length > 1, WrongPlaintextFormat());
-        require(plaintextArguments[0].length == 1, WrongPlaintextFormat());
-        OnDecryptAction action = OnDecryptAction(uint8(bytes1(plaintextArguments[0])));
-        if(action == OnDecryptAction.HISTORIC_VIEW) {
-            _handleHistoricViewRequest(decryptedArguments, plaintextArguments);
-        } else if (action == OnDecryptAction.TRANSFER) {
-            _handleTransferRequest(decryptedArguments, plaintextArguments);
-        } else {
-            revert ActionNotRecognized();
-        }
+        uint8 action = _consumeOnDecryptCallback(plaintextArguments);
+        _handleAction(action, decryptedArguments, plaintextArguments);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function burn(uint256 value) external virtual override {
+        _burn(msg.sender, value);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -358,28 +345,14 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         override
         onlyRegisteredUser(historicViewer)
     {
-        // value is not a constant
-        // so no ability to save some gas here
-        // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[msg.sender] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[msg.sender]));
-        _ethBalance[msg.sender] -= callbackFee;
-
         bytes[] memory encryptedArguments = new bytes[](1);
         encryptedArguments[0] = encryptedTransferData;
 
         bytes[] memory plaintextArguments = new bytes[](2);
-        plaintextArguments[0] = abi.encodePacked(uint8(OnDecryptAction.HISTORIC_VIEW));
+        plaintextArguments[0] = abi.encodePacked(_HISTORIC_VIEW);
         plaintextArguments[1] = abi.encodePacked(historicViewer);
 
-        address payable callback = BITE.submitCTX(
-            submitCTXAddress,
-            callbackFee / tx.gasprice,
-            encryptedArguments,
-            plaintextArguments
-        );
-
-        require(_callbackSenders.add(callback), AccessViolation());
-        callback.sendValue(callbackFee);
+        _submitCTX(msg.sender, encryptedArguments, plaintextArguments);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -442,6 +415,20 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     // Internal functions
 
+    function _handleAction(
+        uint8 action,
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    ) internal virtual {
+        if (action == _TRANSFER) { // transfer likely more frequent
+            _handleTransferRequest(decryptedArguments, plaintextArguments);
+        } else if (action == _HISTORIC_VIEW) {
+            _handleHistoricViewRequest(decryptedArguments, plaintextArguments);
+        } else {
+            revert ActionNotRecognized();
+        }
+    }
+
     function _handleHistoricViewRequest(
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
@@ -468,41 +455,27 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         );
     }
 
-    function _handleTransferRequest(bytes[] calldata decryptedArguments, bytes[] calldata plaintextArguments) internal {
+    function _handleTransferRequest(
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    )
+        internal
+        returns (bool finalized, uint256 value)
+    {
         TransferInfo memory transferInfo = abi.decode(plaintextArguments[1], (TransferInfo));
 
         _validateDecryptedArguments(decryptedArguments, transferInfo.from, transferInfo.to);
 
-        uint256 value = 0;
         uint256 valueIndex = decryptedArguments.length - 1;
         value = _decodeBalance(decryptedArguments[valueIndex]);
 
-        uint256 fromBalance = 0;
-        uint256 toBalance = 0;
-        if (transferInfo.from == address(0)) {
-            // mint
-            toBalance = _decodeBalance(decryptedArguments[0]);
-        } else if (transferInfo.to == address(0)) {
-            // burn
-            fromBalance = _decodeBalance(decryptedArguments[0]);
-        } else {
-            // transfer
-            if(transferInfo.spender != address(0)) {
-                // Allowances not encrypted
-                _spendAllowance(transferInfo.from, transferInfo.spender, value);
-            }
-            fromBalance = _decodeBalance(decryptedArguments[0]);
-            toBalance = _decodeBalance(decryptedArguments[1]);
-        }
+        (uint256 fromBalance, uint256 toBalance) = _decodeOriginalBalances(decryptedArguments, transferInfo, value);
 
-        if (_lastChanged[transferInfo.from] > transferInfo.submittedBlockNumber ||
-            _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber) {
-            // The account was changed by another CTX.
-            // Decrypted information is outdated.
-            // Resending updated encrypted balances to perform the transfer
-            emit CTXResubmitted(msg.sender);
-            _updateWithGasPayer(transferInfo.from, transferInfo.to, transferInfo.gasPayer, value);
-            return;
+        bool updatedFrom = transferInfo.from != address(0) && _lastChanged[transferInfo.from] > transferInfo.submittedBlockNumber;
+        bool updatedTo = transferInfo.to != address(0) && _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber;
+        if (updatedFrom || updatedTo) {
+            _reSubmitTransfer(transferInfo, value, plaintextArguments);
+            return (false, value);
         }
 
         _decryptedUpdate({
@@ -512,6 +485,38 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
             toBalance: toBalance,
             value: value
         });
+
+        return (true, value);
+    }
+
+    function _reSubmitTransfer(
+        TransferInfo memory transferInfo,
+        uint256 value,
+        bytes[] calldata plaintextArguments
+    )
+        internal
+    {
+        // The account was changed by another CTX.
+        // Decrypted information is outdated.
+        // Resending updated encrypted balances to perform the transfer
+        emit CTXResubmitted(msg.sender);
+
+        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        bytes[] memory encryptedArguments = _encryptArguments(transferInfo.from, transferInfo.to, encryptedValue);
+
+        // TODO: will need transporting once we have encrypted allowances
+        transferInfo.spender = address(0);
+        transferInfo.submittedBlockNumber = block.number;
+        uint256 numArgs = plaintextArguments.length;
+        bytes[] memory updatedPlaintextArguments = new bytes[](numArgs);
+        updatedPlaintextArguments[0] = plaintextArguments[0];
+        updatedPlaintextArguments[1] = abi.encode(transferInfo);
+
+        for (uint256 i = 2; i < numArgs; ++i) {
+            updatedPlaintextArguments[i] = plaintextArguments[i];
+        }
+
+        _submitCTX(transferInfo.gasPayer, encryptedArguments, updatedPlaintextArguments);
     }
 
     /// @notice Internal function to handle decrypted balance updates
@@ -636,20 +641,36 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes memory encryptedValue
     )
         internal
-        virtual
+    {
+        _encryptedUpdateExtended({
+            from: from,
+            to: to,
+            spender: spender,
+            gasPayer: gasPayer,
+            encryptedValue: encryptedValue,
+            action: _TRANSFER,
+            extraPlaintextArguments: new bytes[](0)
+        });
+    }
+
+    function _encryptedUpdateExtended(
+        address from,
+        address to,
+        address spender,
+        address gasPayer,
+        bytes memory encryptedValue,
+        uint8 action,
+        bytes[] memory extraPlaintextArguments
+    )
+        internal
     {
         // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
         // slither-disable-next-line incorrect-equality
         require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 1, ValueWasNotEncryptedCorrectly());
-        // callbackFee is not a constant
-        // so no ability to save some gas here
-        // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[gasPayer] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[gasPayer]));
-        _ethBalance[gasPayer] -= callbackFee;
-
         bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
-        bytes[] memory plaintextArguments = new bytes[](2);
-        plaintextArguments[0] = abi.encodePacked(uint8(OnDecryptAction.TRANSFER));
+        uint256 extraPlaintextArgumentsLength = extraPlaintextArguments.length;
+        bytes[] memory plaintextArguments = new bytes[](2 + extraPlaintextArgumentsLength);
+        plaintextArguments[0] = abi.encodePacked(action);
 
         plaintextArguments[1] = abi.encode(TransferInfo({
             from: from,
@@ -659,14 +680,11 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
             submittedBlockNumber: block.number
         }));
 
-        address payable callback = BITE.submitCTX(
-            submitCTXAddress,
-            callbackFee / tx.gasprice,
-            encryptedArguments,
-            plaintextArguments
-        );
-        require(_callbackSenders.add(callback), AccessViolation());
-        callback.sendValue(callbackFee);
+        for (uint256 i = 0; i < extraPlaintextArgumentsLength; ++i) {
+            plaintextArguments[i + 2] = extraPlaintextArguments[i];
+        }
+
+        _submitCTX(gasPayer, encryptedArguments, plaintextArguments);
     }
 
     function _transferFrom(
@@ -730,6 +748,67 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
                 viewerPublicKey
             );
         }
+    }
+
+    function _decodeOriginalBalances(
+        bytes[] calldata decryptedArguments,
+        TransferInfo memory transferInfo,
+        uint256 value
+    )
+        private
+        returns (uint256 fromBalance, uint256 toBalance)
+    {
+        if (transferInfo.from == address(0)) {
+            // mint
+            toBalance = _decodeBalance(decryptedArguments[0]);
+        } else if (transferInfo.to == address(0)) {
+            // burn
+            fromBalance = _decodeBalance(decryptedArguments[0]);
+        } else {
+            // transfer
+            if(transferInfo.spender != address(0)) {
+                // Allowances not encrypted
+                _spendAllowance(transferInfo.from, transferInfo.spender, value);
+            }
+            fromBalance = _decodeBalance(decryptedArguments[0]);
+            toBalance = _decodeBalance(decryptedArguments[1]);
+        }
+    }
+
+    function _submitCTX(
+        address gasPayer,
+        bytes[] memory encryptedArguments,
+        bytes[] memory plaintextArguments
+    )
+        private
+    {
+        // callbackFee is not a constant
+        // so no ability to save some gas here
+        // solhint-disable-next-line gas-strict-inequalities
+        require(_ethBalance[gasPayer] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[gasPayer]));
+        _ethBalance[gasPayer] -= callbackFee;
+
+        address payable callback = BITE.submitCTX(
+            submitCTXAddress,
+            callbackFee / tx.gasprice,
+            encryptedArguments,
+            plaintextArguments
+        );
+        require(_callbackSenders.add(callback), AccessViolation());
+        callback.sendValue(callbackFee);
+    }
+
+    function _consumeOnDecryptCallback(
+        bytes[] calldata plaintextArguments
+    )
+        private
+        returns (uint8 action)
+    {
+        require(_callbackSenders.remove(msg.sender), AccessViolation());
+        // All actions require more than 1 plaintext argument in the array
+        require(plaintextArguments.length > 1, WrongPlaintextFormat());
+        require(plaintextArguments[0].length == 1, WrongPlaintextFormat());
+        return uint8(bytes1(plaintextArguments[0]));
     }
 
     function _encryptArguments(
