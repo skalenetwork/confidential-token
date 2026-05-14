@@ -31,6 +31,10 @@ import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";
 /// @notice There is no access control on the mint function
 /// @notice DON'T USE IN PRODUCTION!
 contract TestERC20 is ERC20, IMintableERC20 {
+    bool public transfersPaused;
+
+    error TransfersPaused();
+
     /// @notice Constructor for the TestERC20 contract
     /// @param name_ Name of the token
     /// @param symbol_ Symbol of the token
@@ -39,5 +43,16 @@ contract TestERC20 is ERC20, IMintableERC20 {
     /// @inheritdoc IMintableERC20
     function mint(address to, uint256 amount) external override {
         _mint(to, amount);
+    }
+
+    function setTransfersPaused(bool paused) external {
+        transfersPaused = paused;
+    }
+
+    function _update(address from, address to, uint256 value) internal override {
+        if (transfersPaused && from != address(0) && to != address(0)) {
+            revert TransfersPaused();
+        }
+        super._update(from, to, value);
     }
 }

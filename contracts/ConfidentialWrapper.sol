@@ -79,7 +79,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     /// schedules an async burn callback that releases underlying in
     /// `_handleWithdrawToRequest`.
     /// @param value Amount of wrapped tokens to burn and unwrap.
-    function burn(uint256 value) external override(ConfidentialToken, IConfidentialToken) {
+    function burn(uint256 value) external override(ConfidentialToken, IConfidentialWrapper) {
         _burnTo(_msgSender(), _msgSender(), value);
     }
 
@@ -130,6 +130,12 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
 
     // Internal functions
 
+    /// @notice Dispatches decrypted CTX actions for wrapper-specific flows.
+    /// @dev Handles `_WITHDRAW_TO` locally and delegates all other actions to
+    /// the base ConfidentialToken logic.
+    /// @param action Action discriminator encoded in callback plaintext.
+    /// @param decryptedArguments Decrypted callback arguments from BITE.
+    /// @param plaintextArguments Plaintext callback arguments used for routing.
     function _handleAction(
         uint8 action,
         bytes[] calldata decryptedArguments,
@@ -142,6 +148,12 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
         super._handleAction(action, decryptedArguments, plaintextArguments);
     }
 
+    /// @notice Schedules an async burn that releases underlying to `to` on callback.
+    /// @dev Encodes `to` as extra plaintext callback data for
+    /// `_handleWithdrawToRequest`.
+    /// @param from Address whose confidential balance is debited.
+    /// @param to Recipient of the released underlying token.
+    /// @param value Amount to burn and unwrap.
     function _burnTo(address from, address to, uint256 value) internal {
         require(value != 0, ZeroValue());
         bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
@@ -180,19 +192,25 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
         require(previouslyRequested, OutdatedMint(to, value));
     }
 
+    /// @notice Finalizes a queued wrapper burn/withdraw callback.
+    /// @dev Validates recipient plaintext argument, finalizes encrypted transfer
+    /// accounting via `_handleTransferRequest`, then releases underlying.
+    /// @param decryptedArguments Decrypted callback arguments from BITE.
+    /// @param plaintextArguments Plaintext callback arguments containing recipient.
     function _handleWithdrawToRequest(
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
     )
         private
     {
+        require(plaintextArguments.length > 2, WrongPlaintextFormat());
+        require(plaintextArguments[2].length == 20, WrongPlaintextFormat());
+
         (bool finalized, uint256 value) = _handleTransferRequest(decryptedArguments, plaintextArguments);
         if (!finalized) {
             return;
         }
 
-        require(plaintextArguments.length > 2, WrongPlaintextFormat());
-        require(plaintextArguments[2].length == 20, WrongPlaintextFormat());
         address recipient = address(bytes20(plaintextArguments[2]));
         underlying().safeTransfer(recipient, value);
     }

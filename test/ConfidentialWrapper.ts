@@ -24,6 +24,52 @@ describe("ConfidentialWrapper", () => {
         );
     };
 
+    const deployBiteMocks = async () => {
+        const biteFactory = await ethers.getContractFactory("BiteMock");
+        const bite = await biteFactory.deploy();
+        const encryptECIESFactory = await ethers.getContractFactory("EncryptECIESMock");
+        const encryptECIES = await encryptECIESFactory.deploy(bite);
+        const encryptTEFactory = await ethers.getContractFactory("EncryptTEMock");
+        const encryptTE = await encryptTEFactory.deploy(bite);
+        const submitCTXFactory = await ethers.getContractFactory("SubmitCTXMock");
+        const submitCTX = await submitCTXFactory.deploy(bite);
+        return {
+            bite,
+            encryptECIES,
+            encryptTE,
+            submitCTX
+        };
+    };
+
+    const deployWrapperWithPausableUnderlying = async () => {
+        const [owner] = await ethers.getSigners();
+
+        const underlyingFactory = await ethers.getContractFactory("TestERC20");
+        const underlyingToken = await underlyingFactory.deploy("Pausable D2E", "pD2E") as TestERC20;
+        await underlyingToken.deploymentTransaction()!.wait();
+
+        const accessManagerFactory = await ethers.getContractFactory("AccessManager");
+        const accessManager = await accessManagerFactory.deploy(owner);
+        await accessManager.deploymentTransaction()!.wait();
+
+        const wrapperFactory = await ethers.getContractFactory("ConfidentialWrapper");
+        const token = await wrapperFactory.deploy(underlyingToken, "testing", accessManager) as ConfidentialWrapper;
+        await token.deploymentTransaction()!.wait();
+
+        const mocks = await deployBiteMocks();
+        await token.setEncryptECIESAddress(mocks.encryptECIES);
+        await token.setEncryptTEAddress(mocks.encryptTE);
+        await token.setSubmitCTXAddress(mocks.submitCTX);
+        await token.setCallbackFee(ethers.parseEther("0.003"));
+
+        return {
+            owner,
+            token,
+            underlyingToken,
+            ...mocks
+        };
+    };
+
     it("should be able to wrap and unwrap tokens", async () => {
         const { underlyingToken, token, owner, bite } = await cleanWrapperDeployment();
         await owner.sendTransaction({
@@ -254,6 +300,79 @@ describe("ConfidentialWrapper", () => {
         (await token.totalSupply()).should.be.equal(0);
         (await underlyingToken.balanceOf(owner)).should.be.equal(wrapped);
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("withdrawTo(account, value) with insufficient cnf balance reverts in callback and does not release underlying", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const [, recipient] = await ethers.getSigners();
+
+        await token.connect(owner).withdrawTo(recipient, wrapped + 1n);
+        await expect(bite.sendCallback()).to.be.reverted;
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("burn(value) with insufficient cnf balance reverts in callback and does not release underlying", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+
+        await token.connect(owner).burn(wrapped + 1n);
+        await expect(bite.sendCallback()).to.be.reverted;
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("withdrawTo(account, value) reverts on submission when caller has insufficient callback fee ETH", async () => {
+        const { token, underlyingToken, owner, wrapped } = await withWrappedTokens();
+        const [, recipient] = await ethers.getSigners();
+
+        const callbackFee = await token.callbackFee();
+        const availableEth = await token.ethBalanceOf(owner);
+        await token.connect(owner).withdraw(availableEth, owner);
+
+        await expect(token.connect(owner).withdrawTo(recipient, 1n))
+            .to.be.revertedWithCustomError(token, "InsufficientEth")
+            .withArgs(callbackFee, 0n);
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("withdrawTo callback reverts if underlying transfer reverts and burn state is rolled back", async () => {
+        const { token, underlyingToken, owner, bite } = await deployWrapperWithPausableUnderlying();
+        const [, recipient] = await ethers.getSigners();
+        const wrapped = ethers.parseEther("10");
+        const withdrawAmount = wrapped / 2n;
+
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: ethers.parseEther("1.0")
+        });
+
+        await underlyingToken.mint(owner, wrapped);
+        await underlyingToken.connect(owner).approve(token, wrapped);
+        await token.connect(owner).depositFor(owner, wrapped);
+        await bite.sendCallback();
+
+        await token.connect(owner).withdrawTo(recipient, withdrawAmount);
+        await underlyingToken.setTransfersPaused(true);
+
+        await expect(bite.sendCallback())
+            .to.be.revertedWithCustomError(underlyingToken, "TransfersPaused");
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
         await expectWrapperInvariant(token, underlyingToken);
     });
 

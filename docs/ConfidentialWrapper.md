@@ -135,15 +135,41 @@ function balanceOf(address account) public pure returns (uint256 balance)
 
 ### _handleAction
 
+Dispatches decrypted CTX actions for wrapper-specific flows.
+
 ```solidity
 function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal
 ```
 
+**dev:** _Handles `_WITHDRAW_TO` locally and delegates all other actions to
+the base ConfidentialToken logic._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| action | uint8 | Action discriminator encoded in callback plaintext. |
+| decryptedArguments | bytes[] | Decrypted callback arguments from BITE. |
+| plaintextArguments | bytes[] | Plaintext callback arguments used for routing. |
+
 ### _burnTo
+
+Schedules an async burn that releases underlying to `to` on callback.
 
 ```solidity
 function _burnTo(address from, address to, uint256 value) internal
 ```
+
+**dev:** _Encodes `to` as extra plaintext callback data for
+`_handleWithdrawToRequest`._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address whose confidential balance is debited. |
+| to | address | Recipient of the released underlying token. |
+| value | uint256 | Amount to burn and unwrap. |
 
 ### _onUpdate
 

@@ -164,7 +164,9 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Allows the contract to receive ETH to pay for callback execution
     receive() external payable;
 
-    /// @notice Burns tokens from the caller's balance
+    /// @notice Burns tokens from the caller's balance.
+    /// @dev Implementations may execute burn synchronously or finalize it via
+    /// callback.
     /// @param amount The amount of tokens to burn
     function burn(uint256 amount) external;
 

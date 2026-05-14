@@ -28,6 +28,15 @@ import { IConfidentialToken } from "./IConfidentialToken.sol";
 /// @author Dmytro Stebaiev
 /// @notice Interface of ConfidentialWrapper that adds confidentiality to an ERC20 token
 interface IConfidentialWrapper is IConfidentialToken {
+    /// @notice Burns wrapped tokens from the caller and unwraps underlying to
+    /// the caller.
+    /// @dev Equivalent to `withdrawTo(msg.sender, value)`.
+    /// @dev Finalization is asynchronous and happens in the BITE callback,
+    /// therefore the caller must have enough ETH balance in the token contract
+    /// to pay `callbackFee`.
+    /// @param value The amount of wrapped tokens to burn and unwrap
+    function burn(uint256 value) external;
+
     /// @notice Releases the caller's pending wrapped tokens to `account`.
     /// @notice Only the recipient of a prior `depositFor` (i.e. an address with a
     /// non-zero `requestedMints` entry) can call this; the depositor cannot.

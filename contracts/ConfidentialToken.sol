@@ -643,6 +643,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes memory encryptedValue
     )
         internal
+        virtual
     {
         _encryptedUpdateExtended({
             from: from,
@@ -665,6 +666,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] memory extraPlaintextArguments
     )
         internal
+        virtual
     {
         // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
         // slither-disable-next-line incorrect-equality

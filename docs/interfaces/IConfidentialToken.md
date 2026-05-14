@@ -310,11 +310,14 @@ receive() external payable
 
 ### burn
 
-Burns tokens from the caller's balance
+Burns tokens from the caller's balance.
 
 ```solidity
 function burn(uint256 amount) external
 ```
+
+**dev:** _Implementations may execute burn synchronously or finalize it via
+callback._
 
 #### Parameters
 
