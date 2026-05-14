@@ -402,6 +402,14 @@ describe("ConfidentialWrapper", () => {
             ).withArgs(await ethers.resolveAddress(token));
     });
 
+    it("withdrawTo(address(0), value) reverts with ERC20InvalidReceiver before submitting CTX", async () => {
+        const { token, wrapped } = await withWrappedTokens();
+
+        await token.withdrawTo(ethers.ZeroAddress, wrapped)
+            .should.be.revertedWithCustomError(token, "ERC20InvalidReceiver")
+            .withArgs(ethers.ZeroAddress);
+    });
+
     it("should return decimals of the underlying token", async () => {
         const { token, underlyingToken } = await cleanWrapperDeployment();
         (await token.decimals()).should.be.equal(await underlyingToken.decimals());

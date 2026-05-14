@@ -105,7 +105,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     /// @dev This operation is asynchronous and finalizes in the callback. On
     /// success, underlying tokens are sent to `account`.
     function withdrawTo(address account, uint256 value) public override returns (bool success) {
-        if (account == address(this)) {
+        if (account == address(0) || account == address(this)) {
             revert ERC20InvalidReceiver(account);
         }
         _burnTo(_msgSender(), account, value);
