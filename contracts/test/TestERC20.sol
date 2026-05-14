@@ -24,13 +24,24 @@ pragma solidity ^0.8.27;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";
 
+/// @title IPausableERC20
+/// @author Eduardo Vasques
+/// @notice Interface for a pausable token
+interface IPausableERC20 is IMintableERC20 {
+    /// @notice Sets the paused state of token transfers
+    /// @param paused Whether transfers should be pause
+    function setTransfersPaused(bool paused) external;
+}
+
 
 /// @title TestERC20
 /// @author Dmytro Stebaiev
 /// @notice ERC20 token with minting functionality for testing purposes
 /// @notice There is no access control on the mint function
 /// @notice DON'T USE IN PRODUCTION!
-contract TestERC20 is ERC20, IMintableERC20 {
+contract TestERC20 is ERC20, IPausableERC20 {
+
+    /// @notice Whether token transfers are paused
     bool public transfersPaused;
 
     error TransfersPaused();
@@ -45,7 +56,8 @@ contract TestERC20 is ERC20, IMintableERC20 {
         _mint(to, amount);
     }
 
-    function setTransfersPaused(bool paused) external {
+    /// @inheritdoc IPausableERC20
+    function setTransfersPaused(bool paused) external override {
         transfersPaused = paused;
     }
 

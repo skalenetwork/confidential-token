@@ -701,7 +701,7 @@ Transfers a `encryptedValue` amount of tokens from `from` to `to`
 or alternatively mints (or burns) if `from` (or `to`) is the zero address.
 
 ```solidity
-function _encryptedUpdate(address from, address to, address spender, address gasPayer, bytes encryptedValue) internal
+function _encryptedUpdate(address from, address to, address spender, address gasPayer, bytes encryptedValue) internal virtual
 ```
 
 #### Parameters
@@ -717,7 +717,7 @@ function _encryptedUpdate(address from, address to, address spender, address gas
 ### _encryptedUpdateExtended
 
 ```solidity
-function _encryptedUpdateExtended(address from, address to, address spender, address gasPayer, bytes encryptedValue, uint8 action, bytes[] extraPlaintextArguments) internal
+function _encryptedUpdateExtended(address from, address to, address spender, address gasPayer, bytes encryptedValue, uint8 action, bytes[] extraPlaintextArguments) internal virtual
 ```
 
 ### _transferFrom

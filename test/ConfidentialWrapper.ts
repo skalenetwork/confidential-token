@@ -9,6 +9,8 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ConfidentialWrapper, TestERC20 } from "../typechain-types";
 import { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
+// cspell:words ECIES
+
 describe("ConfidentialWrapper", () => {
     const expectWrapperInvariant = async (
         token: ConfidentialWrapper,

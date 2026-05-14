@@ -30,7 +30,6 @@ import { SafeERC20 }      from "@openzeppelin/contracts/token/ERC20/utils/SafeER
 import { Math }           from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { BITE, ConfidentialToken }    from "./ConfidentialToken.sol";
-import { IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 
 
