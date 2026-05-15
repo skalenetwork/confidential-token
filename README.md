@@ -47,8 +47,8 @@ The main contract implementing the confidential token functionality. It extends 
 - `setViewerPublicKey(publicKey)`: Registers a public key in the system and assigns it as the sender's view key. Same result of calling `registerPublicKey` + `setViewerAddress`
 - `registerPublicKey(publicKey)`: Register a public key in the contract
 - `setViewerAddress(viewer)`: Associate a viewer address with the caller's account (payable so you can deposit gas token)
-- `deposit(receiver)`: Deposit gas token to fund callback executions
-- `withdraw(amount, receiver)`: Withdraw gas token previously deposited
+- `fundGasToken(receiver)`: Deposit gas token to fund callback executions
+- `retrieveGasToken(amount, receiver)`: Withdraw gas token previously deposited
 - `encryptedTransfer(to, value)`: Transfer tokens using an encrypted value (bytes)
 - `encryptedTransferFrom(from, to, value)`: Transfer tokens on behalf of another using an encrypted value (bytes)
 - `encryptedBalanceOf(holder)`: Get the encrypted balance representation (must be decrypted off-chain)

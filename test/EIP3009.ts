@@ -53,7 +53,7 @@ describe("EIP3009", () => {
         for (const user of [alice, bob, charlie]) {
             await token
                 .connect(user)
-                .deposit(user, { value: ethers.parseEther("3") });
+                .fundGasToken(user, { value: ethers.parseEther("3") });
         }
 
         await token.connect(alice).setViewerPublicKey(await getPublicKey(alice));
@@ -125,7 +125,7 @@ describe("EIP3009", () => {
             // need to top-up some gas token for gas fees
             await token
                 .connect(charlie)
-                .deposit(charlie, { value: ethers.parseEther("0.3") });
+                .fundGasToken(charlie, { value: ethers.parseEther("0.3") });
 
             // a third-party, Charlie (not Alice) submits the signed authorization
             await token.connect(charlie).transferWithAuthorization(

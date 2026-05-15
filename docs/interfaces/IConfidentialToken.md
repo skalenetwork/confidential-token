@@ -308,12 +308,12 @@ Allows the contract to receive gas token to pay for callback execution
 receive() external payable
 ```
 
-### deposit
+### fundGasToken
 
 Deposits gas token to any holder balance
 
 ```solidity
-function deposit(address receiver) external payable
+function fundGasToken(address receiver) external payable
 ```
 
 #### Parameters
@@ -426,12 +426,12 @@ function setSubmitCTXAddress(address newAddress) external
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the SubmitCTX precompiled contract |
 
-### withdraw
+### retrieveGasToken
 
 Withdraws gas token from the caller's balance
 
 ```solidity
-function withdraw(uint256 amount, address receiver) external
+function retrieveGasToken(uint256 amount, address receiver) external
 ```
 
 #### Parameters

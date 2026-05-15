@@ -104,7 +104,7 @@ describe("ConfidentialToken", () => {
 
         (await token.gasTokenBalanceOf(owner)).should.be.equal(initialBalance - callbackFee);
 
-        (await token.withdraw(initialBalance - callbackFee, owner))
+        (await token.retrieveGasToken(initialBalance - callbackFee, owner))
             .should.changeEtherBalance(owner, initialBalance - callbackFee);
         (await token.gasTokenBalanceOf(owner)).should.be.equal(0);
     });
@@ -393,12 +393,12 @@ describe("ConfidentialToken", () => {
             viewPublicKey
         );
         await bite.sendCallback();
-        await token.deposit(user1, {value: await token.callbackFee()});
+        await token.fundGasToken(user1, {value: await token.callbackFee()});
         await token.connect(user1).setViewerPublicKey(
             viewPublicKey
         );
         await bite.sendCallback();
-        await token.deposit(user2, {value: await token.callbackFee()});
+        await token.fundGasToken(user2, {value: await token.callbackFee()});
         await token.connect(user2).setViewerPublicKey(
             viewPublicKey
         );
@@ -441,12 +441,12 @@ describe("ConfidentialToken", () => {
             viewPublicKey
         );
         await bite.sendCallback();
-        await token.deposit(user1, {value: await token.callbackFee()});
+        await token.fundGasToken(user1, {value: await token.callbackFee()});
         await token.connect(user1).setViewerPublicKey(
             viewPublicKey
         );
         await bite.sendCallback();
-        await token.deposit(user2, {value: await token.callbackFee()});
+        await token.fundGasToken(user2, {value: await token.callbackFee()});
         await token.connect(user2).setViewerPublicKey(
             viewPublicKey
         );
@@ -483,13 +483,13 @@ describe("ConfidentialToken", () => {
         );
         await bite.sendCallback();
 
-        await token.deposit(bob, {value: await token.callbackFee()});
+        await token.fundGasToken(bob, {value: await token.callbackFee()});
         await token.connect(bob).setViewerPublicKey(
             await getPublicKey(bob)
         );
         await bite.sendCallback();
 
-        await token.deposit(hacker, {value: (await token.callbackFee()) * 3n});
+        await token.fundGasToken(hacker, {value: (await token.callbackFee()) * 3n});
         await token.connect(hacker).setViewerPublicKey(
             await getPublicKey(hacker)
         );
@@ -733,7 +733,7 @@ describe("ConfidentialToken", () => {
 
             await token.connect(owner).authorizeHistoricViewTransferId(viewer, event.transferId);
             // Deposit just for the callback fee
-            await token.connect(payer).deposit(payer, {value: await token.callbackFee()});
+            await token.connect(payer).fundGasToken(payer, {value: await token.callbackFee()});
             await token.connect(payer).requestDecryptHistoricTransferFor(event.encryptedData, viewer);
             const callbackTx = await bite.sendCallback();
 
@@ -1059,7 +1059,7 @@ describe("ConfidentialToken", () => {
 
             // Drain viewer's gas token balance
             const viewerGasTokenBalance = await token.gasTokenBalanceOf(viewer);
-            await token.connect(viewer).withdraw(viewerGasTokenBalance, viewer);
+            await token.connect(viewer).retrieveGasToken(viewerGasTokenBalance, viewer);
 
             await token.connect(viewer).requestDecryptHistoricTransfer(event.encryptedData)
                 .should.be.revertedWithCustomError(token, "InsufficientGasToken");

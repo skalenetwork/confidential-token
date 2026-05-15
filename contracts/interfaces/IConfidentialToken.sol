@@ -166,7 +166,7 @@ interface IConfidentialToken is IBiteSupplicant {
 
     /// @notice Deposits gas token to any holder balance
     /// @param receiver The address of the receiver holder
-    function deposit(address receiver) external payable;
+    function fundGasToken(address receiver) external payable;
 
     /// @notice Registers a view key for the message sender
     /// @dev Combination of registerPublicKey and setViewerAddress (payable version)
@@ -202,7 +202,7 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Withdraws gas token from the caller's balance
     /// @param amount Amount of gas token to withdraw
     /// @param receiver Address to send the withdrawn gas token to
-    function withdraw(uint256 amount, address receiver) external;
+    function retrieveGasToken(uint256 amount, address receiver) external;
 
     /// @notice Transfers tokens to another holder
     /// @param to The address of the recipient holder

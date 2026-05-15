@@ -281,7 +281,7 @@ describe("ConfidentialWrapper", () => {
 
         const callbackFee = await token.callbackFee();
         const availableGasTokenBalance = await token.gasTokenBalanceOf(owner);
-        await token.connect(owner).withdraw(availableGasTokenBalance, owner);
+        await token.connect(owner).retrieveGasToken(availableGasTokenBalance, owner);
 
         await expect(token.connect(owner).withdrawTo(recipient, 1n))
             .to.be.revertedWithCustomError(token, "InsufficientGasToken")

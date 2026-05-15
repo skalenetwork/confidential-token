@@ -421,12 +421,12 @@ function setEncryptTEAddress(address newAddress) external
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the EncryptTE precompiled contract |
 
-### withdraw
+### retrieveGasToken
 
 Withdraws gas token from the caller's balance
 
 ```solidity
-function withdraw(uint256 value, address receiver) external
+function retrieveGasToken(uint256 value, address receiver) external
 ```
 
 #### Parameters
@@ -519,12 +519,12 @@ function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address 
 | encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
 | historicViewer | address | Address of the viewer who will receive the decrypted transfer event if authorized |
 
-### deposit
+### fundGasToken
 
 Deposits gas token to any holder balance
 
 ```solidity
-function deposit(address receiver) public payable
+function fundGasToken(address receiver) public payable
 ```
 
 #### Parameters

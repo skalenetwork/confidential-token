@@ -143,7 +143,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     /// @inheritdoc IConfidentialToken
     receive() external payable override {
-        deposit(msg.sender);
+        fundGasToken(msg.sender);
     }
 
     /// @inheritdoc IBiteSupplicant
@@ -287,7 +287,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     }
 
     /// @inheritdoc IConfidentialToken
-    function withdraw(uint256 value, address receiver) external override {
+    function retrieveGasToken(uint256 value, address receiver) external override {
         // value is not a constant
         // so no ability to save some gas here
         // solhint-disable gas-strict-inequalities
@@ -356,7 +356,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     }
 
     /// @inheritdoc IConfidentialToken
-    function deposit(address receiver) public payable override {
+    function fundGasToken(address receiver) public payable override {
         uint256 value = msg.value;
         if (value > 0) {
             _gasTokenBalance[receiver] += value;
@@ -391,7 +391,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     /// @inheritdoc IConfidentialToken
     function setViewerAddress(address viewer) public override payable onlyRegisteredUser(viewer) {
-        deposit(msg.sender);
+        fundGasToken(msg.sender);
         if(viewerAddresses[msg.sender] != viewer) {
             viewerAddresses[msg.sender] = viewer;
             emit ViewerChanged(msg.sender, viewer);
