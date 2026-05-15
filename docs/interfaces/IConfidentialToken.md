@@ -308,12 +308,12 @@ Allows the contract to receive gas token to pay for callback execution
 receive() external payable
 ```
 
-### fundGasToken
+### fundWithGasToken
 
 Deposits gas token to any holder balance
 
 ```solidity
-function fundGasToken(address receiver) external payable
+function fundWithGasToken(address receiver) external payable
 ```
 
 #### Parameters

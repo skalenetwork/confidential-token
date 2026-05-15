@@ -519,12 +519,12 @@ function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address 
 | encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
 | historicViewer | address | Address of the viewer who will receive the decrypted transfer event if authorized |
 
-### fundGasToken
+### fundWithGasToken
 
 Deposits gas token to any holder balance
 
 ```solidity
-function fundGasToken(address receiver) public payable
+function fundWithGasToken(address receiver) public payable
 ```
 
 #### Parameters

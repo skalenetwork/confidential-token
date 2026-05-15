@@ -66,7 +66,7 @@ const depositGasTokenForCallbacks = async () => {
     console.log(chalk.yellow("Depositing gas token for callback fees..."));
     for (const wallet of [deployer, walletA, walletB, walletC]) {
         const address = await ethers.resolveAddress(wallet);
-        const tx = await token.connect(wallet).fundGasToken(address, { value: GAS_TOKEN_DEPOSIT });
+        const tx = await token.connect(wallet).fundWithGasToken(address, { value: GAS_TOKEN_DEPOSIT });
         await tx.wait();
         const balance = await token.gasTokenBalanceOf(address);
         console.log(`  ${address} deposited ${ethers.formatEther(GAS_TOKEN_DEPOSIT)} — callback balance: ${ethers.formatEther(balance)}`);

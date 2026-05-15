@@ -49,7 +49,7 @@ describe("ConfidentialEIP3009", () => {
         for (const user of [alice, bob, charlie]) {
             await token
                 .connect(user)
-                .fundGasToken(user, { value: ethers.parseEther("3") });
+                .fundWithGasToken(user, { value: ethers.parseEther("3") });
         }
 
         await token.connect(alice).setViewerPublicKey(await getPublicKey(alice));

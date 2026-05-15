@@ -143,7 +143,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     /// @inheritdoc IConfidentialToken
     receive() external payable override {
-        fundGasToken(msg.sender);
+        fundWithGasToken(msg.sender);
     }
 
     /// @inheritdoc IBiteSupplicant
@@ -356,7 +356,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     }
 
     /// @inheritdoc IConfidentialToken
-    function fundGasToken(address receiver) public payable override {
+    function fundWithGasToken(address receiver) public payable override {
         uint256 value = msg.value;
         if (value > 0) {
             _gasTokenBalance[receiver] += value;
@@ -391,7 +391,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     /// @inheritdoc IConfidentialToken
     function setViewerAddress(address viewer) public override payable onlyRegisteredUser(viewer) {
-        fundGasToken(msg.sender);
+        fundWithGasToken(msg.sender);
         if(viewerAddresses[msg.sender] != viewer) {
             viewerAddresses[msg.sender] = viewer;
             emit ViewerChanged(msg.sender, viewer);

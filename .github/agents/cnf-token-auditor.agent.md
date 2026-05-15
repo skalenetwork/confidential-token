@@ -94,7 +94,7 @@ Focus: nonce consumption, signature domain separation, validity windows, receive
 Focus: hashing `bytes value` in typed data, nonce consumption before CTX finality, encrypted vs plaintext authorization differences, relayer and payee griefing.
 
 ### Phase 4 — ConfidentialToken external/public surface
-`receive`, `burn`, `onDecrypt`, `encryptedTransfer`, `encryptedTransferFrom`, `requestDecryptHistoricTransfer`, `requestDecryptHistoricTransferFor`, `removeHistoricViewAuth`, `removeHistoricViewTimeRange`, `removeHistoricViewTransferId`, `authorizeHistoricViewTimeRange`, `authorizeHistoricViewTransferId`, `setViewerPublicKey`, `setCallbackFee`, `setSubmitCTXAddress`, `setEncryptECIESAddress`, `setEncryptTEAddress`, `withdraw`, `encryptedBalanceOf`, `gasTokenBalanceOf`, `canDecryptHistoricTransfer`, `deposit`, `transferFrom`, `registerPublicKey`, `setViewerAddress`, `totalSupply`, `balanceOf`
+`receive`, `burn`, `onDecrypt`, `encryptedTransfer`, `encryptedTransferFrom`, `requestDecryptHistoricTransfer`, `requestDecryptHistoricTransferFor`, `removeHistoricViewAuth`, `removeHistoricViewTimeRange`, `removeHistoricViewTransferId`, `authorizeHistoricViewTimeRange`, `authorizeHistoricViewTransferId`, `setViewerPublicKey`, `setCallbackFee`, `setSubmitCTXAddress`, `setEncryptECIESAddress`, `setEncryptTEAddress`, `retrieveGasToken`, `encryptedBalanceOf`, `gasTokenBalanceOf`, `canDecryptHistoricTransfer`, `fundWithGasToken`, `transferFrom`, `registerPublicKey`, `setViewerAddress`, `totalSupply`, `balanceOf`
 
 Also trace inherited entry points: `transfer`, `approve`, `allowance`, `increaseAllowance`/`decreaseAllowance`, `permit`, `nonces`, `DOMAIN_SEPARATOR`, ERC20 metadata.
 

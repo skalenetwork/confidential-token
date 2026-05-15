@@ -393,12 +393,12 @@ describe("ConfidentialToken", () => {
             viewPublicKey
         );
         await bite.sendCallback();
-        await token.fundGasToken(user1, {value: await token.callbackFee()});
+        await token.fundWithGasToken(user1, {value: await token.callbackFee()});
         await token.connect(user1).setViewerPublicKey(
             viewPublicKey
         );
         await bite.sendCallback();
-        await token.fundGasToken(user2, {value: await token.callbackFee()});
+        await token.fundWithGasToken(user2, {value: await token.callbackFee()});
         await token.connect(user2).setViewerPublicKey(
             viewPublicKey
         );
@@ -441,12 +441,12 @@ describe("ConfidentialToken", () => {
             viewPublicKey
         );
         await bite.sendCallback();
-        await token.fundGasToken(user1, {value: await token.callbackFee()});
+        await token.fundWithGasToken(user1, {value: await token.callbackFee()});
         await token.connect(user1).setViewerPublicKey(
             viewPublicKey
         );
         await bite.sendCallback();
-        await token.fundGasToken(user2, {value: await token.callbackFee()});
+        await token.fundWithGasToken(user2, {value: await token.callbackFee()});
         await token.connect(user2).setViewerPublicKey(
             viewPublicKey
         );
@@ -483,13 +483,13 @@ describe("ConfidentialToken", () => {
         );
         await bite.sendCallback();
 
-        await token.fundGasToken(bob, {value: await token.callbackFee()});
+        await token.fundWithGasToken(bob, {value: await token.callbackFee()});
         await token.connect(bob).setViewerPublicKey(
             await getPublicKey(bob)
         );
         await bite.sendCallback();
 
-        await token.fundGasToken(hacker, {value: (await token.callbackFee()) * 3n});
+        await token.fundWithGasToken(hacker, {value: (await token.callbackFee()) * 3n});
         await token.connect(hacker).setViewerPublicKey(
             await getPublicKey(hacker)
         );
@@ -733,7 +733,7 @@ describe("ConfidentialToken", () => {
 
             await token.connect(owner).authorizeHistoricViewTransferId(viewer, event.transferId);
             // Deposit just for the callback fee
-            await token.connect(payer).fundGasToken(payer, {value: await token.callbackFee()});
+            await token.connect(payer).fundWithGasToken(payer, {value: await token.callbackFee()});
             await token.connect(payer).requestDecryptHistoricTransferFor(event.encryptedData, viewer);
             const callbackTx = await bite.sendCallback();
 
