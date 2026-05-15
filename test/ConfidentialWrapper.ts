@@ -131,6 +131,8 @@ describe("ConfidentialWrapper", () => {
         // Per OZ ERC20Wrapper interface, withdrawTo(account, amount) should
         // burn from msg.sender and send `amount` of underlying to `account`.
         await token.connect(owner).withdrawTo(recipient, amount);
+        console.log(await token.getAddress());
+        (await underlyingToken.balanceOf(token)).should.be.equal(amount);
         await bite.sendCallback();
 
         // Expected safe behavior:

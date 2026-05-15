@@ -47,4 +47,9 @@ contract MintableConfidentialToken is ConfidentialToken, IMintableERC20 {
     function mint(address to, uint256 amount) external override restricted {
         _mint(to, amount);
     }
+
+    /// @inheritdoc IMintableERC20
+    function burn(uint256 amount) external override {
+        _burn(_msgSender(), amount);
+    }
 }

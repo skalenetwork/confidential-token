@@ -51,6 +51,11 @@ contract TestERC20 is ERC20, Pausable, IMintableERC20, IPausable {
         _mint(to, amount);
     }
 
+    /// @inheritdoc IMintableERC20
+    function burn(uint256 amount) external override {
+        _burn(_msgSender(), amount);
+    }
+
     /// @inheritdoc IPausable
     function setTransfersPaused(bool paused) external override {
         if (paused) {

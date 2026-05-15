@@ -52,6 +52,37 @@ describe("ConfidentialToken", () => {
         decryptedBalance.should.be.equal(amount);
     });
 
+    it("should be able to burn tokens", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner] = await ethers.getSigners();
+        const { token, bite } = await cleanMintableDeployment();
+
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: ethers.parseEther("1.0")
+        });
+
+        await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+        await bite.sendCallback();
+
+        // Balance is encrypted after registering public key
+        (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
+
+        await token.mint(owner, amount);
+        await bite.sendCallback();
+
+        // No action yet
+        (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
+        (await token.totalSupply()).should.be.equal(amount);
+
+        await token.burn(amount);
+        await bite.sendCallback();
+
+        // Should be encrypted
+        (await token.encryptedBalanceOf(owner)).should.not.be.equal("0x");
+        (await balanceOf(token, bite, owner)).should.be.equal(0);
+    });
+
     it("should be possible to set callback fee", async () => {
         const amount = ethers.parseEther("1.0");
         const callbackFee = ethers.parseEther("1.0");
