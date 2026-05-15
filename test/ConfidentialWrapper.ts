@@ -7,7 +7,6 @@ import { balanceOf, feedAccounts } from "./tools/helpers";
 import { expect } from "chai";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ConfidentialWrapper, TestERC20 } from "../typechain-types";
-import { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
 // cspell:words ECIES
 
@@ -260,51 +259,6 @@ describe("ConfidentialWrapper", () => {
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
     });
 
-    it("burn(value) sends underlying to msg.sender", async () => {
-        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
-        const burnAmount = wrapped / 2n;
-
-        await token.connect(owner).burn(burnAmount);
-        const snapshot = await takeSnapshot();
-        await bite.sendCallback().should.emit(token, "Transfer(address,address)").withArgs(owner, ethers.ZeroAddress);
-        await snapshot.restore();
-
-        await bite.sendCallback();
-
-        (await token.totalSupply()).should.be.equal(wrapped - burnAmount);
-        (await underlyingToken.balanceOf(owner)).should.be.equal(burnAmount);
-        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped - burnAmount);
-        await expectWrapperInvariant(token, underlyingToken);
-    });
-
-    it("burn(value) preserves wrapper invariant while pending and after finalization", async () => {
-        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
-        const burnAmount = wrapped / 2n;
-
-        await expectWrapperInvariant(token, underlyingToken);
-
-        await token.connect(owner).burn(burnAmount);
-        // CTX is pending: cnf totalSupply and underlying balance are both unchanged —
-        // the actual debit happens in the callback, so the invariant holds trivially here
-        await expectWrapperInvariant(token, underlyingToken);
-
-        await bite.sendCallback();
-        // after callback: underlying sent out, both sides balanced
-        await expectWrapperInvariant(token, underlyingToken);
-    });
-
-    it("burn(value) — full balance releases all underlying", async () => {
-        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
-
-        await token.connect(owner).burn(wrapped);
-        await bite.sendCallback();
-
-        (await token.totalSupply()).should.be.equal(0);
-        (await underlyingToken.balanceOf(owner)).should.be.equal(wrapped);
-        (await underlyingToken.balanceOf(token)).should.be.equal(0);
-        await expectWrapperInvariant(token, underlyingToken);
-    });
-
     it("withdrawTo(account, value) with insufficient cnf balance reverts in callback and does not release underlying", async () => {
         const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
         const [, recipient] = await ethers.getSigners();
@@ -316,18 +270,6 @@ describe("ConfidentialWrapper", () => {
         (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
         (await underlyingToken.balanceOf(owner)).should.be.equal(0);
         (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
-        await expectWrapperInvariant(token, underlyingToken);
-    });
-
-    it("burn(value) with insufficient cnf balance reverts in callback and does not release underlying", async () => {
-        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
-
-        await token.connect(owner).burn(wrapped + 1n);
-        await expect(bite.sendCallback()).to.be.reverted;
-
-        (await token.totalSupply()).should.be.equal(wrapped);
-        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
-        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
         await expectWrapperInvariant(token, underlyingToken);
     });
 
@@ -369,7 +311,7 @@ describe("ConfidentialWrapper", () => {
         await underlyingToken.setTransfersPaused(true);
 
         await expect(bite.sendCallback())
-            .to.be.revertedWithCustomError(underlyingToken, "TransfersPaused");
+            .to.be.revertedWithCustomError(underlyingToken, "EnforcedPause");
 
         (await token.totalSupply()).should.be.equal(wrapped);
         (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
@@ -378,12 +320,6 @@ describe("ConfidentialWrapper", () => {
         await expectWrapperInvariant(token, underlyingToken);
     });
 
-    it("burn(0) reverts with ZeroValue", async () => {
-        const { token, owner } = await withWrappedTokens();
-
-        await token.connect(owner).burn(0n)
-            .should.be.revertedWithCustomError(token, "ZeroValue");
-    });
 
     it("withdrawTo(account, 0) reverts with ZeroValue", async () => {
         const { token, owner } = await withWrappedTokens();

@@ -56,8 +56,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         uint256 submittedBlockNumber;
     }
 
-    uint8 private constant _TRANSFER = 0;
-    uint8 private constant _HISTORIC_VIEW = 1;
+    uint8 private constant _TRANSFER_ACTION = 0;
+    uint8 private constant _HISTORIC_VIEW_ACTION = 1;
 
     /// @notice Specifies number of ETH to be sent to pay for callback execution
     uint256 public callbackFee = 1_000 gwei;
@@ -151,13 +151,9 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
     ) external override {
-        uint8 action = _consumeOnDecryptCallback(plaintextArguments);
+        require(_callbackSenders.remove(msg.sender), AccessViolation());
+        uint8 action = _parseAction(plaintextArguments);
         _handleAction(action, decryptedArguments, plaintextArguments);
-    }
-
-    /// @inheritdoc IConfidentialToken
-    function burn(uint256 value) external virtual override {
-        _burn(msg.sender, value);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -349,7 +345,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         encryptedArguments[0] = encryptedTransferData;
 
         bytes[] memory plaintextArguments = new bytes[](2);
-        plaintextArguments[0] = abi.encodePacked(_HISTORIC_VIEW);
+        plaintextArguments[0] = abi.encodePacked(_HISTORIC_VIEW_ACTION);
         plaintextArguments[1] = abi.encodePacked(historicViewer);
 
         _submitCTX(msg.sender, encryptedArguments, plaintextArguments);
@@ -420,9 +416,9 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
     ) internal virtual {
-        if (action == _TRANSFER) { // transfer likely more frequent
+        if (action == _TRANSFER_ACTION) { // transfer likely more frequent
             _handleTransferRequest(decryptedArguments, plaintextArguments);
-        } else if (action == _HISTORIC_VIEW) {
+        } else if (action == _HISTORIC_VIEW_ACTION) {
             _handleHistoricViewRequest(decryptedArguments, plaintextArguments);
         } else {
             revert ActionNotRecognized();
@@ -651,7 +647,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
             spender: spender,
             gasPayer: gasPayer,
             encryptedValue: encryptedValue,
-            action: _TRANSFER,
+            action: _TRANSFER_ACTION,
             extraPlaintextArguments: new bytes[](0)
         });
     }
@@ -802,19 +798,6 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         callback.sendValue(callbackFee);
     }
 
-    function _consumeOnDecryptCallback(
-        bytes[] calldata plaintextArguments
-    )
-        private
-        returns (uint8 action)
-    {
-        require(_callbackSenders.remove(msg.sender), AccessViolation());
-        // All actions require more than 1 plaintext argument in the array
-        require(plaintextArguments.length > 1, WrongPlaintextFormat());
-        require(plaintextArguments[0].length == 1, WrongPlaintextFormat());
-        return uint8(bytes1(plaintextArguments[0]));
-    }
-
     function _encryptArguments(
         address from,
         address to,
@@ -876,6 +859,19 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @return isKnown True if the public key is known, false otherwise
     function _knownPublicKey(address holder) private view returns (bool isKnown) {
         return _isValidPublicKey(publicKeys[holder]);
+    }
+
+    function _parseAction(
+        bytes[] calldata plaintextArguments
+    )
+        private
+        pure
+        returns (uint8 action)
+    {
+        // All actions require more than 1 plaintext argument in the array
+        require(plaintextArguments.length > 1, WrongPlaintextFormat());
+        require(plaintextArguments[0].length == 1, WrongPlaintextFormat());
+        return uint8(bytes1(plaintextArguments[0]));
     }
 
     function _isValidPublicKey(PublicKey memory publicKey) private pure returns (bool isValid) {

@@ -39,7 +39,7 @@ import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWrapper {
     using SafeERC20 for IERC20;
 
-    uint8 private constant _WITHDRAW_TO = 2;
+    uint8 private constant _WITHDRAW_TO_ACTION = 2;
 
 
     /// @notice Amount of tokens requested to be wrapped
@@ -72,16 +72,6 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
         underlying().safeTransfer(account, value);
     }
 
-    /// @notice Burns caller's confidential wrapper balance and withdraws the
-    /// corresponding underlying amount to the caller.
-    /// @dev Wrapper-specific behavior: unlike base `ConfidentialToken.burn`, this
-    /// schedules an async burn callback that releases underlying in
-    /// `_handleWithdrawToRequest`.
-    /// @param value Amount of wrapped tokens to burn and unwrap.
-    function burn(uint256 value) external override(ConfidentialToken, IConfidentialWrapper) {
-        _burnTo(_msgSender(), _msgSender(), value);
-    }
-
     // Public functions
 
     ///@inheritdoc ConfidentialToken
@@ -105,9 +95,6 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     /// @dev This operation is asynchronous and finalizes in the callback. On
     /// success, underlying tokens are sent to `account`.
     function withdrawTo(address account, uint256 value) public override returns (bool success) {
-        if (account == address(0) || account == address(this)) {
-            revert ERC20InvalidReceiver(account);
-        }
         _burnTo(_msgSender(), account, value);
         return true;
     }
@@ -130,7 +117,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     // Internal functions
 
     /// @notice Dispatches decrypted CTX actions for wrapper-specific flows.
-    /// @dev Handles `_WITHDRAW_TO` locally and delegates all other actions to
+    /// @dev Handles `_WITHDRAW_TO_ACTION` locally and delegates all other actions to
     /// the base ConfidentialToken logic.
     /// @param action Action discriminator encoded in callback plaintext.
     /// @param decryptedArguments Decrypted callback arguments from BITE.
@@ -140,7 +127,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
     ) internal override {
-        if (action == _WITHDRAW_TO) {
+        if (action == _WITHDRAW_TO_ACTION) {
             _handleWithdrawToRequest(decryptedArguments, plaintextArguments);
             return;
         }
@@ -154,6 +141,9 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     /// @param to Recipient of the released underlying token.
     /// @param value Amount to burn and unwrap.
     function _burnTo(address from, address to, uint256 value) internal {
+        if (to == address(0) || to == address(this)) {
+            revert ERC20InvalidReceiver(to);
+        }
         require(value != 0, ZeroValue());
         bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
         bytes[] memory extraArgs = new bytes[](1);
@@ -164,7 +154,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
             spender: address(0),
             gasPayer: _msgSender(),
             encryptedValue: encryptedValue,
-            action: _WITHDRAW_TO,
+            action: _WITHDRAW_TO_ACTION,
             extraPlaintextArguments: extraArgs
         });
     }

@@ -50,25 +50,6 @@ function releaseTo(address account, uint256 value) external
 | account | address | The address to release the underlying tokens to |
 | value | uint256 | The amount of tokens to release |
 
-### burn
-
-Burns caller's confidential wrapper balance and withdraws the
-corresponding underlying amount to the caller.
-
-```solidity
-function burn(uint256 value) external
-```
-
-**dev:** _Wrapper-specific behavior: unlike base `ConfidentialToken.burn`, this
-schedules an async burn callback that releases underlying in
-`_handleWithdrawToRequest`._
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 | Amount of wrapped tokens to burn and unwrap. |
-
 ### transferFrom
 
 Transfers `value` tokens from `from` to `to` using allowance mechanism.
@@ -141,7 +122,7 @@ Dispatches decrypted CTX actions for wrapper-specific flows.
 function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal
 ```
 
-**dev:** _Handles `_WITHDRAW_TO` locally and delegates all other actions to
+**dev:** _Handles `_WITHDRAW_TO_ACTION` locally and delegates all other actions to
 the base ConfidentialToken logic._
 
 #### Parameters

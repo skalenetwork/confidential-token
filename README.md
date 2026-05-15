@@ -49,7 +49,6 @@ The main contract implementing the confidential token functionality. It extends 
 - `setViewerAddress(viewer)`: Associate a viewer address with the caller's account (payable so you can deposit gas token)
 - `deposit(receiver)`: Deposit gas token to fund callback executions
 - `withdraw(amount, receiver)`: Withdraw gas token previously deposited
-- `burn(amount)`: Burn tokens from the caller's balance
 - `encryptedTransfer(to, value)`: Transfer tokens using an encrypted value (bytes)
 - `encryptedTransferFrom(from, to, value)`: Transfer tokens on behalf of another using an encrypted value (bytes)
 - `encryptedBalanceOf(holder)`: Get the encrypted balance representation (must be decrypted off-chain)

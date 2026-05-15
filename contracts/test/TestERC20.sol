@@ -22,29 +22,24 @@
 pragma solidity ^0.8.27;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";
 
-/// @title IPausableERC20
+/// @title IPausable interface
 /// @author Eduardo Vasques
-/// @notice Interface for a pausable token
-interface IPausableERC20 is IMintableERC20 {
-    /// @notice Sets the paused state of token transfers
-    /// @param paused Whether transfers should be pause
+/// @notice Interface to pause Test token
+interface IPausable {
+    /// @notice Pauses or unpauses token transfers. --- NO PRODUCTION USE ---
+    /// @param paused weather to pause or unpause
     function setTransfersPaused(bool paused) external;
 }
-
 
 /// @title TestERC20
 /// @author Dmytro Stebaiev
 /// @notice ERC20 token with minting functionality for testing purposes
 /// @notice There is no access control on the mint function
 /// @notice DON'T USE IN PRODUCTION!
-contract TestERC20 is ERC20, IPausableERC20 {
-
-    /// @notice Whether token transfers are paused
-    bool public transfersPaused;
-
-    error TransfersPaused();
+contract TestERC20 is ERC20, Pausable, IMintableERC20, IPausable {
 
     /// @notice Constructor for the TestERC20 contract
     /// @param name_ Name of the token
@@ -56,15 +51,16 @@ contract TestERC20 is ERC20, IPausableERC20 {
         _mint(to, amount);
     }
 
-    /// @inheritdoc IPausableERC20
+    /// @inheritdoc IPausable
     function setTransfersPaused(bool paused) external override {
-        transfersPaused = paused;
+        if (paused) {
+            _pause();
+        } else {
+            _unpause();
+        }
     }
 
-    function _update(address from, address to, uint256 value) internal override {
-        if (transfersPaused && from != address(0) && to != address(0)) {
-            revert TransfersPaused();
-        }
+    function _update(address from, address to, uint256 value) internal override whenNotPaused {
         super._update(from, to, value);
     }
 }

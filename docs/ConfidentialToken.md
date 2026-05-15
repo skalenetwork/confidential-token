@@ -194,23 +194,6 @@ function onDecrypt(bytes[] decryptedArguments, bytes[] plaintextArguments) exter
 | decryptedArguments | bytes[] | The decrypted arguments |
 | plaintextArguments | bytes[] | The plaintext arguments |
 
-### burn
-
-Burns tokens from the caller's balance.
-
-```solidity
-function burn(uint256 value) external virtual
-```
-
-**dev:** _Implementations may execute burn synchronously or finalize it via
-callback._
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 |  |
-
 ### encryptedTransfer
 
 Transfers tokens to another holder
