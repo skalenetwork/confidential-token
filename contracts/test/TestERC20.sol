@@ -30,7 +30,7 @@ import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";
 /// @notice Interface to pause Test token
 interface IPausable {
     /// @notice Pauses or unpauses token transfers. --- NO PRODUCTION USE ---
-    /// @param paused weather to pause or unpause
+    /// @param paused whether to pause or unpause
     function setTransfersPaused(bool paused) external;
 }
 
