@@ -49,7 +49,6 @@ The main contract implementing the confidential token functionality. It extends 
 - `setViewerAddress(viewer)`: Associate a viewer address with the caller's account (payable so you can deposit gas token)
 - `deposit(receiver)`: Deposit gas token to fund callback executions
 - `withdraw(amount, receiver)`: Withdraw gas token previously deposited
-- `burn(amount)`: Burn tokens from the caller's balance
 - `encryptedTransfer(to, value)`: Transfer tokens using an encrypted value (bytes)
 - `encryptedTransferFrom(from, to, value)`: Transfer tokens on behalf of another using an encrypted value (bytes)
 - `encryptedBalanceOf(holder)`: Get the encrypted balance representation (must be decrypted off-chain)
@@ -96,7 +95,7 @@ Wraps an existing ERC20 token to add confidentiality features.
 
 **Main Functions:**
 - `depositFor(account, value)`: Wrap underlying tokens to receive confidential tokens. Pending mint accounting is keyed by the recipient (`account`); cross-account deposits transfer custody of the pending pile to `account`, who can either wait for the mint callback or call `releaseTo` to redirect the underlying. For cross-account deposits (`account != msg.sender`), the depositor cannot unilaterally recover after the call returns — same trust model as a plain ERC20 transfer. For self-deposits, the depositor is also the recipient and can still call `releaseTo` if recovery is needed.
-- `withdrawTo(account, value)`: Unwrap confidential tokens to recover underlying tokens
+- `withdrawTo(account, value)`: Unwrap confidential tokens asynchronously. The burn is finalized in a BITE callback; on callback success, the underlying is sent to `account`.
 - `releaseTo(account, value)`: Recovery path for a failed `depositFor`. Only the recipient of the prior deposit can call this; the underlying is sent to `account`. **Caveat:** if a `depositFor` beneficiary is a contract that does not itself expose a path to call `releaseTo` (and the mint callback later fails), the underlying may become permanently stuck. The same risk existed under the previous keying when the *depositor* was such a contract; the cross-account fix shifts the constraint from depositor to recipient. Prefer EOA recipients or contracts that explicitly support calling `releaseTo`.
 
 #### [MintableConfidentialToken.sol](contracts/MintableConfidentialToken.sol)

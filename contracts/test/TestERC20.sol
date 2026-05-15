@@ -22,15 +22,25 @@
 pragma solidity ^0.8.27;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";
 
+/// @title IPausable interface
+/// @author Eduardo Vasques
+/// @notice Interface to pause Test token
+interface IPausable {
+    /// @notice Pauses or unpauses token transfers. --- NO PRODUCTION USE ---
+    /// @param paused whether to pause or unpause
+    function setTransfersPaused(bool paused) external;
+}
 
 /// @title TestERC20
 /// @author Dmytro Stebaiev
 /// @notice ERC20 token with minting functionality for testing purposes
 /// @notice There is no access control on the mint function
 /// @notice DON'T USE IN PRODUCTION!
-contract TestERC20 is ERC20, IMintableERC20 {
+contract TestERC20 is ERC20, Pausable, IMintableERC20, IPausable {
+
     /// @notice Constructor for the TestERC20 contract
     /// @param name_ Name of the token
     /// @param symbol_ Symbol of the token
@@ -39,5 +49,23 @@ contract TestERC20 is ERC20, IMintableERC20 {
     /// @inheritdoc IMintableERC20
     function mint(address to, uint256 amount) external override {
         _mint(to, amount);
+    }
+
+    /// @inheritdoc IMintableERC20
+    function burn(uint256 amount) external override {
+        _burn(_msgSender(), amount);
+    }
+
+    /// @inheritdoc IPausable
+    function setTransfersPaused(bool paused) external override {
+        if (paused) {
+            _pause();
+        } else {
+            _unpause();
+        }
+    }
+
+    function _update(address from, address to, uint256 value) internal override whenNotPaused {
+        super._update(from, to, value);
     }
 }

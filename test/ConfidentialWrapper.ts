@@ -1,4 +1,5 @@
 import { ethers } from "hardhat";
+import type { AddressLike } from "ethers";
 import { cleanWrapperDeployment, withWrappedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
 import "chai/register-should";
@@ -7,7 +8,69 @@ import { expect } from "chai";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ConfidentialWrapper, TestERC20 } from "../typechain-types";
 
+// cspell:words ECIES
+
 describe("ConfidentialWrapper", () => {
+    const expectWrapperInvariant = async (
+        token: ConfidentialWrapper,
+        underlyingToken: TestERC20,
+        requestedMintHolders: AddressLike[] = []
+    ) => {
+        let requestedMints = 0n;
+        for (const holder of requestedMintHolders) {
+            requestedMints += await token.requestedMints(holder);
+        }
+        (await underlyingToken.balanceOf(token)).should.be.equal(
+            await token.totalSupply() + requestedMints
+        );
+    };
+
+    const deployBiteMocks = async () => {
+        const biteFactory = await ethers.getContractFactory("BiteMock");
+        const bite = await biteFactory.deploy();
+        const encryptECIESFactory = await ethers.getContractFactory("EncryptECIESMock");
+        const encryptECIES = await encryptECIESFactory.deploy(bite);
+        const encryptTEFactory = await ethers.getContractFactory("EncryptTEMock");
+        const encryptTE = await encryptTEFactory.deploy(bite);
+        const submitCTXFactory = await ethers.getContractFactory("SubmitCTXMock");
+        const submitCTX = await submitCTXFactory.deploy(bite);
+        return {
+            bite,
+            encryptECIES,
+            encryptTE,
+            submitCTX
+        };
+    };
+
+    const deployWrapperWithPausableUnderlying = async () => {
+        const [owner] = await ethers.getSigners();
+
+        const underlyingFactory = await ethers.getContractFactory("TestERC20");
+        const underlyingToken = await underlyingFactory.deploy("Pausable D2E", "pD2E") as TestERC20;
+        await underlyingToken.deploymentTransaction()!.wait();
+
+        const accessManagerFactory = await ethers.getContractFactory("AccessManager");
+        const accessManager = await accessManagerFactory.deploy(owner);
+        await accessManager.deploymentTransaction()!.wait();
+
+        const wrapperFactory = await ethers.getContractFactory("ConfidentialWrapper");
+        const token = await wrapperFactory.deploy(underlyingToken, "testing", accessManager) as ConfidentialWrapper;
+        await token.deploymentTransaction()!.wait();
+
+        const mocks = await deployBiteMocks();
+        await token.setEncryptECIESAddress(mocks.encryptECIES);
+        await token.setEncryptTEAddress(mocks.encryptTE);
+        await token.setSubmitCTXAddress(mocks.submitCTX);
+        await token.setCallbackFee(ethers.parseEther("0.003"));
+
+        return {
+            owner,
+            token,
+            underlyingToken,
+            ...mocks
+        };
+    };
+
     it("should be able to wrap and unwrap tokens", async () => {
         const { underlyingToken, token, owner, bite } = await cleanWrapperDeployment();
         await owner.sendTransaction({
@@ -39,6 +102,123 @@ describe("ConfidentialWrapper", () => {
 
         (await balanceOf(token, bite, owner)).should.be.equal(0);
         (await underlyingToken.balanceOf(owner)).should.be.equal(amount);
+        (await underlyingToken.balanceOf(token)).should.be.equal(0);
+    });
+
+    it("withdrawTo(account, value) sends underlying to `account`", async () => {
+        const { token, underlyingToken, owner, bite } = await cleanWrapperDeployment();
+        const [, recipient] = await ethers.getSigners();
+        await feedAccounts([owner, recipient]);
+
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: ethers.parseEther("1.0")
+        });
+
+        await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+        await bite.sendCallback();
+
+        const amount = ethers.parseEther("1");
+        await underlyingToken.mint(owner, amount);
+        await underlyingToken.connect(owner).approve(token, amount);
+        await token.connect(owner).depositFor(owner, amount);
+        await bite.sendCallback();
+
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await underlyingToken.balanceOf(token)).should.be.equal(amount);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
+
+        // Per OZ ERC20Wrapper interface, withdrawTo(account, amount) should
+        // burn from msg.sender and send `amount` of underlying to `account`.
+        await token.connect(owner).withdrawTo(recipient, amount);
+        console.log(await token.getAddress());
+        (await underlyingToken.balanceOf(token)).should.be.equal(amount);
+        await bite.sendCallback();
+
+        // Expected safe behavior:
+        // underlying should be delivered to the supplied recipient.
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(amount);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await underlyingToken.balanceOf(token)).should.be.equal(0);
+    });
+
+    it("should preserve wrapper accounting while a withdrawal is pending and after it finalizes", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const [, recipient] = await ethers.getSigners();
+        const amount = wrapped / 2n;
+
+        await expectWrapperInvariant(token, underlyingToken, [owner]);
+
+        await token.withdrawTo(recipient, amount);
+
+        await expectWrapperInvariant(token, underlyingToken, [owner]);
+
+        await bite.sendCallback();
+
+        await expectWrapperInvariant(token, underlyingToken, [owner]);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(amount);
+    });
+
+    it("withdrawTo: stale callback still routes underlying to the original account arg", async () => {
+        // Deposit and withdrawTo are both queued before any callback fires.
+        // The deposit CTX runs first, bumping _lastChanged[owner].
+        // The withdrawTo CTX is now stale and must resubmit.
+        // After resubmit, the recipient encoded in plaintextArguments[2] must be
+        // honoured — it must not fall back to msg.sender or any other address.
+        const { token, underlyingToken, owner, bite } = await cleanWrapperDeployment();
+        const [, recipient] = await ethers.getSigners();
+
+        const amount = ethers.parseEther("1");
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: ethers.parseEther("1.0")
+        });
+        await underlyingToken.mint(owner, amount);
+        await underlyingToken.connect(owner).approve(token, amount);
+
+        // Queue deposit CTX (CTX1), then withdraw CTX (CTX2). CTX2 is submitted
+        // while owner still has 0 cnf, so it captures a stale balance.
+        await token.connect(owner).depositFor(owner, amount);
+        await token.connect(owner).withdrawTo(recipient, amount);
+
+        // CTX1: mint fires, owner gets cnf, _lastChanged[owner] is bumped.
+        await expect(bite.sendCallback()).to.not.be.reverted;
+
+        // CTX2: stale — resubmits; recipient address in plaintextArguments[2] must be preserved.
+        await expect(bite.sendCallback()).to.emit(token, "CTXResubmitted");
+
+        // CTX3 (resubmit of CTX2): finalizes. Underlying must reach recipient, not owner.
+        await expect(bite.sendCallback()).to.not.be.reverted;
+
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(amount);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await token.totalSupply()).should.be.equal(0);
+        (await underlyingToken.balanceOf(token)).should.be.equal(0);
+    });
+
+    it("withdrawTo: two sequential withdrawals to distinct recipients both finalize correctly", async () => {
+        // Two withdrawTo calls are queued before any callback fires. The first CTX
+        // finalizes and bumps _lastChanged[owner], making the second stale.
+        // After one resubmit the second CTX must deliver to its own recipient.
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const [, recipient1, recipient2] = await ethers.getSigners();
+        const half = wrapped / 2n;
+
+        await token.connect(owner).withdrawTo(recipient1, half);
+        await token.connect(owner).withdrawTo(recipient2, half);
+
+        // CTX1 finalizes: underlying goes to recipient1; _lastChanged[owner] is bumped.
+        await expect(bite.sendCallback()).to.not.be.reverted;
+        (await underlyingToken.balanceOf(recipient1)).should.be.equal(half);
+
+        // CTX2 is stale (submitted before CTX1 updated owner's balance).
+        await expect(bite.sendCallback()).to.emit(token, "CTXResubmitted");
+
+        // CTX3 (resubmit of CTX2): fresh balance, delivers to recipient2.
+        await expect(bite.sendCallback()).to.not.be.reverted;
+        (await underlyingToken.balanceOf(recipient2)).should.be.equal(half);
+
+        (await token.totalSupply()).should.be.equal(0);
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
     });
 
@@ -81,6 +261,76 @@ describe("ConfidentialWrapper", () => {
         (await underlyingToken.balanceOf(token)).should.be.equal(0);
     });
 
+    it("withdrawTo(account, value) with insufficient cnf balance reverts in callback and does not release underlying", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const [, recipient] = await ethers.getSigners();
+
+        await token.connect(owner).withdrawTo(recipient, wrapped + 1n);
+        await expect(bite.sendCallback()).to.be.reverted;
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("withdrawTo(account, value) reverts on submission when caller has insufficient callback fee ETH", async () => {
+        const { token, underlyingToken, owner, wrapped } = await withWrappedTokens();
+        const [, recipient] = await ethers.getSigners();
+
+        const callbackFee = await token.callbackFee();
+        const availableEth = await token.ethBalanceOf(owner);
+        await token.connect(owner).withdraw(availableEth, owner);
+
+        await expect(token.connect(owner).withdrawTo(recipient, 1n))
+            .to.be.revertedWithCustomError(token, "InsufficientEth")
+            .withArgs(callbackFee, 0n);
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+    it("withdrawTo callback reverts if underlying transfer reverts and burn state is rolled back", async () => {
+        const { token, underlyingToken, owner, bite } = await deployWrapperWithPausableUnderlying();
+        const [, recipient] = await ethers.getSigners();
+        const wrapped = ethers.parseEther("10");
+        const withdrawAmount = wrapped / 2n;
+
+        await owner.sendTransaction({
+            to: await ethers.resolveAddress(token),
+            value: ethers.parseEther("1.0")
+        });
+
+        await underlyingToken.mint(owner, wrapped);
+        await underlyingToken.connect(owner).approve(token, wrapped);
+        await token.connect(owner).depositFor(owner, wrapped);
+        await bite.sendCallback();
+
+        await token.connect(owner).withdrawTo(recipient, withdrawAmount);
+        await underlyingToken.setTransfersPaused(true);
+
+        await expect(bite.sendCallback())
+            .to.be.revertedWithCustomError(underlyingToken, "EnforcedPause");
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(owner)).should.be.equal(0);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken);
+    });
+
+
+    it("withdrawTo(account, 0) reverts with ZeroValue", async () => {
+        const { token, owner } = await withWrappedTokens();
+        const [, recipient] = await ethers.getSigners();
+
+        await token.connect(owner).withdrawTo(recipient, 0n)
+            .should.be.revertedWithCustomError(token, "ZeroValue");
+    });
+
     it("should not allow to withdraw to the token itself", async () => {
         const { token, wrapped } = await withWrappedTokens();
 
@@ -88,6 +338,14 @@ describe("ConfidentialWrapper", () => {
             .should.be.revertedWithCustomError(
                 token, "ERC20InvalidReceiver"
             ).withArgs(await ethers.resolveAddress(token));
+    });
+
+    it("withdrawTo(address(0), value) reverts with ERC20InvalidReceiver before submitting CTX", async () => {
+        const { token, wrapped } = await withWrappedTokens();
+
+        await token.withdrawTo(ethers.ZeroAddress, wrapped)
+            .should.be.revertedWithCustomError(token, "ERC20InvalidReceiver")
+            .withArgs(ethers.ZeroAddress);
     });
 
     it("should return decimals of the underlying token", async () => {
@@ -504,8 +762,8 @@ describe("ConfidentialWrapper", () => {
             await token.connect(carol).releaseTo(carol, bobAmount / 2n);
             await checkInvariant("after Carol partial releaseTo");
 
-            // Bob's callback finalizes (Carol gets remaining cnf)
-            await bite.sendCallback();
+            // Carol released some, so this should no longer go through
+            await bite.sendCallback().should.be.revertedWithCustomError(token, "OutdatedMint").withArgs(carol, bobAmount);
             await checkInvariant("after Bob/Carol callback");
         });
     });

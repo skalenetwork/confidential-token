@@ -19,3 +19,17 @@ function mint(address to, uint256 amount) external
 | to | address | The address to mint tokens to |
 | amount | uint256 | The amount of tokens to mint |
 
+### burn
+
+Burns tokens from the caller's account
+
+```solidity
+function burn(uint256 amount) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| amount | uint256 | The amount of tokens to burn |
+

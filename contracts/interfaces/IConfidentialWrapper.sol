@@ -28,6 +28,7 @@ import { IConfidentialToken } from "./IConfidentialToken.sol";
 /// @author Dmytro Stebaiev
 /// @notice Interface of ConfidentialWrapper that adds confidentiality to an ERC20 token
 interface IConfidentialWrapper is IConfidentialToken {
+
     /// @notice Releases the caller's pending wrapped tokens to `account`.
     /// @notice Only the recipient of a prior `depositFor` (i.e. an address with a
     /// non-zero `requestedMints` entry) can call this; the depositor cannot.

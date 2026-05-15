@@ -417,7 +417,6 @@ describe("ConfidentialToken", () => {
         await bite.sendCallback({gasLimit});
         const secondCTX = await bite.sendCallback({gasLimit});
         await mine(1);
-        await expect(secondCTX).not.to.be.reverted;
         await expect(secondCTX)
             .to.emit(token, "CTXResubmitted");
         await network.provider.send("evm_setAutomine", [true]);

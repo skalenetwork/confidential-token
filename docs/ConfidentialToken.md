@@ -4,15 +4,6 @@
 
 ERC20-like token with encrypted balances
 
-### OnDecryptAction
-
-```solidity
-enum OnDecryptAction {
-  TRANSFER,
-  HISTORIC_VIEW
-}
-```
-
 ### TransferInfo
 
 ```solidity
@@ -187,20 +178,6 @@ Allows the contract to receive ETH to pay for callback execution
 ```solidity
 receive() external payable
 ```
-
-### burn
-
-Burns tokens from the caller's balance
-
-```solidity
-function burn(uint256 value) external
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 |  |
 
 ### onDecrypt
 
@@ -628,6 +605,12 @@ function balanceOf(address) public pure virtual returns (uint256)
 
 **dev:** _Returns the value of tokens owned by `account`._
 
+### _handleAction
+
+```solidity
+function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal virtual
+```
+
 ### _handleHistoricViewRequest
 
 ```solidity
@@ -637,7 +620,13 @@ function _handleHistoricViewRequest(bytes[] decryptedArguments, bytes[] plaintex
 ### _handleTransferRequest
 
 ```solidity
-function _handleTransferRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+function _handleTransferRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal returns (bool finalized, uint256 value)
+```
+
+### _reSubmitTransfer
+
+```solidity
+function _reSubmitTransfer(struct ConfidentialToken.TransferInfo transferInfo, uint256 value, bytes[] plaintextArguments) internal
 ```
 
 ### _decryptedUpdate
@@ -707,6 +696,12 @@ function _encryptedUpdate(address from, address to, address spender, address gas
 | spender | address | Address of the spender for transferFrom operations |
 | gasPayer | address | Address of the account paying for the gas |
 | encryptedValue | bytes | TE-encrypted amount of tokens to be transferred |
+
+### _encryptedUpdateExtended
+
+```solidity
+function _encryptedUpdateExtended(address from, address to, address spender, address gasPayer, bytes encryptedValue, uint8 action, bytes[] extraPlaintextArguments) internal virtual
+```
 
 ### _transferFrom
 

@@ -29,7 +29,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { SafeERC20 }      from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math }           from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { ConfidentialToken }    from "./ConfidentialToken.sol";
+import { BITE, ConfidentialToken }    from "./ConfidentialToken.sol";
 import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 
 
@@ -39,12 +39,16 @@ import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWrapper {
     using SafeERC20 for IERC20;
 
+    uint8 private constant _WITHDRAW_TO_ACTION = 2;
+
+
     /// @notice Amount of tokens requested to be wrapped
     /// @dev Almost always equals to zero
     /// @dev Has non-zero value only before the callback call is made
     mapping (address holder => uint256 value) public requestedMints;
 
     error OutdatedMint(address to, uint256 value);
+    error ZeroValue();
 
     constructor(
         IERC20Metadata underlyingToken,
@@ -64,7 +68,7 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
 
     /// @inheritdoc IConfidentialWrapper
     function releaseTo(address account, uint256 value) external override {
-        requestedMints[msg.sender] -= value;
+        requestedMints[_msgSender()] -= value;
         underlying().safeTransfer(account, value);
     }
 
@@ -88,11 +92,10 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
     }
 
     /// @inheritdoc ERC20Wrapper
+    /// @dev This operation is asynchronous and finalizes in the callback. On
+    /// success, underlying tokens are sent to `account`.
     function withdrawTo(address account, uint256 value) public override returns (bool success) {
-        if (account == address(this)) {
-            revert ERC20InvalidReceiver(account);
-        }
-        _burn(_msgSender(), value);
+        _burnTo(_msgSender(), account, value);
         return true;
     }
 
@@ -113,13 +116,53 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
 
     // Internal functions
 
+    /// @notice Dispatches decrypted CTX actions for wrapper-specific flows.
+    /// @dev Handles `_WITHDRAW_TO_ACTION` locally and delegates all other actions to
+    /// the base ConfidentialToken logic.
+    /// @param action Action discriminator encoded in callback plaintext.
+    /// @param decryptedArguments Decrypted callback arguments from BITE.
+    /// @param plaintextArguments Plaintext callback arguments used for routing.
+    function _handleAction(
+        uint8 action,
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    ) internal override {
+        if (action == _WITHDRAW_TO_ACTION) {
+            _handleWithdrawToRequest(decryptedArguments, plaintextArguments);
+            return;
+        }
+        super._handleAction(action, decryptedArguments, plaintextArguments);
+    }
+
+    /// @notice Schedules an async burn that releases underlying to `to` on callback.
+    /// @dev Encodes `to` as extra plaintext callback data for
+    /// `_handleWithdrawToRequest`.
+    /// @param from Address whose confidential balance is debited.
+    /// @param to Recipient of the released underlying token.
+    /// @param value Amount to burn and unwrap.
+    function _burnTo(address from, address to, uint256 value) internal {
+        if (to == address(0) || to == address(this)) {
+            revert ERC20InvalidReceiver(to);
+        }
+        require(value != 0, ZeroValue());
+        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        bytes[] memory extraArgs = new bytes[](1);
+        extraArgs[0] = abi.encodePacked(to);
+        _encryptedUpdateExtended({
+            from: from,
+            to: address(0),
+            spender: address(0),
+            gasPayer: _msgSender(),
+            encryptedValue: encryptedValue,
+            action: _WITHDRAW_TO_ACTION,
+            extraPlaintextArguments: extraArgs
+        });
+    }
+
     function _onUpdate(address from, address to, uint256 value) internal override {
         ConfidentialToken._onUpdate(from, to, value);
         if (from == address(0)) {
             _onMint(to, value);
-        }
-        if (to == address(0)) {
-            _onBurn(from, value);
         }
     }
 
@@ -138,7 +181,26 @@ contract ConfidentialWrapper is ConfidentialToken, ERC20Wrapper, IConfidentialWr
         require(previouslyRequested, OutdatedMint(to, value));
     }
 
-    function _onBurn(address from, uint256 value) private {
-        underlying().safeTransfer(from, value);
+    /// @notice Finalizes a queued wrapper burn/withdraw callback.
+    /// @dev Validates recipient plaintext argument, finalizes encrypted transfer
+    /// accounting via `_handleTransferRequest`, then releases underlying.
+    /// @param decryptedArguments Decrypted callback arguments from BITE.
+    /// @param plaintextArguments Plaintext callback arguments containing recipient.
+    function _handleWithdrawToRequest(
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    )
+        private
+    {
+        require(plaintextArguments.length > 2, WrongPlaintextFormat());
+        require(plaintextArguments[2].length == 20, WrongPlaintextFormat());
+
+        (bool finalized, uint256 value) = _handleTransferRequest(decryptedArguments, plaintextArguments);
+        if (!finalized) {
+            return;
+        }
+
+        address recipient = address(bytes20(plaintextArguments[2]));
+        underlying().safeTransfer(recipient, value);
     }
 }

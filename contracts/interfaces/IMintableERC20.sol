@@ -34,4 +34,8 @@ interface IMintableERC20 is IERC20 {
     /// @param to The address to mint tokens to
     /// @param amount The amount of tokens to mint
     function mint(address to, uint256 amount) external;
+
+    /// @notice Burns tokens from the caller's account
+    /// @param amount The amount of tokens to burn
+    function burn(uint256 amount) external;
 }
