@@ -42,16 +42,16 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param callbackSender Address of the CTX sender that triggered the resubmission
     event CTXResubmitted(address indexed callbackSender);
 
-    /// @notice Emitted when ETH balance is topped up
+    /// @notice Emitted when gas token balance is topped up
     /// @param sender Address of the sender
     /// @param receiver Address of the receiver
-    /// @param value Amount of ETH topped up
-    event EthBalanceToppedUp(address indexed sender, address indexed receiver, uint256 indexed value);
+    /// @param value Amount of gas token topped up
+    event GasTokenBalanceToppedUp(address indexed sender, address indexed receiver, uint256 indexed value);
 
-    /// @notice Emitted when ETH is withdrawn
+    /// @notice Emitted when gas token is withdrawn
     /// @param receiver Address of the receiver
-    /// @param value Amount of ETH withdrawn
-    event EthWithdrawn(address indexed receiver, uint256 indexed value);
+    /// @param value Amount of gas token withdrawn
+    event GasTokenWithdrawn(address indexed receiver, uint256 indexed value);
 
     /// @notice Emitted when tokens (value omitted) are moved from one account (`from`) to another (`to`)
     /// @param from Address tokens are moved from
@@ -161,12 +161,12 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param newViewer Address of the new viewer
     event ViewerChanged(address indexed holder, address indexed newViewer);
 
-    /// @notice Allows the contract to receive ETH to pay for callback execution
+    /// @notice Allows the contract to receive gas token to pay for callback execution
     receive() external payable;
 
-    /// @notice Deposits ETH to any holder balance
+    /// @notice Deposits gas token to any holder balance
     /// @param receiver The address of the receiver holder
-    function deposit(address receiver) external payable;
+    function fundWithGasToken(address receiver) external payable;
 
     /// @notice Registers a view key for the message sender
     /// @dev Combination of registerPublicKey and setViewerAddress (payable version)
@@ -183,7 +183,7 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param viewer The address of the viewer
     function setViewerAddress(address viewer) external payable;
 
-    /// @notice Sets number of ETH to be sent to pay for callback execution
+    /// @notice Sets amount of gas token to be sent to pay for callback execution
     /// @param newFee New callback fee
     function setCallbackFee(uint256 newFee) external;
 
@@ -199,10 +199,10 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param newAddress New address of the SubmitCTX precompiled contract
     function setSubmitCTXAddress(address newAddress) external;
 
-    /// @notice Withdraws ETH from the caller's balance
-    /// @param amount Amount of ETH to withdraw
-    /// @param receiver Address to send the withdrawn ETH to
-    function withdraw(uint256 amount, address receiver) external;
+    /// @notice Withdraws gas token from the caller's balance
+    /// @param amount Amount of gas token to withdraw
+    /// @param receiver Address to send the withdrawn gas token to
+    function retrieveGasToken(uint256 amount, address receiver) external;
 
     /// @notice Transfers tokens to another holder
     /// @param to The address of the recipient holder
@@ -283,8 +283,8 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @return encryptedBalance The encrypted balance of the holder
     function encryptedBalanceOf(address holder) external view returns (bytes memory encryptedBalance);
 
-    /// @notice Gets the ETH balance of a holder
+    /// @notice Gets the gas token balance of a holder
     /// @param holder The address of the holder
-    /// @return balance The ETH balance of the holder
-    function ethBalanceOf(address holder) external view returns (uint256 balance);
+    /// @return balance The gas token balance of the holder
+    function gasTokenBalanceOf(address holder) external view returns (uint256 balance);
 }

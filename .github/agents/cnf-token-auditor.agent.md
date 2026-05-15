@@ -94,7 +94,7 @@ Focus: nonce consumption, signature domain separation, validity windows, receive
 Focus: hashing `bytes value` in typed data, nonce consumption before CTX finality, encrypted vs plaintext authorization differences, relayer and payee griefing.
 
 ### Phase 4 — ConfidentialToken external/public surface
-`receive`, `burn`, `onDecrypt`, `encryptedTransfer`, `encryptedTransferFrom`, `requestDecryptHistoricTransfer`, `requestDecryptHistoricTransferFor`, `removeHistoricViewAuth`, `removeHistoricViewTimeRange`, `removeHistoricViewTransferId`, `authorizeHistoricViewTimeRange`, `authorizeHistoricViewTransferId`, `setViewerPublicKey`, `setCallbackFee`, `setSubmitCTXAddress`, `setEncryptECIESAddress`, `setEncryptTEAddress`, `withdraw`, `encryptedBalanceOf`, `ethBalanceOf`, `canDecryptHistoricTransfer`, `deposit`, `transferFrom`, `registerPublicKey`, `setViewerAddress`, `totalSupply`, `balanceOf`
+`receive`, `burn`, `onDecrypt`, `encryptedTransfer`, `encryptedTransferFrom`, `requestDecryptHistoricTransfer`, `requestDecryptHistoricTransferFor`, `removeHistoricViewAuth`, `removeHistoricViewTimeRange`, `removeHistoricViewTransferId`, `authorizeHistoricViewTimeRange`, `authorizeHistoricViewTransferId`, `setViewerPublicKey`, `setCallbackFee`, `setSubmitCTXAddress`, `setEncryptECIESAddress`, `setEncryptTEAddress`, `retrieveGasToken`, `encryptedBalanceOf`, `gasTokenBalanceOf`, `canDecryptHistoricTransfer`, `fundWithGasToken`, `transferFrom`, `registerPublicKey`, `setViewerAddress`, `totalSupply`, `balanceOf`
 
 Also trace inherited entry points: `transfer`, `approve`, `allowance`, `increaseAllowance`/`decreaseAllowance`, `permit`, `nonces`, `DOMAIN_SEPARATOR`, ERC20 metadata.
 
@@ -123,7 +123,7 @@ Focus: 1:1 backing, `requestedMints`, failed mint callback recovery, withdrawal 
 
 **Input patterns:** zero address, self-transfer, zero amount, max amount, amount exceeding balance, valid TE ciphertext, malformed ciphertext length, empty decrypted value, malformed plaintext arguments, stale encrypted balances, missing public key, viewer key changed between submission and callback, historic auth revoked between submission and callback, expired/not-yet-valid authorization, reused nonce.
 
-**State patterns:** no ETH deposited for callback fees, exact fee deposited, fee changed before next operation, multiple concurrent CTXs for same account, multiple concurrent CTXs for both accounts involved in transfer, account changed after CTX submission, callback succeeds, callback reverts, callback sender attempts replay, underlying token transfer succeeds, underlying token transfer fails.
+**State patterns:** no gas token deposited for callback fees, exact fee deposited, fee changed before next operation, multiple concurrent CTXs for same account, multiple concurrent CTXs for both accounts involved in transfer, account changed after CTX submission, callback succeeds, callback reverts, callback sender attempts replay, underlying token transfer succeeds, underlying token transfer fails.
 
 **Inheritance patterns:** direct call, call through inherited ERC20, call through ERC20Permit allowance path, call through EIP3009 signed path, call through wrapper override.
 
