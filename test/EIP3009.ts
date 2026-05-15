@@ -122,7 +122,7 @@ describe("EIP3009", () => {
             expect(await balanceOf(token, bite, to)).to.equal(0);
 
             expect(await token.authorizationState(from, nonce)).to.be.equal(false);
-            // need to top-up some ETH for gas fees
+            // need to top-up some gas token for gas fees
             await token
                 .connect(charlie)
                 .deposit(charlie, { value: ethers.parseEther("0.3") });

@@ -32,12 +32,12 @@ event CTXResubmitted(address callbackSender)
 | ---- | ---- | ----------- |
 | callbackSender | address | Address of the CTX sender that triggered the resubmission |
 
-### EthBalanceToppedUp
+### GasTokenBalanceToppedUp
 
-Emitted when ETH balance is topped up
+Emitted when gas token balance is topped up
 
 ```solidity
-event EthBalanceToppedUp(address sender, address receiver, uint256 value)
+event GasTokenBalanceToppedUp(address sender, address receiver, uint256 value)
 ```
 
 #### Parameters
@@ -46,14 +46,14 @@ event EthBalanceToppedUp(address sender, address receiver, uint256 value)
 | ---- | ---- | ----------- |
 | sender | address | Address of the sender |
 | receiver | address | Address of the receiver |
-| value | uint256 | Amount of ETH topped up |
+| value | uint256 | Amount of gas token topped up |
 
-### EthWithdrawn
+### GasTokenWithdrawn
 
-Emitted when ETH is withdrawn
+Emitted when gas token is withdrawn
 
 ```solidity
-event EthWithdrawn(address receiver, uint256 value)
+event GasTokenWithdrawn(address receiver, uint256 value)
 ```
 
 #### Parameters
@@ -61,7 +61,7 @@ event EthWithdrawn(address receiver, uint256 value)
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | receiver | address | Address of the receiver |
-| value | uint256 | Amount of ETH withdrawn |
+| value | uint256 | Amount of gas token withdrawn |
 
 ### Transfer
 
@@ -302,7 +302,7 @@ event ViewerChanged(address holder, address newViewer)
 
 ### receive
 
-Allows the contract to receive ETH to pay for callback execution
+Allows the contract to receive gas token to pay for callback execution
 
 ```solidity
 receive() external payable
@@ -310,7 +310,7 @@ receive() external payable
 
 ### deposit
 
-Deposits ETH to any holder balance
+Deposits gas token to any holder balance
 
 ```solidity
 function deposit(address receiver) external payable
@@ -372,7 +372,7 @@ function setViewerAddress(address viewer) external payable
 
 ### setCallbackFee
 
-Sets number of ETH to be sent to pay for callback execution
+Sets amount of gas token to be sent to pay for callback execution
 
 ```solidity
 function setCallbackFee(uint256 newFee) external
@@ -428,7 +428,7 @@ function setSubmitCTXAddress(address newAddress) external
 
 ### withdraw
 
-Withdraws ETH from the caller's balance
+Withdraws gas token from the caller's balance
 
 ```solidity
 function withdraw(uint256 amount, address receiver) external
@@ -438,8 +438,8 @@ function withdraw(uint256 amount, address receiver) external
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| amount | uint256 | Amount of ETH to withdraw |
-| receiver | address | Address to send the withdrawn ETH to |
+| amount | uint256 | Amount of gas token to withdraw |
+| receiver | address | Address to send the withdrawn gas token to |
 
 ### encryptedTransfer
 
@@ -659,12 +659,12 @@ function encryptedBalanceOf(address holder) external view returns (bytes encrypt
 | ---- | ---- | ----------- |
 | encryptedBalance | bytes | The encrypted balance of the holder |
 
-### ethBalanceOf
+### gasTokenBalanceOf
 
-Gets the ETH balance of a holder
+Gets the gas token balance of a holder
 
 ```solidity
-function ethBalanceOf(address holder) external view returns (uint256 balance)
+function gasTokenBalanceOf(address holder) external view returns (uint256 balance)
 ```
 
 #### Parameters
@@ -677,5 +677,5 @@ function ethBalanceOf(address holder) external view returns (uint256 balance)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| balance | uint256 | The ETH balance of the holder |
+| balance | uint256 | The gas token balance of the holder |
 

@@ -11,8 +11,8 @@ const TOKEN_NAME = "Test Confidential Token";
 const TOKEN_SYMBOL = "tCTK";
 const VERSION = "test-v1";
 const MINT_AMOUNT = parseEther("1000");
-const ETH_FUND_AMOUNT = parseEther("1");
-const ETH_DEPOSIT = parseEther("0.5");
+const GAS_TOKEN_FUND_AMOUNT = parseEther("1");
+const GAS_TOKEN_DEPOSIT = parseEther("0.5");
 const CALLBACK_POLL_INTERVAL_MS = 1000;
 
 let token: MintableConfidentialToken;
@@ -36,9 +36,9 @@ const generateAndFundWallets = async () => {
 
     console.log(chalk.yellow("Funding wallets with native gas token..."));
     for (const wallet of [walletA, walletB, walletC]) {
-        const tx = await deployer.sendTransaction({ to: wallet.address, value: ETH_FUND_AMOUNT });
+        const tx = await deployer.sendTransaction({ to: wallet.address, value: GAS_TOKEN_FUND_AMOUNT });
         await tx.wait();
-        console.log(`  Funded ${wallet.address} with ${ethers.formatEther(ETH_FUND_AMOUNT)} ETH`);
+        console.log(`  Funded ${wallet.address} with ${ethers.formatEther(GAS_TOKEN_FUND_AMOUNT)} gas token`);
     }
 };
 
@@ -62,14 +62,14 @@ const deploy = async () => {
     console.log(`  Name: ${await token.name()}, Symbol: ${await token.symbol()}, Version: ${await token.version()}`);
 };
 
-const depositEthForCallbacks = async () => {
-    console.log(chalk.yellow("Depositing ETH for callback fees..."));
+const depositGasTokenForCallbacks = async () => {
+    console.log(chalk.yellow("Depositing gas token for callback fees..."));
     for (const wallet of [deployer, walletA, walletB, walletC]) {
         const address = await ethers.resolveAddress(wallet);
-        const tx = await token.connect(wallet).deposit(address, { value: ETH_DEPOSIT });
+        const tx = await token.connect(wallet).deposit(address, { value: GAS_TOKEN_DEPOSIT });
         await tx.wait();
-        const balance = await token.ethBalanceOf(address);
-        console.log(`  ${address} deposited ${ethers.formatEther(ETH_DEPOSIT)} — callback balance: ${ethers.formatEther(balance)}`);
+        const balance = await token.gasTokenBalanceOf(address);
+        console.log(`  ${address} deposited ${ethers.formatEther(GAS_TOKEN_DEPOSIT)} — callback balance: ${ethers.formatEther(balance)}`);
     }
 };
 
@@ -247,7 +247,7 @@ const transferAndGetEventData = async (
 
 /**
  * Requests historic decryption of a transfer for a given wallet.
- * The wallet must be a registered user with deposited ETH for the callback fee.
+ * The wallet must be a registered user with deposited gas token for the callback fee.
  * Returns the submit block number and tx hash.
  */
 const requestHistoricDecryption = async (
@@ -459,21 +459,21 @@ const testHistoricDecryption = async (txId: string, transferData: string) => {
 };
 
 const cleanup = async () => {
-    console.log(chalk.yellow("\nCleaning up: withdrawing ETH from token and returning funds to deployer..."));
+    console.log(chalk.yellow("\nCleaning up: withdrawing gas token from token and returning funds to deployer..."));
     const wallets = [walletA, walletB, walletC, deployer];
     const deployerAddress = await ethers.resolveAddress(deployer);
 
     for (const wallet of wallets) {
         try {
             const address = await ethers.resolveAddress(wallet);
-            const tokenEthBalance = await token.ethBalanceOf(address);
-            if (tokenEthBalance > 0n) {
-                const tx = await token.connect(wallet).withdraw(tokenEthBalance, address);
+            const tokenGasTokenBalance = await token.gasTokenBalanceOf(address);
+            if (tokenGasTokenBalance > 0n) {
+                const tx = await token.connect(wallet).withdraw(tokenGasTokenBalance, address);
                 await tx.wait();
-                console.log(`  ${address} withdrew ${ethers.formatEther(tokenEthBalance)} from token contract`);
+                console.log(`  ${address} withdrew ${ethers.formatEther(tokenGasTokenBalance)} from token contract`);
             }
         } catch (e) {
-            console.log(chalk.red(`  Failed to withdraw token ETH for ${await ethers.resolveAddress(wallet)}: ${e}`));
+            console.log(chalk.red(`  Failed to withdraw callback gas token for ${await ethers.resolveAddress(wallet)}: ${e}`));
         }
     }
 
@@ -492,12 +492,12 @@ const cleanup = async () => {
             if (sendable > 0n) {
                 const tx = await wallet.sendTransaction({ ...txRequest, value: sendable, gasLimit: estimatedGas, gasPrice: gasPrice });
                 await tx.wait();
-                console.log(`    Returned ${ethers.formatEther(sendable)} ETH to deployer`);
+                console.log(`    Returned ${ethers.formatEther(sendable)} gas token to deployer`);
             } else {
                 console.log(chalk.gray(`    Balance too low to cover gas — skipping`));
             }
         } catch (e) {
-            console.log(chalk.red(`  Failed to return ETH from ${wallet.address}: ${e}`));
+            console.log(chalk.red(`  Failed to return gas token from ${wallet.address}: ${e}`));
         }
     }
 };
@@ -510,7 +510,7 @@ const main = async () => {
 
     await deploy();
     await generateAndFundWallets();
-    await depositEthForCallbacks();
+    await depositGasTokenForCallbacks();
 
     try {
         // Mints tokens to Deployer andDecrypts deployer's balance

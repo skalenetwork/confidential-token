@@ -97,16 +97,16 @@ describe("ConfidentialToken", () => {
             to: await ethers.resolveAddress(token),
             value: initialBalance
         });
-        (await token.ethBalanceOf(owner)).should.be.equal(initialBalance);
+        (await token.gasTokenBalanceOf(owner)).should.be.equal(initialBalance);
 
         await token.mint(owner, amount);
         await bite.sendCallback();
 
-        (await token.ethBalanceOf(owner)).should.be.equal(initialBalance - callbackFee);
+        (await token.gasTokenBalanceOf(owner)).should.be.equal(initialBalance - callbackFee);
 
         (await token.withdraw(initialBalance - callbackFee, owner))
             .should.changeEtherBalance(owner, initialBalance - callbackFee);
-        (await token.ethBalanceOf(owner)).should.be.equal(0);
+        (await token.gasTokenBalanceOf(owner)).should.be.equal(0);
     });
 
     it("should not return token balance", async () => {
@@ -280,16 +280,16 @@ describe("ConfidentialToken", () => {
             {value: amount}
         );
         await bite.sendCallback();
-        const depositedSpender = await token.ethBalanceOf(spender);
+        const depositedSpender = await token.gasTokenBalanceOf(spender);
         depositedSpender.should.be.equal(amount - callbackFee);
         // Callback should fail because no allowance yet
         await token.connect(spender).transferFrom(owner, spender, amount);
 
-        const depositedSpenderAfter = await token.ethBalanceOf(spender);
+        const depositedSpenderAfter = await token.gasTokenBalanceOf(spender);
         depositedSpenderAfter.should.be.equal(depositedSpender - callbackFee);
 
         await bite.sendCallback().should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
-        depositedSpenderAfter.should.be.equal(await token.ethBalanceOf(spender));
+        depositedSpenderAfter.should.be.equal(await token.gasTokenBalanceOf(spender));
     });
 
     it("should only update and check allowance on callback", async () => {
@@ -506,7 +506,7 @@ describe("ConfidentialToken", () => {
     });
 
     describe("Re Encryption of Historical transfers", () => {
-        const ethFunding = ethers.parseEther("1.0");
+        const gasTokenFunding = ethers.parseEther("1.0");
         const transferAmount = ethers.parseEther("10.0");
 
         const registerViewer = async (
@@ -517,7 +517,7 @@ describe("ConfidentialToken", () => {
         ) => {
             await token.connect(holder).setViewerPublicKey(
                 await getPublicKey(viewer),
-                { value: ethFunding }
+                { value: gasTokenFunding }
             );
             await bite.sendCallback();
         };
@@ -1030,7 +1030,7 @@ describe("ConfidentialToken", () => {
                 .to.equal(transferAmount);
         });
 
-        // ETH balance / fee
+        // Gas token balance / fee
 
         it("should deduct callbackFee when requesting historic decryption", async () => {
             const { token, bite, owner } = await withMintedTokens();
@@ -1041,14 +1041,14 @@ describe("ConfidentialToken", () => {
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
             const callbackFee = await token.callbackFee();
-            const ethBefore = await token.ethBalanceOf(owner);
+            const gasTokenBefore = await token.gasTokenBalanceOf(owner);
             await token.connect(owner).requestDecryptHistoricTransfer(event.encryptedData);
-            const ethAfter = await token.ethBalanceOf(owner);
+            const gasTokenAfter = await token.gasTokenBalanceOf(owner);
 
-            expect(ethBefore - ethAfter).to.equal(callbackFee);
+            expect(gasTokenBefore - gasTokenAfter).to.equal(callbackFee);
         });
 
-        it("should revert requestDecryptHistoricTransfer if ETH balance is insufficient", async () => {
+        it("should revert requestDecryptHistoricTransfer if gas token balance is insufficient", async () => {
             const { token, bite, owner } = await withMintedTokens();
             const [, recipient, viewer] = await ethers.getSigners();
             await registerViewer(token, bite, owner, owner);
@@ -1057,12 +1057,12 @@ describe("ConfidentialToken", () => {
 
             const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
 
-            // Drain viewer's ETH balance
-            const viewerEth = await token.ethBalanceOf(viewer);
-            await token.connect(viewer).withdraw(viewerEth, viewer);
+            // Drain viewer's gas token balance
+            const viewerGasTokenBalance = await token.gasTokenBalanceOf(viewer);
+            await token.connect(viewer).withdraw(viewerGasTokenBalance, viewer);
 
             await token.connect(viewer).requestDecryptHistoricTransfer(event.encryptedData)
-                .should.be.revertedWithCustomError(token, "InsufficientEth");
+                .should.be.revertedWithCustomError(token, "InsufficientGasToken");
         });
 
         // Replay / idempotency

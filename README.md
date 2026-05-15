@@ -52,7 +52,7 @@ The main contract implementing the confidential token functionality. It extends 
 - `encryptedTransfer(to, value)`: Transfer tokens using an encrypted value (bytes)
 - `encryptedTransferFrom(from, to, value)`: Transfer tokens on behalf of another using an encrypted value (bytes)
 - `encryptedBalanceOf(holder)`: Get the encrypted balance representation (must be decrypted off-chain)
-- `ethBalanceOf(holder)`: Get the gas token balance for callback funding
+- `gasTokenBalanceOf(holder)`: Get the gas token balance for callback funding
 
 **Historic Transfer Decryption:**
 
@@ -62,7 +62,7 @@ Additionally, if the recipient has a registered public key at the time of transf
 
 For third-party viewers (auditors, accounting tools, delegated observers), holders can grant selective decryption access to their own transfers:
 
-- `requestDecryptHistoricTransfer(encryptedTransferData)`: Submit a TE-encrypted transfer payload for decryption. Requires the caller to be a registered user and have sufficient ETH balance for the callback fee. On successful callback, emits a `ReEncryptedTransfer` event with the value ECIES-encrypted for the requester's public key. The fee is charged even if the requester turns out not to be authorized — authorization is only checked inside the callback.
+- `requestDecryptHistoricTransfer(encryptedTransferData)`: Submit a TE-encrypted transfer payload for decryption. Requires the caller to be a registered user and have sufficient gas token balance for the callback fee. On successful callback, emits a `ReEncryptedTransfer` event with the value ECIES-encrypted for the requester's public key. The fee is charged even if the requester turns out not to be authorized — authorization is only checked inside the callback.
 - `requestDecryptHistoricTransferFor(encryptedTransferData, historicViewer)`: Submit a TE-encrypted transfer payload for decryption on behalf of another registered viewer. Callback fee is charged from the caller (`msg.sender`), while successful callback emits `ReEncryptedTransfer` encrypted for `historicViewer`.
 - `authorizeHistoricViewTimeRange(viewer, fromTimestamp, toTimestamp)`: Grant a viewer decryption access to all transfers whose timestamp falls within `[fromTimestamp, toTimestamp)` (inclusive of `fromTimestamp`, exclusive of `toTimestamp`). To revoke this time-range access, call `removeHistoricViewTimeRange(viewer)`; to revoke all historic-view permissions for the viewer, call `removeHistoricViewAuth(viewer)`. Emits `HistoricViewTimeRangeAuthorized`.
 - `authorizeHistoricViewTransferId(viewer, transferId)`: Grant a viewer access to one specific transfer by its on-chain ID. The transfer ID must already exist. Emits `HistoricViewTransferIdAuthorized`.

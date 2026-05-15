@@ -18,7 +18,7 @@ struct TransferInfo {
 
 ### callbackFee
 
-Specifies number of ETH to be sent to pay for callback execution
+Specifies amount of gas token to be sent to pay for callback execution
 
 ```solidity
 uint256 callbackFee
@@ -92,10 +92,10 @@ error ActionNotRecognized()
 error InsufficientBalance()
 ```
 
-### InsufficientEth
+### InsufficientGasToken
 
 ```solidity
-error InsufficientEth(uint256 required, uint256 available)
+error InsufficientGasToken(uint256 required, uint256 available)
 ```
 
 ### InvalidPublicKey
@@ -173,7 +173,7 @@ constructor(string name_, string symbol_, string version_, address initialAuthor
 
 ### receive
 
-Allows the contract to receive ETH to pay for callback execution
+Allows the contract to receive gas token to pay for callback execution
 
 ```solidity
 receive() external payable
@@ -367,7 +367,7 @@ function setViewerPublicKey(struct PublicKey publicKey) external payable
 
 ### setCallbackFee
 
-Sets number of ETH to be sent to pay for callback execution
+Sets amount of gas token to be sent to pay for callback execution
 
 ```solidity
 function setCallbackFee(uint256 newFee) external
@@ -423,7 +423,7 @@ function setEncryptTEAddress(address newAddress) external
 
 ### withdraw
 
-Withdraws ETH from the caller's balance
+Withdraws gas token from the caller's balance
 
 ```solidity
 function withdraw(uint256 value, address receiver) external
@@ -434,7 +434,7 @@ function withdraw(uint256 value, address receiver) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | value | uint256 |  |
-| receiver | address | Address to send the withdrawn ETH to |
+| receiver | address | Address to send the withdrawn gas token to |
 
 ### encryptedBalanceOf
 
@@ -456,12 +456,12 @@ function encryptedBalanceOf(address holder) external view returns (bytes encrypt
 | ---- | ---- | ----------- |
 | encryptedBalance | bytes | The encrypted balance of the holder |
 
-### ethBalanceOf
+### gasTokenBalanceOf
 
-Gets the ETH balance of a holder
+Gets the gas token balance of a holder
 
 ```solidity
-function ethBalanceOf(address holder) external view returns (uint256 balance)
+function gasTokenBalanceOf(address holder) external view returns (uint256 balance)
 ```
 
 #### Parameters
@@ -474,7 +474,7 @@ function ethBalanceOf(address holder) external view returns (uint256 balance)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| balance | uint256 | The ETH balance of the holder |
+| balance | uint256 | The gas token balance of the holder |
 
 ### canDecryptHistoricTransfer
 
@@ -521,7 +521,7 @@ function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address 
 
 ### deposit
 
-Deposits ETH to any holder balance
+Deposits gas token to any holder balance
 
 ```solidity
 function deposit(address receiver) public payable

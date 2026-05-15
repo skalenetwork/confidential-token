@@ -275,16 +275,16 @@ describe("ConfidentialWrapper", () => {
         await expectWrapperInvariant(token, underlyingToken);
     });
 
-    it("withdrawTo(account, value) reverts on submission when caller has insufficient callback fee ETH", async () => {
+    it("withdrawTo(account, value) reverts on submission when caller has insufficient callback fee gas token", async () => {
         const { token, underlyingToken, owner, wrapped } = await withWrappedTokens();
         const [, recipient] = await ethers.getSigners();
 
         const callbackFee = await token.callbackFee();
-        const availableEth = await token.ethBalanceOf(owner);
-        await token.connect(owner).withdraw(availableEth, owner);
+        const availableGasTokenBalance = await token.gasTokenBalanceOf(owner);
+        await token.connect(owner).withdraw(availableGasTokenBalance, owner);
 
         await expect(token.connect(owner).withdrawTo(recipient, 1n))
-            .to.be.revertedWithCustomError(token, "InsufficientEth")
+            .to.be.revertedWithCustomError(token, "InsufficientGasToken")
             .withArgs(callbackFee, 0n);
 
         (await token.totalSupply()).should.be.equal(wrapped);
@@ -366,14 +366,14 @@ describe("ConfidentialWrapper", () => {
 
     describe("ConfidentialWrapper — requestedMints scenarios", () => {
 
-        const topUpWrapperEth = async (
+        const topUpWrapperGasToken = async (
             payer: HardhatEthersSigner,
             token: ConfidentialWrapper,
-            amountEth: string = "1.0"
+            amountGasToken: string = "1.0"
         ) => {
             await payer.sendTransaction({
                 to: await ethers.resolveAddress(token),
-                value: ethers.parseEther(amountEth)
+                value: ethers.parseEther(amountGasToken)
             });
         };
 
@@ -403,7 +403,7 @@ describe("ConfidentialWrapper", () => {
             const [, recipient] = await ethers.getSigners();
 
             const amount = ethers.parseEther("1");
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
             await depositForRecipient(token, underlyingToken, owner, recipient, amount);
 
             (await token.requestedMints(recipient)).should.be.equal(amount);
@@ -417,7 +417,7 @@ describe("ConfidentialWrapper", () => {
             await feedAccounts([owner, recipient]);
 
             const amount = ethers.parseEther("1");
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
             await depositForRecipient(token, underlyingToken, owner, recipient, amount);
 
             await expect(bite.sendCallback()).to.not.be.reverted;
@@ -431,8 +431,8 @@ describe("ConfidentialWrapper", () => {
             const { token, underlyingToken, bite } = await cleanWrapperDeployment();
             const [alice, bob] = await ethers.getSigners();
             await feedAccounts([alice, bob]);
-            await topUpWrapperEth(alice, token);
-            await topUpWrapperEth(bob, token);
+            await topUpWrapperGasToken(alice, token);
+            await topUpWrapperGasToken(bob, token);
 
             const aliceAmount = ethers.parseEther("100");
             const bobAmount = ethers.parseEther("1");
@@ -460,7 +460,7 @@ describe("ConfidentialWrapper", () => {
         it("depositFor: sequential self-deposits accumulate and both callbacks succeed", async () => {
             const { token, underlyingToken, owner, bite } = await cleanWrapperDeployment();
             await feedAccounts([owner]);
-            await topUpWrapperEth(owner, token, "2.0");
+            await topUpWrapperGasToken(owner, token, "2.0");
 
             const first = ethers.parseEther("3");
             const second = ethers.parseEther("7");
@@ -495,7 +495,7 @@ describe("ConfidentialWrapper", () => {
             const [, beneficiary] = await ethers.getSigners();
 
             const amount = ethers.parseEther("1");
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
             await depositForRecipient(token, underlyingToken, owner, owner, amount);
 
             await token.connect(owner).releaseTo(beneficiary, amount);
@@ -508,7 +508,7 @@ describe("ConfidentialWrapper", () => {
 
         it("releaseTo: partial release leaves remainder pending and makes old callback outdated", async () => {
             const { token, underlyingToken, owner, bite } = await cleanWrapperDeployment();
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
 
             const amount = ethers.parseEther("10");
             const released = ethers.parseEther("3");
@@ -525,7 +525,7 @@ describe("ConfidentialWrapper", () => {
 
         it("releaseTo: reverts when value exceeds requestedMints (arithmetic underflow)", async () => {
             const { token, underlyingToken, owner } = await cleanWrapperDeployment();
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
 
             const amount = ethers.parseEther("1");
             await depositForRecipient(token, underlyingToken, owner, owner, amount);
@@ -544,7 +544,7 @@ describe("ConfidentialWrapper", () => {
 
         it("releaseTo: reverts after callback already minted", async () => {
             const { token, underlyingToken, owner, bite } = await cleanWrapperDeployment();
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
 
             const amount = ethers.parseEther("1");
             await depositForRecipient(token, underlyingToken, owner, owner, amount);
@@ -559,7 +559,7 @@ describe("ConfidentialWrapper", () => {
             const [, recipient] = await ethers.getSigners();
 
             const amount = ethers.parseEther("1");
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
             await depositForRecipient(token, underlyingToken, owner, recipient, amount);
 
             // recipient calls releaseTo -> works because requestedMints[recipient] is set
@@ -575,7 +575,7 @@ describe("ConfidentialWrapper", () => {
             const [, recipient] = await ethers.getSigners();
 
             const amount = ethers.parseEther("1");
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
             await depositForRecipient(token, underlyingToken, owner, recipient, amount);
 
             // owner's requestedMints is 0 -> reverts
@@ -590,7 +590,7 @@ describe("ConfidentialWrapper", () => {
             await feedAccounts([owner, recipient]);
 
             const amount = ethers.parseEther("1");
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
             await depositForRecipient(token, underlyingToken, owner, recipient, amount);
 
             // Recipient pulls underlying out before the mint CTX fires.
@@ -621,7 +621,7 @@ describe("ConfidentialWrapper", () => {
             await feedAccounts([owner, recipient, thirdParty]);
 
             const amount = ethers.parseEther("1");
-            await topUpWrapperEth(owner, token);
+            await topUpWrapperGasToken(owner, token);
             await depositForRecipient(token, underlyingToken, owner, recipient, amount);
 
             // Recipient redirects the pending pile to a different EOA in one tx.
@@ -654,8 +654,8 @@ describe("ConfidentialWrapper", () => {
             const { token, underlyingToken, bite } = await cleanWrapperDeployment();
             const [alice, bob, recipient] = await ethers.getSigners();
             await feedAccounts([alice, bob, recipient]);
-            await topUpWrapperEth(alice, token);
-            await topUpWrapperEth(bob, token);
+            await topUpWrapperGasToken(alice, token);
+            await topUpWrapperGasToken(bob, token);
 
             const aliceAmount = ethers.parseEther("3");
             const bobAmount   = ethers.parseEther("5");
@@ -725,8 +725,8 @@ describe("ConfidentialWrapper", () => {
             const { token, underlyingToken, bite } = await cleanWrapperDeployment();
             const [alice, bob, carol] = await ethers.getSigners();
             await feedAccounts([alice, bob, carol]);
-            await topUpWrapperEth(alice, token, "2.0");
-            await topUpWrapperEth(bob, token);
+            await topUpWrapperGasToken(alice, token, "2.0");
+            await topUpWrapperGasToken(bob, token);
 
             const participants = [alice, bob, carol];
             const checkInvariant = async (label: string) => {

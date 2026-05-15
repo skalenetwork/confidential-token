@@ -59,7 +59,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     uint8 private constant _TRANSFER_ACTION = 0;
     uint8 private constant _HISTORIC_VIEW_ACTION = 1;
 
-    /// @notice Specifies number of ETH to be sent to pay for callback execution
+    /// @notice Specifies amount of gas token to be sent to pay for callback execution
     uint256 public callbackFee = 1_000 gwei;
 
     /// @notice Address of the EncryptECIES precompiled contract
@@ -90,7 +90,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     /// @notice Encrypted with User's Public Key (U_Key) - Used for local viewing
     mapping(address holder => bytes encryptedBalance) private _userBalances;
 
-    mapping(address holder => uint256 eth) private _ethBalance;
+    mapping(address holder => uint256 gasToken) private _gasTokenBalance;
 
     mapping(address holder => uint256 blockNumber) private _lastChanged;
 
@@ -107,7 +107,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     error AccessViolation();
     error ActionNotRecognized();
     error InsufficientBalance();
-    error InsufficientEth(uint256 required, uint256 available);
+    error InsufficientGasToken(uint256 required, uint256 available);
     error InvalidPublicKey();
     error InvalidTransferId(uint256 transferId);
     error NoViewerRegisteredForHolder(address holder);
@@ -290,10 +290,14 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     function withdraw(uint256 value, address receiver) external override {
         // value is not a constant
         // so no ability to save some gas here
-        // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[msg.sender] >= value, InsufficientEth(value, _ethBalance[msg.sender]));
-        _ethBalance[msg.sender] -= value;
-        emit EthWithdrawn(receiver, value);
+        // solhint-disable gas-strict-inequalities
+        require(
+            _gasTokenBalance[msg.sender] >= value,
+            InsufficientGasToken(value, _gasTokenBalance[msg.sender])
+        );
+        // solhint-enable gas-strict-inequalities
+        _gasTokenBalance[msg.sender] -= value;
+        emit GasTokenWithdrawn(receiver, value);
         payable(receiver).sendValue(value);
     }
 
@@ -304,8 +308,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     }
 
     /// @inheritdoc IConfidentialToken
-    function ethBalanceOf(address holder) external view override returns (uint256 balance) {
-        return _ethBalance[holder];
+    function gasTokenBalanceOf(address holder) external view override returns (uint256 balance) {
+        return _gasTokenBalance[holder];
     }
 
     ///@inheritdoc IConfidentialToken
@@ -355,8 +359,8 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     function deposit(address receiver) public payable override {
         uint256 value = msg.value;
         if (value > 0) {
-            _ethBalance[receiver] += value;
-            emit EthBalanceToppedUp(msg.sender, receiver, value);
+            _gasTokenBalance[receiver] += value;
+            emit GasTokenBalanceToppedUp(msg.sender, receiver, value);
         }
     }
 
@@ -784,9 +788,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     {
         // callbackFee is not a constant
         // so no ability to save some gas here
-        // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[gasPayer] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[gasPayer]));
-        _ethBalance[gasPayer] -= callbackFee;
+        // solhint-disable gas-strict-inequalities
+        require(
+            _gasTokenBalance[gasPayer] >= callbackFee,
+            InsufficientGasToken(callbackFee, _gasTokenBalance[gasPayer])
+        );
+        // solhint-enable gas-strict-inequalities
+        _gasTokenBalance[gasPayer] -= callbackFee;
 
         address payable callback = BITE.submitCTX(
             submitCTXAddress,
