@@ -537,12 +537,6 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     )
         internal
     {
-        if (from == to) {
-            _setBalance(from, fromBalance);
-            _onUpdate(from, to, value);
-            return;
-        }
-
         uint256 updatedFromBalance = fromBalance;
         uint256 updatedToBalance = toBalance;
 
@@ -551,6 +545,11 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         } else {
             if (fromBalance < value) {
                 revert InsufficientBalance();
+            }
+            if (from == to) {
+                _setBalance(from, fromBalance);
+                _onUpdate(from, to, value);
+                return;
             }
             updatedFromBalance = fromBalance - value;
         }

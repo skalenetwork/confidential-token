@@ -1,12 +1,14 @@
 # BITE on SKALE — Auditor's Context
 
-This document is written for a Solidity audit agent reviewing contracts that import `@skalenetwork/bite-solidity`. It describes how a BITE-enabled SKALE chain differs from Ethereum, what Conditional Transactions (CTXs) are, and the invariants an auditor must keep in mind when reasoning about confidentiality, re-entrancy, gas accounting, and the callback trust boundary.
+<!-- cspell:words ciphertext ECIES -->
+
+This document is written for a Solidity audit agent reviewing contracts that import `@skalenetwork/bite-solidity`. It describes how a BITE-enabled SKALE chain differs from Ethereum, what Conditional Transactions (CTXs) are, and the invariants an auditor must keep in mind when reasoning about confidentiality, reentrancy, gas accounting, and the callback trust boundary.
 
 ---
 
 ## 1. How SKALE (with BITE) differs from Ethereum
 
-SKALE chains are EVM-compatible, but several runtime assumptions that hold on Ethereum do not hold on SKALE — and some new ones are introduced by BITE. An auditor should keep these in mind when analysing any contract deployed to a BITE-enabled SKALE chain.
+SKALE chains are EVM-compatible, but several runtime assumptions that hold on Ethereum do not hold on SKALE — and some new ones are introduced by BITE. An auditor should keep these in mind when analyzing any contract deployed to a BITE-enabled SKALE chain.
 
 ### 1.1 Chain-level differences (SKALE, independent of BITE)
 
@@ -22,7 +24,7 @@ SKALE chains are EVM-compatible, but several runtime assumptions that hold on Et
 - **Conditional Transactions (CTXs).** A contract can submit a transaction that will be executed by the chain itself after the BITE network threshold-decrypts payloads off-chain. The callback that delivers the decrypted data is a **system-originated transaction**, not a normal user tx. See §4.
 - **Encrypted storage.** The intended design is that sensitive data exists on-chain only as TE or ECIES ciphertext; decryption happens transiently during a CTX callback or off-chain if ECIES encrypted. `onDecrypt` execution trace is protected - only saved memory will be "revealed".
 - **Freshly generated callback senders.** Each CTX callback is delivered from a newly generated, CTX-unique EOA-like address (`ctxSender`). Trust of `msg.sender` inside `onDecrypt` is established by whitelisting this address at submission time — never by any other means.
-- **Asynchronous execution in separate transactions.** `submitCTX` returns synchronously, but `onDecrypt` fires in a *later* block. Any invariant that a reviewer would normally check with "this happens atomically within one tx" does NOT hold across a CTX boundary - should watchout close for Atomicity issues.
+- **Asynchronous execution in separate transactions.** `submitCTX` returns synchronously, but `onDecrypt` fires in a *later* block. Any invariant that a reviewer would normally check with "this happens atomically within one tx" does NOT hold across a CTX boundary - watch out closely for atomicity issues.
 
 ---
 
@@ -58,7 +60,7 @@ This is the entry point the BITE network invokes from `ctxSender` in a later blo
 
 ### 3.1 `EncryptTE` — `0x1D` (staticcall, view-safe)
 
-Encrypts arbitrary bytes under the **network public threshold key**. Only the BITE network (via a threshold of nodes) can decrypt. When an account submits the request, it's address is saved in the cyphertext. Only that account is allowed to schedule decryption of such values - otherwise anyone could write a contract to decrypt any value encrypted by another account.
+Encrypts arbitrary bytes under the **network public threshold key**. Only the BITE network (via a threshold of nodes) can decrypt. When an account submits the request, it's address is saved in the ciphertext. Only that account is allowed to schedule decryption of such values - otherwise anyone could write a contract to decrypt any value encrypted by another account.
 
 ### 3.2 `EncryptECIES` — `0x1C` (staticcall, view-safe)
 
@@ -111,7 +113,7 @@ function requestReveal(bytes calldata someEncryptedInput) external payable {
         plaintextArgs
     );
 
-    _canCallOnDecrypt[ctxSender] = true;  // authorise exactly this ctxSender
+    _canCallOnDecrypt[ctxSender] = true;  // authorize exactly this ctxSender
     ctxSender.sendValue(msg.value);       // fund the callback
 }
 ```
@@ -121,7 +123,7 @@ Step-by-step semantics during this transaction:
 1. `BITE.submitCTX` performs a low-level `call` to `0x1B` with ABI-encoded `(gasLimit, abi.encode(encryptedArgs, plaintextArgs))`.
 2. The precompile validates: shape, encoded offsets, TE-ciphertext sizes, destination (the calling contract), signature/transaction construction internals. Any failure reverts with a typed `CTX*` error from `SubmitCTXErrors`.
 3. On success, the precompile returns a 20-byte `ctxSender` address and emits `CTXSubmitted(ctxSender)` (from the library, not the precompile).
-4. The supplicant contract **must** record authorisation of this `ctxSender` before the transaction ends (typically `_canCallOnDecrypt[ctxSender] = true`). It **must** also transfer enough value to `ctxSender` to cover `gasLimit * tx.gasprice`.
+4. The supplicant contract **must** record authorization of this `ctxSender` before the transaction ends (typically `_canCallOnDecrypt[ctxSender] = true`). It **must** also transfer enough value to `ctxSender` to cover `gasLimit * tx.gasprice`.
 5. Transaction 1 ends. No decryption has happened yet. Nothing has been revealed. It is essential that state-changes remain atomic - if a transaction depends on a CTX, make all state changes during the `onDecrypt` callback.
 
 ### 4.2 Between transactions — BITE network work
@@ -131,7 +133,7 @@ The network observes the CTX, performs threshold decryption of each `encryptedAr
 This happens in a later block. The guarantees are as follows:
 - CTXs are scheduled for the **next block** (N+1).
 - Each block still verifies gasLimit, thus if for some reason the amount of CTXs scheduled for block N+1 is too much, the remaining CTXs are re-scheduled for block N+2, and so on. decrypted CTXs take precedence over regular transactions - when picking transactions for a block, first the block is filled with CTXs.
-- Order is guaranteed - CTXs are executed by the same order they are scheduled. However, between CTX submission and execution, other state changes can occurr by other transactions.
+- Order is guaranteed - CTXs are executed by the same order they are scheduled. However, between CTX submission and execution, other state changes can occur by other transactions.
 
 ### 4.3 Transaction 2 — Callback (`onDecrypt`)
 
@@ -159,19 +161,19 @@ function onDecrypt(
 }
 ```
 
-NOTE: This pattern does not clear senders from failed transactions. This is considered safe because it is considered *impossible* to get the key for such address to re-sign a transaction. The state is changed to `false` on successfull ones to minimze used storage.
+NOTE: This pattern does not clear senders from failed transactions. This is considered safe because it is considered *impossible* to get the key for such address to re-sign a transaction. The state is changed to `false` on successful ones to minimize used storage.
 
 
-### 4.5 Re-entrancy and state consistency
+### 4.5 Reentrancy and state consistency
 
-- `submitCTX` is a `call` to a system precompile. The precompile is trusted and performs no external calls back into user contracts. **Re-entrancy from the precompile itself is not possible.**
+- `submitCTX` is a `call` to a system precompile. The precompile is trusted and performs no external calls back into user contracts. **Reentrancy from the precompile itself is not possible.**
 - However, `onDecrypt` runs in a **later transaction** with arbitrary contract state evolved in between. Anything a normal tx can do (price changes, role changes, pauses, upgrades) can have happened between submission and callback. Treat the callback as a fresh, adversarially-scheduled tx with respect to every state variable that is not explicitly snapshotted into `plaintextArguments`, storage keyed on `ctxSender`, or the encrypted payload.
-- Multiple CTXs can be in flight simultaneously. `onDecrypt` may be invoked with interleavings unrelated to submission order. Per-CTX state should be keyed on `ctxSender`, not on globals.
+- Multiple CTXs can be in flight simultaneously. `onDecrypt` may be interleaved and is not guaranteed to match the submission order. Per-CTX state should be keyed on `ctxSender`, not on globals.
 - `onDecrypt` itself may call `submitCTX` (self-referential CTX chains). This means a callback can submit further CTXs whose callbacks will fire later. Audit for unbounded recursion / gas griefing and for correct termination conditions.
 
 ### 4.6 Gas accounting inside `onDecrypt`
 
-The callback is executed with exactly `GAS_LIMIT` gas (the value passed to `submitCTX`). If `onDecrypt` runs out of gas, the callback reverts, and (depending on chain behaviour and the refund policy) the CTX may be dropped.
+The callback is executed with exactly `GAS_LIMIT` gas (the value passed to `submitCTX`). If `onDecrypt` runs out of gas, the callback reverts, and (depending on chain behavior and the refund policy) the CTX may be dropped.
 
 ### 4.7 What can go wrong with the plaintext once it is inside `onDecrypt`
 
@@ -180,16 +182,16 @@ The plaintext exists in memory for the duration of the callback. Audit for:
 - Writing plaintext to storage (makes it world-readable forever).
 - Emitting plaintext in events (events are public).
 - Don't trust passing plaintext to other (arbitrary) contracts in non-view functions.
-- Verify re-encryption of said sensitive texts (usualy via ECIES), and what Public Key is used
+- Verify re-encryption of said sensitive texts (usually via ECIES), and what Public Key is used
 
 A correctly-written supplicant either (a) re-encrypts the plaintext under ECIES for a specific viewer and stores the ECIES ciphertext, or (b) uses the plaintext to drive a single decision (e.g. "did this bidder offer >= reserve?") and discards it without persistence.
 
 ---
 
-## 5. Consensus and block-rule behaviour of CTXs
+## 5. Consensus and block-rule behavior of CTXs
 
 - SKALE networks have a fixed block limit.
-- CTXs, once scheduled, are saved to be executed in the first available block after the one they're scheduled in. They take priority over regular transactions, thus if there are pending CTXs for a given block, other transactions are put on hold untill a block has space for them.
+- CTXs, once scheduled, are saved to be executed in the first available block after the one they're scheduled in. They take priority over regular transactions, thus if there are pending CTXs for a given block, other transactions are put on hold until a block has space for them.
 - We can assume execution context (trace) of CTXs (onDecrypt) is hidden, only saved storage/events are revealed as usual.
 - CTXs are executed in the exact same order they are scheduled.
 - For each CTX, a random address is generated to be the sender of such CTX. This address is known upon CTX scheduling, and should be topped up with gas enough to pay for the CTX, otherwise it fails (CTX may not appear in the block)
