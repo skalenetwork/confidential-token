@@ -266,6 +266,23 @@ describe("ConfidentialToken", () => {
         balanceAfter.should.be.equal(balanceBefore);
     });
 
+    it("should not allow to do self transfer if value exceeds balance", async () => {
+        const [owner] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner)
+        );
+        await bite.sendCallback();
+
+        const balance = await balanceOf(token, bite, owner);
+
+        await token.connect(owner).transfer(owner, balance + 1n);
+        await expect(
+            bite.sendCallback()
+        ).to.be.revertedWithCustomError(token, "InsufficientBalance()");
+    });
+
     it("should always charge callback fee from the sender of transferFrom", async () => {
         const amount = ethers.parseEther("1.0");
         const [owner, spender ] = await ethers.getSigners();
