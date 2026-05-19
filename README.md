@@ -40,7 +40,7 @@ The main contract implementing the confidential token functionality. It extends 
 - Callback fee configuration for confidential operations (transfers and view key changes)
 - Supports depositing gas token to pay for confidential operations
 - EIP-3009 support for transfers with authorizations via signed messages.
-- ERC-2616 support for permits that change authorization amounts
+- ERC-2612 support for permits that change authorization amounts
 - Integration with SKALE's precompiled contracts and BITE protocol (Phase 2)
 
 **Core Functions:**
