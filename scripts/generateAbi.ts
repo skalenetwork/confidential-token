@@ -7,7 +7,7 @@ type ABI = {[name: string]: []}
 
 const saveToFile = async (abi: ABI) => {
     const version = await getVersion();
-    const filename = `data/fair-manager-${version}-abi.json`;
+    const filename = `data/confidential-token-${version}-abi.json`;
     console.log(`Save to ${filename}`)
     const indent = 4;
     await fs.writeFile(filename, JSON.stringify(abi, null, indent));

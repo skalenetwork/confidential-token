@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- *   EIP3009.sol - confidential-token
+ *   ConfidentialEIP3009.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
- *   @author Dmytro Stebaiev
+ *   @author Eduardo Vasques
  *
  *   confidential-token is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU Affero General Public License as published
@@ -20,94 +20,55 @@
  */
 
 // ----------------------------------------------------------------------------
-// This file is a modified version of the original EIP-3009 implementation.
-//
-// Original Source: https://github.com/CoinbaseStablecoin/eip-3009
-// Original Copyright (c) 2018-2020 Coinbase, Inc.
-//
-// The original code is licensed under the MIT License.
-// A copy of the original MIT License is included in this repository at:
-// /licenses/LICENSE_COINBASE
+// This file extends the original EIP-3009 implementation with BITE functionality for SKALE chains.
 // ----------------------------------------------------------------------------
 
 // cspell:words typehash
 
 pragma solidity ^0.8.27;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-
-import { EIP712Utils } from "./EIP712Utils.sol";
+import { EIP3009, EIP712Utils } from "./EIP3009.sol";
 
 
-/// @title EIP3009
-/// @author Dmytro Stebaiev
-/// @notice ERC20 token with transfer and receive with authorization functionality
-abstract contract EIP3009 is ERC20, EIP712 {
-    /// @notice typehash for transfer with authorization
-    bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH =
+/// @title EIP3009 extension for ConfidentialToken
+/// @author Eduardo Vasques
+/// @notice Extension of EIP3009 with encrypted value parameter for SKALE chains using BITE
+abstract contract ConfidentialEIP3009 is EIP3009{
+
+    /// @notice typehash for transfer with authorization with encrypted value
+    bytes32 public constant ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH =
         // This is calculated during compilation time
         // so lengthy strings are not an issue
         // solhint-disable-next-line gas-small-strings
         keccak256("TransferWithAuthorization("
             "address from,"
             "address to,"
-            "uint256 value,"
+            "bytes value,"
             "uint256 validAfter,"
             "uint256 validBefore,"
             "bytes32 nonce)"
         );
 
-    /// @notice typehash for receiving with authorization
-    bytes32 public constant RECEIVE_WITH_AUTHORIZATION_TYPEHASH =
+    /// @notice typehash for receiving with authorization with encrypted value
+    bytes32 public constant ENCRYPTED_RECEIVE_WITH_AUTHORIZATION_TYPEHASH =
         // This is calculated during compilation time
         // so lengthy strings are not an issue
         // solhint-disable-next-line gas-small-strings
         keccak256("ReceiveWithAuthorization("
             "address from,"
             "address to,"
-            "uint256 value,"
+            "bytes value,"
             "uint256 validAfter,"
             "uint256 validBefore,"
             "bytes32 nonce)"
         );
 
-    /// @notice typehash for canceling an authorization
-    bytes32 public constant CANCEL_AUTHORIZATION_TYPEHASH =
-        // This is calculated during compilation time
-        // so lengthy strings are not an issue
-        // solhint-disable-next-line gas-small-strings
-        keccak256("CancelAuthorization(address authorizer,bytes32 nonce)");
-
-    /**
-     * @dev authorizer address => nonce => state (true = used / false = unused)
-     */
-    mapping(address authorizer => mapping(bytes32 nonce => bool state)) internal _authorizationStates;
-
-    /// @notice Emitted when an authorization is used
-    /// @param authorizer    Authorizer's address
-    /// @param nonce         Nonce of the authorization
-    event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
-
-    /// @notice Emitted when an authorization is canceled
-    /// @param authorizer    Authorizer's address
-    /// @param nonce         Nonce of the authorization
-    event AuthorizationCanceled(
-        address indexed authorizer,
-        bytes32 indexed nonce
-    );
-
-    error InvalidSignature();
-    error AuthorizationIsNotYetValid(uint256 validAfter);
-    error AuthorizationIsExpired(uint256 validBefore);
-    error AuthorizationUsedError(address authorizer, bytes32 nonce);
-    error CallerMustBeThePayee(address caller, address payee);
 
     /**
      * @notice Execute a transfer with a signed authorization
      * @param from          Payer's address (Authorizer)
      * @param to            Payee's address
-     * @param value         Amount to be transferred
+     * @param value         Amount to be transferred (TE-encrypted)
      * @param validAfter    The time after which this is valid (unix time)
      * @param validBefore   The time before which this is valid (unix time)
      * @param nonce         Unique nonce
@@ -115,10 +76,10 @@ abstract contract EIP3009 is ERC20, EIP712 {
      * @param r             r of the signature
      * @param s             s of the signature
      */
-    function transferWithAuthorization(
+    function encryptedTransferWithAuthorization(
         address from,
         address to,
-        uint256 value,
+        bytes calldata value,
         uint256 validAfter,
         uint256 validBefore,
         bytes32 nonce,
@@ -127,7 +88,7 @@ abstract contract EIP3009 is ERC20, EIP712 {
         bytes32 s
     ) external {
         _transferWithAuthorization({
-            typeHash: TRANSFER_WITH_AUTHORIZATION_TYPEHASH,
+            typeHash: ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH,
             from: from,
             to: to,
             value: value,
@@ -147,7 +108,7 @@ abstract contract EIP3009 is ERC20, EIP712 {
      * considerations)
      * @param from          Payer's address (Authorizer)
      * @param to            Payee's address
-     * @param value         Amount to be transferred
+     * @param value         Amount to be transferred (TE-encrypted)
      * @param validAfter    The time after which this is valid (unix time)
      * @param validBefore   The time before which this is valid (unix time)
      * @param nonce         Unique nonce
@@ -155,10 +116,10 @@ abstract contract EIP3009 is ERC20, EIP712 {
      * @param r             r of the signature
      * @param s             s of the signature
      */
-    function receiveWithAuthorization(
+    function encryptedReceiveWithAuthorization(
         address from,
         address to,
-        uint256 value,
+        bytes calldata value,
         uint256 validAfter,
         uint256 validBefore,
         bytes32 nonce,
@@ -169,7 +130,7 @@ abstract contract EIP3009 is ERC20, EIP712 {
         require(to == msg.sender, CallerMustBeThePayee(msg.sender, to));
 
         _transferWithAuthorization({
-            typeHash: RECEIVE_WITH_AUTHORIZATION_TYPEHASH,
+            typeHash: ENCRYPTED_RECEIVE_WITH_AUTHORIZATION_TYPEHASH,
             from: from,
             to: to,
             value: value,
@@ -180,62 +141,6 @@ abstract contract EIP3009 is ERC20, EIP712 {
             r: r,
             s: s
         });
-    }
-
-    /**
-     * @notice Attempt to cancel an authorization
-     * @param authorizer    Authorizer's address
-     * @param nonce         Nonce of the authorization
-     * @param v             v of the signature
-     * @param r             r of the signature
-     * @param s             s of the signature
-     */
-    function cancelAuthorization(
-        address authorizer,
-        bytes32 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
-        require(
-            !_authorizationStates[authorizer][nonce],
-            AuthorizationUsedError(authorizer, nonce)
-        );
-
-        bytes memory data = abi.encode(
-            CANCEL_AUTHORIZATION_TYPEHASH,
-            authorizer,
-            nonce
-        );
-        require(
-            EIP712Utils.recover({
-                domainSeparator: _domainSeparatorV4(),
-                v: v,
-                r: r,
-                s: s,
-                typeHashAndData: data
-            }) == authorizer,
-            InvalidSignature()
-        );
-
-        _authorizationStates[authorizer][nonce] = true;
-        emit AuthorizationCanceled(authorizer, nonce);
-    }
-
-    /**
-     * @notice Returns the state of an authorization
-     * @dev Nonces are randomly generated 32-byte data unique to the authorizer's
-     * address
-     * @param authorizer    Authorizer's address
-     * @param nonce         Nonce of the authorization
-     * @return used True if the nonce is used
-     */
-    function authorizationState(address authorizer, bytes32 nonce)
-        external
-        view
-        returns (bool used)
-    {
-        return _authorizationStates[authorizer][nonce];
     }
 
     /// @notice Internal function to execute transfer with authorization
@@ -253,7 +158,7 @@ abstract contract EIP3009 is ERC20, EIP712 {
         bytes32 typeHash,
         address from,
         address to,
-        uint256 value,
+        bytes calldata value,
         uint256 validAfter,
         uint256 validBefore,
         bytes32 nonce,
@@ -275,7 +180,7 @@ abstract contract EIP3009 is ERC20, EIP712 {
             typeHash,
             from,
             to,
-            value,
+            keccak256(value),
             validAfter,
             validBefore,
             nonce
@@ -294,6 +199,8 @@ abstract contract EIP3009 is ERC20, EIP712 {
         _authorizationStates[from][nonce] = true;
         emit AuthorizationUsed(from, nonce);
 
-        _transfer(from, to, value);
+        _encryptedTransfer(from, to, value);
     }
+
+    function _encryptedTransfer(address from, address to, bytes calldata value) internal virtual;
 }

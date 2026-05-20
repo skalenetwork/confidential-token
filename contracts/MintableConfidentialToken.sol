@@ -19,7 +19,7 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.27;
 
 import { ConfidentialToken } from "./ConfidentialToken.sol";
 import { IMintableERC20 } from "./interfaces/IMintableERC20.sol";
@@ -46,5 +46,10 @@ contract MintableConfidentialToken is ConfidentialToken, IMintableERC20 {
     /// @inheritdoc IMintableERC20
     function mint(address to, uint256 amount) external override restricted {
         _mint(to, amount);
+    }
+
+    /// @inheritdoc IMintableERC20
+    function burn(uint256 amount) external override {
+        _burn(_msgSender(), amount);
     }
 }

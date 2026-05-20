@@ -4,9 +4,21 @@
 
 ERC20-like token with encrypted balances
 
+### TransferInfo
+
+```solidity
+struct TransferInfo {
+  address from;
+  address to;
+  address spender;
+  address gasPayer;
+  uint256 submittedBlockNumber;
+}
+```
+
 ### callbackFee
 
-Specifies number of ETH to be sent to pay for callback execution
+Specifies amount of gas token to be sent to pay for callback execution
 
 ```solidity
 uint256 callbackFee
@@ -28,9 +40,17 @@ Address of the EncryptTE precompiled contract
 address encryptTEAddress
 ```
 
+### viewerAddresses
+
+Mapping of holder addresses to their viewers' addresses
+
+```solidity
+mapping(address => address) viewerAddresses
+```
+
 ### publicKeys
 
-Mapping of holder addresses to their public keys
+Mapping of addresses to their public keys
 
 ```solidity
 mapping(address => struct PublicKey) publicKeys
@@ -54,132 +74,16 @@ string version
 
 **dev:** _Is used to get proper ABI_
 
-### CallbackFeeChanged
-
-Emitted when callback fee is changed
-
-```solidity
-event CallbackFeeChanged(uint256 newFee)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newFee | uint256 | New callback fee |
-
-### EthBalanceToppedUp
-
-Emitted when ETH balance is topped up
-
-```solidity
-event EthBalanceToppedUp(address sender, address receiver, uint256 value)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| sender | address | Address of the sender |
-| receiver | address | Address of the receiver |
-| value | uint256 | Amount of ETH topped up |
-
-### EthWithdrawn
-
-Emitted when ETH is withdrawn
-
-```solidity
-event EthWithdrawn(address receiver, uint256 value)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| receiver | address | Address of the receiver |
-| value | uint256 | Amount of ETH withdrawn |
-
-### Transfer
-
-Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
-
-```solidity
-event Transfer(address from, address to)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| from | address | Address tokens are moved from |
-| to | address | Address tokens are moved to |
-
-### SubmitCTXAddressChanged
-
-Emitted when SubmitCTX precompiled contract address is changed
-
-```solidity
-event SubmitCTXAddressChanged(address newAddress)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newAddress | address | New address of the SubmitCTX precompiled contract |
-
-### EncryptECIESAddressChanged
-
-Emitted when EncryptECIES precompiled contract address is changed
-
-```solidity
-event EncryptECIESAddressChanged(address newAddress)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newAddress | address | New address of the EncryptECIES precompiled contract |
-
-### EncryptTEAddressChanged
-
-Emitted when EncryptTE precompiled contract address is changed
-
-```solidity
-event EncryptTEAddressChanged(address newAddress)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newAddress | address | New address of the EncryptTE precompiled contract |
-
-### PublicKeyRegistered
-
-Emitted when a public key is registered
-
-```solidity
-event PublicKeyRegistered(address holder)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| holder | address | Address of the holder whose public key is registered |
-
 ### AccessViolation
 
 ```solidity
 error AccessViolation()
 ```
 
-### DecryptionBadFormat
+### ActionNotRecognized
 
 ```solidity
-error DecryptionBadFormat()
+error ActionNotRecognized()
 ```
 
 ### InsufficientBalance
@@ -188,16 +92,34 @@ error DecryptionBadFormat()
 error InsufficientBalance()
 ```
 
-### InsufficientEth
+### InsufficientGasToken
 
 ```solidity
-error InsufficientEth(uint256 required, uint256 available)
+error InsufficientGasToken(uint256 required, uint256 available)
+```
+
+### InvalidPublicKey
+
+```solidity
+error InvalidPublicKey()
+```
+
+### InvalidTransferId
+
+```solidity
+error InvalidTransferId(uint256 transferId)
+```
+
+### NoViewerRegisteredForHolder
+
+```solidity
+error NoViewerRegisteredForHolder(address holder)
 ```
 
 ### PublicKeyIsNotRegistered
 
 ```solidity
-error PublicKeyIsNotRegistered(address holder)
+error PublicKeyIsNotRegistered(address viewer)
 ```
 
 ### ValueIsEncrypted
@@ -205,6 +127,32 @@ error PublicKeyIsNotRegistered(address holder)
 ```solidity
 error ValueIsEncrypted()
 ```
+
+### ValueWasNotEncryptedCorrectly
+
+```solidity
+error ValueWasNotEncryptedCorrectly()
+```
+
+### WrongPlaintextFormat
+
+```solidity
+error WrongPlaintextFormat()
+```
+
+### onlyRegisteredUser
+
+Modifier to check if the user is registered
+
+```solidity
+modifier onlyRegisteredUser(address user)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| user | address | The address of the user to check |
 
 ### constructor
 
@@ -225,25 +173,11 @@ constructor(string name_, string symbol_, string version_, address initialAuthor
 
 ### receive
 
-Allows the contract to receive ETH to pay for callback execution
+Allows the contract to receive gas token to pay for callback execution
 
 ```solidity
 receive() external payable
 ```
-
-### burn
-
-Burns tokens from the caller's balance
-
-```solidity
-function burn(uint256 value) external
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 |  |
 
 ### onDecrypt
 
@@ -260,15 +194,170 @@ function onDecrypt(bytes[] decryptedArguments, bytes[] plaintextArguments) exter
 | decryptedArguments | bytes[] | The decrypted arguments |
 | plaintextArguments | bytes[] | The plaintext arguments |
 
-### registerPublicKey
+### encryptedTransfer
 
-Registers the public key of any address
+Transfers tokens to another holder
 
 ```solidity
-function registerPublicKey(struct PublicKey publicKey) external payable
+function encryptedTransfer(address to, bytes value) external
 ```
 
-**dev:** _The address is calculated from the public key_
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| to | address | The address of the recipient holder |
+| value | bytes | The TE-encrypted amount of tokens to transfer |
+
+### encryptedTransferFrom
+
+Transfers tokens from one holder to another using allowance
+
+```solidity
+function encryptedTransferFrom(address from, address to, bytes value) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | The address of the sender holder |
+| to | address | The address of the recipient holder |
+| value | bytes | The TE-encrypted amount of tokens to transfer |
+
+### requestDecryptHistoricTransfer
+
+Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
+
+```solidity
+function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
+```
+
+**dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
+
+### removeHistoricViewAuth
+
+Removes all historic view permissions for a viewer for msg.sender's history
+
+```solidity
+function removeHistoricViewAuth(address viewer) external returns (bool success)
+```
+
+**dev:** _Resets time window and clears explicitly authorized transfer IDs_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address whose historic view permissions are removed |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### removeHistoricViewTimeRange
+
+Removes the time range authorization for a viewer
+
+```solidity
+function removeHistoricViewTimeRange(address viewer) external returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address whose time range authorization is removed |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### removeHistoricViewTransferId
+
+Removes one explicitly authorized historic transfer ID for a viewer
+
+```solidity
+function removeHistoricViewTransferId(address viewer, uint256 transferId) external returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address whose transferId authorization is removed |
+| transferId | uint256 | Transfer ID to revoke |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### authorizeHistoricViewTimeRange
+
+Authorizes a viewer to decrypt transfers from msg.sender within a time range
+
+```solidity
+function authorizeHistoricViewTimeRange(address viewer, uint256 fromTimestamp, uint256 toTimestamp) external returns (bool success)
+```
+
+**dev:** _Allows only fromTimestamp < toTimestamp_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address to authorize |
+| fromTimestamp | uint256 | Inclusive lower bound timestamp |
+| toTimestamp | uint256 | Non-inclusive upper bound timestamp |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### authorizeHistoricViewTransferId
+
+Authorizes a viewer to decrypt one historic transfer by transfer ID
+
+```solidity
+function authorizeHistoricViewTransferId(address viewer, uint256 transferId) external returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address to authorize |
+| transferId | uint256 | Transfer ID to authorize |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Always returns true |
+
+### setViewerPublicKey
+
+Registers a view key for the message sender
+
+```solidity
+function setViewerPublicKey(struct PublicKey publicKey) external payable
+```
+
+**dev:** _Combination of registerPublicKey and setViewerAddress (payable version)_
 
 #### Parameters
 
@@ -278,7 +367,7 @@ function registerPublicKey(struct PublicKey publicKey) external payable
 
 ### setCallbackFee
 
-Sets number of ETH to be sent to pay for callback execution
+Sets amount of gas token to be sent to pay for callback execution
 
 ```solidity
 function setCallbackFee(uint256 newFee) external
@@ -332,12 +421,12 @@ function setEncryptTEAddress(address newAddress) external
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the EncryptTE precompiled contract |
 
-### withdraw
+### retrieveGasToken
 
-Withdraws ETH from the caller's balance
+Withdraws gas token from the caller's balance
 
 ```solidity
-function withdraw(uint256 value, address receiver) external
+function retrieveGasToken(uint256 value, address receiver) external
 ```
 
 #### Parameters
@@ -345,7 +434,7 @@ function withdraw(uint256 value, address receiver) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | value | uint256 |  |
-| receiver | address | Address to send the withdrawn ETH to |
+| receiver | address | Address to send the withdrawn gas token to |
 
 ### encryptedBalanceOf
 
@@ -367,12 +456,12 @@ function encryptedBalanceOf(address holder) external view returns (bytes encrypt
 | ---- | ---- | ----------- |
 | encryptedBalance | bytes | The encrypted balance of the holder |
 
-### ethBalanceOf
+### gasTokenBalanceOf
 
-Gets the ETH balance of a holder
+Gets the gas token balance of a holder
 
 ```solidity
-function ethBalanceOf(address holder) external view returns (uint256 balance)
+function gasTokenBalanceOf(address holder) external view returns (uint256 balance)
 ```
 
 #### Parameters
@@ -385,14 +474,57 @@ function ethBalanceOf(address holder) external view returns (uint256 balance)
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| balance | uint256 | The ETH balance of the holder |
+| balance | uint256 | The gas token balance of the holder |
 
-### deposit
+### canDecryptHistoricTransfer
 
-Deposits ETH to any holder balance
+Checks if a viewer is authorized to decrypt a historic transfer
 
 ```solidity
-function deposit(address receiver) public payable
+function canDecryptHistoricTransfer(address viewer, uint256 transferId, address from, address to, uint256 timestamp) external view returns (bool canDecrypt)
+```
+
+**dev:** _The transfer content is made up, and viewer may have access through time range or transfer ID_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | Address of the viewer requesting decryption |
+| transferId | uint256 | ID of the transfer to check authorization for |
+| from | address | Address of the sender of the transfer |
+| to | address | Address of the recipient of the transfer |
+| timestamp | uint256 | Timestamp of the transfer |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| canDecrypt | bool | True if the viewer is authorized to decrypt the transfer, false otherwise |
+
+### requestDecryptHistoricTransferFor
+
+Requests decryption of a single historic encrypted transfer payload
+
+```solidity
+function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public
+```
+
+**dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
+| historicViewer | address | Address of the viewer who will receive the decrypted transfer event if authorized |
+
+### fundWithGasToken
+
+Deposits gas token to any holder balance
+
+```solidity
+function fundWithGasToken(address receiver) public payable
 ```
 
 #### Parameters
@@ -400,6 +532,62 @@ function deposit(address receiver) public payable
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | receiver | address | The address of the receiver holder |
+
+### transferFrom
+
+Transfers `value` tokens from `from` to `to` using allowance mechanism.
+
+```solidity
+function transferFrom(address from, address to, uint256 value) public virtual returns (bool result)
+```
+
+**dev:** _This function call may return true and revert on callback producing no changes_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| value | uint256 | Amount of tokens to be transferred |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| result | bool | Always returns true |
+
+### registerPublicKey
+
+Registers a view key in the contract
+
+```solidity
+function registerPublicKey(struct PublicKey publicKey) public
+```
+
+**dev:** _Does not associate the public key with a holder_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| publicKey | struct PublicKey | The public key to register |
+
+### setViewerAddress
+
+Sets the address of the viewer allowed to view the sender's balance
+
+```solidity
+function setViewerAddress(address viewer) public payable
+```
+
+**dev:** _The viewer must be already registered in the system via registerPublicKey_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| viewer | address | The address of the viewer |
 
 ### totalSupply
 
@@ -416,6 +604,30 @@ function balanceOf(address) public pure virtual returns (uint256)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
+
+### _handleAction
+
+```solidity
+function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal virtual
+```
+
+### _handleHistoricViewRequest
+
+```solidity
+function _handleHistoricViewRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+```
+
+### _handleTransferRequest
+
+```solidity
+function _handleTransferRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal returns (bool finalized, uint256 value)
+```
+
+### _reSubmitTransfer
+
+```solidity
+function _reSubmitTransfer(struct ConfidentialToken.TransferInfo transferInfo, uint256 value, bytes[] plaintextArguments) internal
+```
 
 ### _decryptedUpdate
 
@@ -440,7 +652,7 @@ function _decryptedUpdate(address from, address to, uint256 fromBalance, uint256
 ### _onUpdate
 
 ```solidity
-function _onUpdate(address from, address to, uint256) internal virtual
+function _onUpdate(address from, address to, uint256 value) internal virtual
 ```
 
 ### _update
@@ -459,4 +671,63 @@ function _update(address from, address to, uint256 value) internal virtual
 | from | address | Address to transfer tokens from |
 | to | address | Address to transfer tokens to |
 | value | uint256 | Amount of tokens to be transferred |
+
+### _updateWithGasPayer
+
+```solidity
+function _updateWithGasPayer(address from, address to, address gasPayer, uint256 value) internal
+```
+
+### _encryptedUpdate
+
+Transfers a `encryptedValue` amount of tokens from `from` to `to`
+or alternatively mints (or burns) if `from` (or `to`) is the zero address.
+
+```solidity
+function _encryptedUpdate(address from, address to, address spender, address gasPayer, bytes encryptedValue) internal virtual
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| spender | address | Address of the spender for transferFrom operations |
+| gasPayer | address | Address of the account paying for the gas |
+| encryptedValue | bytes | TE-encrypted amount of tokens to be transferred |
+
+### _encryptedUpdateExtended
+
+```solidity
+function _encryptedUpdateExtended(address from, address to, address spender, address gasPayer, bytes encryptedValue, uint8 action, bytes[] extraPlaintextArguments) internal virtual
+```
+
+### _transferFrom
+
+```solidity
+function _transferFrom(address from, address to, uint256 value) internal virtual
+```
+
+### _encryptedTransferFrom
+
+```solidity
+function _encryptedTransferFrom(address from, address to, bytes value) internal virtual
+```
+
+### _encryptedTransfer
+
+Transfers a `encryptedValue` amount of tokens from `from` to `to`
+
+```solidity
+function _encryptedTransfer(address from, address to, bytes value) internal virtual
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| value | bytes | TE-encrypted amount of tokens to be transferred |
 

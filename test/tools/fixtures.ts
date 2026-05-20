@@ -56,11 +56,11 @@ const deployMintableFixture = async () => {
 
 const mintedFixture = async () => {
     const minted = ethers.parseEther("1000");
-    const ethBalance = ethers.parseEther("1.0");
+    const gasTokenBalance = ethers.parseEther("1.0");
     const context = await cleanMintableDeployment();
     await context.owner.sendTransaction({
         to: await ethers.resolveAddress(context.token),
-        value: ethBalance
+        value: gasTokenBalance
     });
     await context.token.mint(context.owner, minted);
     await context.bite.sendCallback();
@@ -102,11 +102,11 @@ const deployWrapperFixture = async () => {
 
 const wrappedFixture = async () => {
     const wrapped = ethers.parseEther("1000");
-    const ethBalance = ethers.parseEther("1.0");
+    const gasTokenBalance = ethers.parseEther("1.0");
     const context = await cleanWrapperDeployment();
     await context.owner.sendTransaction({
         to: await ethers.resolveAddress(context.token),
-        value: ethBalance
+        value: gasTokenBalance
     });
     await context.underlyingToken.mint(context.owner, wrapped);
     await context.underlyingToken.approve(

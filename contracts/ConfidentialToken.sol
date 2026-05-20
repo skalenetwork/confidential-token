@@ -4,6 +4,7 @@
  *   ConfidentialToken.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Dmytro Stebaiev
+ *   @author Eduardo Vasques
  *
  *   confidential-token is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU Affero General Public License as published
@@ -21,7 +22,7 @@
 
 // cspell:words ECIES
 
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.27;
 
 import { AccessManaged } from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -29,45 +30,59 @@ import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
-import { EIP3009 } from "./eip3009/EIP3009.sol";
-
-import { ZeroAddress } from "./errors.sol";
-import { IBiteSupplicant } from "./interfaces/bite/IBiteSupplicant.sol";
-import { IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
-import { Precompiled } from "./Precompiled.sol";
-import { PublicKey } from "./types.sol";
+import { BITE, PublicKey } from "@skalenetwork/bite-solidity/BITE.sol";
+import { ConfidentialEIP3009 } from "./eip3009/ConfidentialEIP3009.sol";
+import { DecryptionBadFormat, ZeroAddress } from "./errors.sol";
+import { HistoricView } from "./HistoricView.sol";
+import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 
 
 /// @title ConfidentialToken
 /// @author Dmytro Stebaiev
+/// @author Eduardo Vasques
 /// @notice ERC20-like token with encrypted balances
-contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidentialToken {
+contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, IConfidentialToken {
     using Address for address;
     using Address for address payable;
     using Math for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using HistoricView for HistoricView.AuthStorage;
 
-    // TODO: add default addresses for precompiled contracts
+    struct TransferInfo {
+        address from;
+        address to;
+        address spender;
+        address gasPayer;
+        uint256 submittedBlockNumber;
+    }
 
-    /// @notice Specifies number of ETH to be sent to pay for callback execution
+    uint8 private constant _TRANSFER_ACTION = 0;
+    uint8 private constant _HISTORIC_VIEW_ACTION = 1;
+
+    /// @notice Specifies amount of gas token to be sent to pay for callback execution
     uint256 public callbackFee = 1_000 gwei;
 
     /// @notice Address of the EncryptECIES precompiled contract
-    address public encryptECIESAddress = address(0x1C);
+    address public encryptECIESAddress = BITE.ENCRYPT_ECIES_ADDRESS;
 
     /// @notice Address of the EncryptTE precompiled contract
-    address public encryptTEAddress = address(0x1D);
+    address public encryptTEAddress = BITE.ENCRYPT_TE_ADDRESS;
 
-    /// @notice Mapping of holder addresses to their public keys
-    mapping(address holder => PublicKey publicKey) public publicKeys;
+    /// @notice Mapping of holder addresses to their viewers' addresses
+    mapping(address holder => address viewerAddress) public viewerAddresses;
+
+    /// @notice Mapping of addresses to their public keys
+    mapping(address accountAddress => PublicKey publicKey) public publicKeys;
 
     /// @notice Address of the submitCTX precompiled contract
-    address public submitCTXAddress = address(0x1B);
+    address public submitCTXAddress = BITE.SUBMIT_CTX_ADDRESS;
 
     /// @notice Version of the contract
     /// @dev Is used to get proper ABI
     string public version;
+
+    /// @notice Mapping of holder addresses to their authorized viewers' settings to decrypt historic transfers
+    HistoricView.AuthStorage private _historicViewAuth;
 
     /// @notice Encrypted with BITE Threshold Key (T_Key) - Used for contract logic
     mapping(address holder => bytes encryptedBalance) private _thresholdBalances;
@@ -75,7 +90,9 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @notice Encrypted with User's Public Key (U_Key) - Used for local viewing
     mapping(address holder => bytes encryptedBalance) private _userBalances;
 
-    mapping(address holder => uint256 eth) private _ethBalance;
+    mapping(address holder => uint256 gasToken) private _gasTokenBalance;
+
+    mapping(address holder => uint256 blockNumber) private _lastChanged;
 
     EnumerableSet.AddressSet private _callbackSenders;
 
@@ -83,48 +100,28 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @dev Can't reuse totalSupply from ERC20 because the field is private there
     uint256 private _totalSupply;
 
-    /// @notice Emitted when callback fee is changed
-    /// @param newFee New callback fee
-    event CallbackFeeChanged(uint256 indexed newFee);
+    /// @notice Internal ID of the next transfer
+    uint256 private _transferId;
 
-    /// @notice Emitted when ETH balance is topped up
-    /// @param sender Address of the sender
-    /// @param receiver Address of the receiver
-    /// @param value Amount of ETH topped up
-    event EthBalanceToppedUp(address indexed sender, address indexed receiver, uint256 indexed value);
-
-    /// @notice Emitted when ETH is withdrawn
-    /// @param receiver Address of the receiver
-    /// @param value Amount of ETH withdrawn
-    event EthWithdrawn(address indexed receiver, uint256 indexed value);
-
-    /// @notice Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
-    /// @param from Address tokens are moved from
-    /// @param to Address tokens are moved to
-    event Transfer(address indexed from, address indexed to);
-
-    /// @notice Emitted when SubmitCTX precompiled contract address is changed
-    /// @param newAddress New address of the SubmitCTX precompiled contract
-    event SubmitCTXAddressChanged(address indexed newAddress);
-
-    /// @notice Emitted when EncryptECIES precompiled contract address is changed
-    /// @param newAddress New address of the EncryptECIES precompiled contract
-    event EncryptECIESAddressChanged(address indexed newAddress);
-
-    /// @notice Emitted when EncryptTE precompiled contract address is changed
-    /// @param newAddress New address of the EncryptTE precompiled contract
-    event EncryptTEAddressChanged(address indexed newAddress);
-
-    /// @notice Emitted when a public key is registered
-    /// @param holder Address of the holder whose public key is registered
-    event PublicKeyRegistered(address indexed holder);
-
+    // Errors
     error AccessViolation();
-    error DecryptionBadFormat();
+    error ActionNotRecognized();
     error InsufficientBalance();
-    error InsufficientEth(uint256 required, uint256 available);
-    error PublicKeyIsNotRegistered(address holder);
+    error InsufficientGasToken(uint256 required, uint256 available);
+    error InvalidPublicKey();
+    error InvalidTransferId(uint256 transferId);
+    error NoViewerRegisteredForHolder(address holder);
+    error PublicKeyIsNotRegistered(address viewer);
     error ValueIsEncrypted();
+    error ValueWasNotEncryptedCorrectly();
+    error WrongPlaintextFormat();
+
+    /// @notice Modifier to check if the user is registered
+    /// @param user The address of the user to check
+    modifier onlyRegisteredUser(address user) {
+        require(_knownPublicKey(user), PublicKeyIsNotRegistered(user));
+        _;
+    }
 
     /// @notice Sets the values for {name} and {symbol}.
     /// @param name_     Name of the token
@@ -146,12 +143,7 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
 
     /// @inheritdoc IConfidentialToken
     receive() external payable override {
-        deposit(msg.sender);
-    }
-
-    /// @inheritdoc IConfidentialToken
-    function burn(uint256 value) external override {
-        _burn(msg.sender, value);
+        fundWithGasToken(msg.sender);
     }
 
     /// @inheritdoc IBiteSupplicant
@@ -160,46 +152,111 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
-        (address from, address to) = abi.decode(
-            plaintextArguments[0],
-            (address, address)
-        );
-        _validateDecryptedArguments(decryptedArguments, from, to);
-
-        uint256 fromBalance = 0;
-        uint256 toBalance = 0;
-        uint256 value = 0;
-        if (from == address(0)) {
-            // mint
-            toBalance = _decodeBalance(decryptedArguments[0]);
-        } else if (to == address(0)) {
-            // burn
-            fromBalance = _decodeBalance(decryptedArguments[0]);
-        } else {
-            // transfer
-            fromBalance = _decodeBalance(decryptedArguments[0]);
-            toBalance = _decodeBalance(decryptedArguments[1]);
-        }
-        uint256 valueIndex = decryptedArguments.length - 1;
-        value = _decodeBalance(decryptedArguments[valueIndex]);
-
-        _decryptedUpdate({
-            from: from,
-            to: to,
-            fromBalance: fromBalance,
-            toBalance: toBalance,
-            value: value
-        });
+        uint8 action = _parseAction(plaintextArguments);
+        _handleAction(action, decryptedArguments, plaintextArguments);
     }
 
     /// @inheritdoc IConfidentialToken
-    function registerPublicKey(PublicKey calldata publicKey) external payable override {
-        address holder = _publicKeyToAddress(publicKey);
-        if (!_knownPublicKey(holder)) {
-            publicKeys[holder] = publicKey;
-            emit PublicKeyRegistered(holder);
+    function encryptedTransfer(address to, bytes calldata value) external override {
+        _encryptedTransfer(msg.sender, to, value);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function encryptedTransferFrom(
+        address from,
+        address to,
+        bytes calldata value
+    ) external override {
+        _encryptedTransferFrom(from, to, value);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external override {
+        // This function is kept for backward compatibility with older versions of the contract
+        requestDecryptHistoricTransferFor(encryptedTransferData, msg.sender);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function removeHistoricViewAuth(
+        address viewer
+    )
+        external
+        override
+        returns (bool success)
+    {
+        if(_historicViewAuth.revokeAll(msg.sender, viewer)) {
+            emit HistoricViewPermissionsRevoked(msg.sender, viewer);
         }
-        deposit(holder);
+        return true;
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function removeHistoricViewTimeRange(
+        address viewer
+    )
+        external
+        override
+        returns (bool success)
+    {
+        if(_historicViewAuth.revokeTimeRange(msg.sender, viewer)) {
+            emit HistoricViewTimeRangeRevoked(msg.sender, viewer);
+        }
+        return true;
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function removeHistoricViewTransferId(
+        address viewer,
+        uint256 transferId
+    )
+        external
+        override
+        returns (bool success)
+    {
+        require(transferId < _transferId, InvalidTransferId(transferId));
+        if (_historicViewAuth.revokeTransferId(msg.sender, viewer, transferId)) {
+            emit HistoricViewTransferIdRevoked(msg.sender, viewer, transferId);
+        }
+        return true;
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function authorizeHistoricViewTimeRange(
+        address viewer,
+        uint256 fromTimestamp,
+        uint256 toTimestamp
+    )
+        external
+        override
+        onlyRegisteredUser(viewer)
+        returns (bool success)
+    {
+        _historicViewAuth.authorizeTimeRange(msg.sender, viewer, fromTimestamp, toTimestamp);
+        emit HistoricViewTimeRangeAuthorized(msg.sender, viewer, fromTimestamp, toTimestamp);
+        return true;
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function authorizeHistoricViewTransferId(
+        address viewer,
+        uint256 transferId
+    )
+        external
+        override
+        onlyRegisteredUser(viewer)
+        returns (bool success)
+    {
+        require(transferId < _transferId, InvalidTransferId(transferId));
+        if(_historicViewAuth.authorizeTransferId(msg.sender, viewer, transferId)) {
+            emit HistoricViewTransferIdAuthorized(msg.sender, viewer, transferId);
+        }
+        return true;
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function setViewerPublicKey(PublicKey calldata publicKey) external payable override {
+        registerPublicKey(publicKey);
+        setViewerAddress(_publicKeyToAddress(publicKey));
     }
 
     /// @inheritdoc IConfidentialToken
@@ -230,35 +287,115 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     }
 
     /// @inheritdoc IConfidentialToken
-    function withdraw(uint256 value, address receiver) external override {
+    function retrieveGasToken(uint256 value, address receiver) external override {
         // value is not a constant
         // so no ability to save some gas here
-        // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[msg.sender] >= value, InsufficientEth(value, _ethBalance[msg.sender]));
-        _ethBalance[msg.sender] -= value;
-        emit EthWithdrawn(receiver, value);
+        // solhint-disable gas-strict-inequalities
+        require(
+            _gasTokenBalance[msg.sender] >= value,
+            InsufficientGasToken(value, _gasTokenBalance[msg.sender])
+        );
+        // solhint-enable gas-strict-inequalities
+        _gasTokenBalance[msg.sender] -= value;
+        emit GasTokenWithdrawn(receiver, value);
         payable(receiver).sendValue(value);
     }
 
     /// @inheritdoc IConfidentialToken
     function encryptedBalanceOf(address holder) external view override returns (bytes memory encryptedBalance) {
-        require(_knownPublicKey(holder), PublicKeyIsNotRegistered(holder));
+        require(_viewerIsRegistered(holder), NoViewerRegisteredForHolder(holder));
         return _userBalances[holder];
     }
 
     /// @inheritdoc IConfidentialToken
-    function ethBalanceOf(address holder) external view override returns (uint256 balance) {
-        return _ethBalance[holder];
+    function gasTokenBalanceOf(address holder) external view override returns (uint256 balance) {
+        return _gasTokenBalance[holder];
+    }
+
+    ///@inheritdoc IConfidentialToken
+    function canDecryptHistoricTransfer(
+        address viewer,
+        uint256 transferId,
+        address from,
+        address to,
+        uint256 timestamp
+    )
+        external
+        view
+        override
+        returns (bool canDecrypt)
+    {
+        return _historicViewAuth.canDecrypt({
+            from: from,
+            to: to,
+            transferId: transferId,
+            timestamp: timestamp,
+            viewer: viewer
+        });
     }
 
     // Public functions
 
     /// @inheritdoc IConfidentialToken
-    function deposit(address receiver) public payable override {
+    function requestDecryptHistoricTransferFor(
+        bytes calldata encryptedTransferData,
+        address historicViewer
+    )
+        public
+        override
+        onlyRegisteredUser(historicViewer)
+    {
+        bytes[] memory encryptedArguments = new bytes[](1);
+        encryptedArguments[0] = encryptedTransferData;
+
+        bytes[] memory plaintextArguments = new bytes[](2);
+        plaintextArguments[0] = abi.encodePacked(_HISTORIC_VIEW_ACTION);
+        plaintextArguments[1] = abi.encodePacked(historicViewer);
+
+        _submitCTX(msg.sender, encryptedArguments, plaintextArguments);
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function fundWithGasToken(address receiver) public payable override {
         uint256 value = msg.value;
         if (value > 0) {
-            _ethBalance[receiver] += value;
-            emit EthBalanceToppedUp(msg.sender, receiver, value);
+            _gasTokenBalance[receiver] += value;
+            emit GasTokenBalanceToppedUp(msg.sender, receiver, value);
+        }
+    }
+
+    /// @notice Transfers `value` tokens from `from` to `to` using allowance mechanism.
+    /// @dev This function call may return true and revert on callback producing no changes
+    /// @param from Address to transfer tokens from
+    /// @param to Address to transfer tokens to
+    /// @param value Amount of tokens to be transferred
+    /// @return result Always returns true
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) public virtual override returns (bool result) {
+        _transferFrom(from, to, value);
+        return true;
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function registerPublicKey(PublicKey calldata publicKey) public override {
+        require(_isValidPublicKey(publicKey), InvalidPublicKey());
+        address accountAddress = _publicKeyToAddress(publicKey);
+        if (!_knownPublicKey(accountAddress)) {
+            publicKeys[accountAddress] = publicKey;
+            emit PublicKeyRegistered(accountAddress);
+        }
+    }
+
+    /// @inheritdoc IConfidentialToken
+    function setViewerAddress(address viewer) public override payable onlyRegisteredUser(viewer) {
+        fundWithGasToken(msg.sender);
+        if(viewerAddresses[msg.sender] != viewer) {
+            viewerAddresses[msg.sender] = viewer;
+            emit ViewerChanged(msg.sender, viewer);
+            _update(msg.sender, msg.sender, 0);
         }
     }
 
@@ -274,9 +411,115 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     function balanceOf(address) public pure virtual override returns (uint256) {
         revert ValueIsEncrypted();
     }
-    // solhint-disable-enable gas-named-return-values
+    // solhint-enable gas-named-return-values
 
     // Internal functions
+
+    function _handleAction(
+        uint8 action,
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    ) internal virtual {
+        if (action == _TRANSFER_ACTION) { // transfer likely more frequent
+            _handleTransferRequest(decryptedArguments, plaintextArguments);
+        } else if (action == _HISTORIC_VIEW_ACTION) {
+            _handleHistoricViewRequest(decryptedArguments, plaintextArguments);
+        } else {
+            revert ActionNotRecognized();
+        }
+    }
+
+    function _handleHistoricViewRequest(
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    )
+        internal
+    {
+        require(plaintextArguments[1].length == 20, WrongPlaintextFormat());
+        address historicViewer = address(bytes20(plaintextArguments[1]));
+        require(_knownPublicKey(historicViewer), PublicKeyIsNotRegistered(historicViewer));
+
+        (address from, address to) = _historicViewAuth.decodeIfAuthorized(
+            historicViewer,
+            decryptedArguments[0]
+        );
+        emit ReEncryptedTransfer(
+            historicViewer,
+            from,
+            to,
+            BITE.encryptECIES(
+                encryptECIESAddress,
+                decryptedArguments[0],
+                publicKeys[historicViewer]
+            )
+        );
+    }
+
+    function _handleTransferRequest(
+        bytes[] calldata decryptedArguments,
+        bytes[] calldata plaintextArguments
+    )
+        internal
+        returns (bool finalized, uint256 value)
+    {
+        TransferInfo memory transferInfo = abi.decode(plaintextArguments[1], (TransferInfo));
+
+        _validateDecryptedArguments(decryptedArguments, transferInfo.from, transferInfo.to);
+
+        uint256 valueIndex = decryptedArguments.length - 1;
+        value = _decodeBalance(decryptedArguments[valueIndex]);
+
+        (uint256 fromBalance, uint256 toBalance) = _decodeOriginalBalances(decryptedArguments, transferInfo, value);
+
+        bool updatedFrom =
+            transferInfo.from != address(0) && _lastChanged[transferInfo.from] > transferInfo.submittedBlockNumber;
+        bool updatedTo =
+            transferInfo.to != address(0) && _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber;
+        if (updatedFrom || updatedTo) {
+            _reSubmitTransfer(transferInfo, value, plaintextArguments);
+            return (false, value);
+        }
+
+        _decryptedUpdate({
+            from: transferInfo.from,
+            to: transferInfo.to,
+            fromBalance: fromBalance,
+            toBalance: toBalance,
+            value: value
+        });
+
+        return (true, value);
+    }
+
+    function _reSubmitTransfer(
+        TransferInfo memory transferInfo,
+        uint256 value,
+        bytes[] calldata plaintextArguments
+    )
+        internal
+    {
+        // The account was changed by another CTX.
+        // Decrypted information is outdated.
+        // Resending updated encrypted balances to perform the transfer
+        emit CTXResubmitted(msg.sender);
+
+        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        bytes[] memory encryptedArguments = _encryptArguments(transferInfo.from, transferInfo.to, encryptedValue);
+
+        // TODO: will need transporting once we have encrypted allowances
+        transferInfo.spender = address(0);
+        transferInfo.submittedBlockNumber = block.number;
+        uint256 numArgs = plaintextArguments.length;
+        bytes[] memory updatedPlaintextArguments = new bytes[](numArgs);
+        updatedPlaintextArguments[0] = plaintextArguments[0];
+        updatedPlaintextArguments[1] = abi.encode(transferInfo);
+
+        for (uint256 i = 2; i < numArgs; ++i) {
+            updatedPlaintextArguments[i] = plaintextArguments[i];
+        }
+
+        _submitCTX(transferInfo.gasPayer, encryptedArguments, updatedPlaintextArguments);
+    }
 
     /// @notice Internal function to handle decrypted balance updates
     /// @dev Alternative implementation of _update function from ERC20
@@ -303,6 +546,11 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
             if (fromBalance < value) {
                 revert InsufficientBalance();
             }
+            if (from == to) {
+                _setBalance(from, fromBalance);
+                _onUpdate(from, to, value);
+                return;
+            }
             updatedFromBalance = fromBalance - value;
         }
 
@@ -318,8 +566,45 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         _onUpdate(from, to, value);
     }
 
-    function _onUpdate(address from, address to, uint256) internal virtual {
+    function _onUpdate(address from, address to, uint256 value) internal virtual {
+        // Emit basic event
         emit Transfer(from, to);
+
+        // Skip emission of historic events for zero value transfers to self
+        // They are mostly triggered by changes in view keys
+        if (from == to && value == 0) return;
+
+        // Time is required to be used by decryption authorization logic
+        // It does not control any critical structural logic like balance or allowance updates
+        bytes memory encodedTransfer = HistoricView.encodedTransferData({
+            from: from,
+            to: to,
+            value: value,
+            timestamp: block.timestamp, // solhint-disable-line not-rely-on-time
+            transferId: _transferId
+        });
+        // Emit event with TE-encrypted transfer metadata
+        emit EncryptedTransfer(_transferId, from, to, BITE.encryptTE(encryptTEAddress, encodedTransfer));
+        // Emit event with ECIES-encrypted value readable by the recipient
+        if(from != to) {
+            if(_viewerIsRegistered(to)) {
+                emit TransferValueEncryptedForRecipient(
+                    from,
+                    to,
+                    _transferId,
+                    BITE.encryptECIES(encryptECIESAddress, abi.encodePacked(value), _getViewKey(to))
+                );
+            }
+            if(_viewerIsRegistered(from)) {
+                emit TransferValueEncryptedForSender(
+                    from,
+                    to,
+                    _transferId,
+                    BITE.encryptECIES(encryptECIESAddress, abi.encodePacked(value), _getViewKey(from))
+                );
+            }
+        }
+        unchecked{++_transferId;}
     }
 
     /// @notice Transfers a `value` amount of tokens from `from` to `to`
@@ -328,12 +613,207 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
     /// @param to    Address to transfer tokens to
     /// @param value Amount of tokens to be transferred
     function _update(address from, address to, uint256 value) internal virtual override {
+        _updateWithGasPayer(from, to, msg.sender, value);
+    }
+
+    function _updateWithGasPayer(address from, address to, address gasPayer, uint256 value) internal {
+        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        _encryptedUpdate({
+            from: from,
+            to: to,
+            spender: address(0),
+            gasPayer: gasPayer,
+            encryptedValue: encryptedValue
+        });
+    }
+
+    /// @notice Transfers a `encryptedValue` amount of tokens from `from` to `to`
+    /// @notice or alternatively mints (or burns) if `from` (or `to`) is the zero address.
+    /// @param from  Address to transfer tokens from
+    /// @param to    Address to transfer tokens to
+    /// @param spender Address of the spender for transferFrom operations
+    /// @param gasPayer Address of the account paying for the gas
+    /// @param encryptedValue TE-encrypted amount of tokens to be transferred
+    function _encryptedUpdate(
+        address from,
+        address to,
+        address spender,
+        address gasPayer,
+        bytes memory encryptedValue
+    )
+        internal
+        virtual
+    {
+        _encryptedUpdateExtended({
+            from: from,
+            to: to,
+            spender: spender,
+            gasPayer: gasPayer,
+            encryptedValue: encryptedValue,
+            action: _TRANSFER_ACTION,
+            extraPlaintextArguments: new bytes[](0)
+        });
+    }
+
+    function _encryptedUpdateExtended(
+        address from,
+        address to,
+        address spender,
+        address gasPayer,
+        bytes memory encryptedValue,
+        uint8 action,
+        bytes[] memory extraPlaintextArguments
+    )
+        internal
+        virtual
+    {
+        // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
+        // slither-disable-next-line incorrect-equality
+        require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 1, ValueWasNotEncryptedCorrectly());
+        bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
+        uint256 extraPlaintextArgumentsLength = extraPlaintextArguments.length;
+        bytes[] memory plaintextArguments = new bytes[](2 + extraPlaintextArgumentsLength);
+        plaintextArguments[0] = abi.encodePacked(action);
+
+        plaintextArguments[1] = abi.encode(TransferInfo({
+            from: from,
+            to: to,
+            spender: spender,
+            gasPayer: gasPayer,
+            submittedBlockNumber: block.number
+        }));
+
+        for (uint256 i = 0; i < extraPlaintextArgumentsLength; ++i) {
+            plaintextArguments[i + 2] = extraPlaintextArguments[i];
+        }
+
+        _submitCTX(gasPayer, encryptedArguments, plaintextArguments);
+    }
+
+    function _transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) internal virtual {
+        _encryptedTransferFrom(from, to, BITE.encryptTE(encryptTEAddress, abi.encodePacked(value)));
+    }
+
+    function _encryptedTransferFrom(
+        address from,
+        address to,
+        bytes memory value
+    ) internal virtual {
+        if (from == address(0)) {
+            revert ERC20InvalidSender(address(0));
+        }
+        if (to == address(0)) {
+            revert ERC20InvalidReceiver(address(0));
+        }
+        _encryptedUpdate({
+            from: from,
+            to: to,
+            spender: msg.sender,
+            gasPayer: msg.sender,
+            encryptedValue: value
+        });
+    }
+
+    /// @notice Transfers a `encryptedValue` amount of tokens from `from` to `to`
+    /// @param from Address to transfer tokens from
+    /// @param to Address to transfer tokens to
+    /// @param value TE-encrypted amount of tokens to be transferred
+    function _encryptedTransfer(address from, address to, bytes calldata value) internal virtual override {
+        if (from == address(0)) {
+            revert ERC20InvalidSender(address(0));
+        }
+        if (to == address(0)) {
+            revert ERC20InvalidReceiver(address(0));
+        }
+        _encryptedUpdate({
+            from: from,
+            to: to,
+            spender: address(0),
+            gasPayer: msg.sender,
+            encryptedValue: value
+        });
+    }
+
+    // Private functions
+
+    function _setBalance(address holder, uint256 balance) private {
+        _thresholdBalances[holder] = BITE.encryptTE(encryptTEAddress, abi.encodePacked(balance));
+        _lastChanged[holder] = block.number;
+        if (_viewerIsRegistered(holder)) {
+            PublicKey memory viewerPublicKey = _getViewKey(holder);
+            _userBalances[holder] = BITE.encryptECIES(
+                encryptECIESAddress,
+                abi.encodePacked(balance),
+                viewerPublicKey
+            );
+        }
+    }
+
+    function _decodeOriginalBalances(
+        bytes[] calldata decryptedArguments,
+        TransferInfo memory transferInfo,
+        uint256 value
+    )
+        private
+        returns (uint256 fromBalance, uint256 toBalance)
+    {
+        if (transferInfo.from == address(0)) {
+            // mint
+            toBalance = _decodeBalance(decryptedArguments[0]);
+        } else if (transferInfo.to == address(0)) {
+            // burn
+            fromBalance = _decodeBalance(decryptedArguments[0]);
+        } else {
+            // transfer
+            if(transferInfo.spender != address(0)) {
+                // Allowances not encrypted
+                _spendAllowance(transferInfo.from, transferInfo.spender, value);
+            }
+            fromBalance = _decodeBalance(decryptedArguments[0]);
+            toBalance = _decodeBalance(decryptedArguments[1]);
+        }
+    }
+
+    function _submitCTX(
+        address gasPayer,
+        bytes[] memory encryptedArguments,
+        bytes[] memory plaintextArguments
+    )
+        private
+    {
         // callbackFee is not a constant
         // so no ability to save some gas here
-        // solhint-disable-next-line gas-strict-inequalities
-        require(_ethBalance[msg.sender] >= callbackFee, InsufficientEth(callbackFee, _ethBalance[msg.sender]));
-        _ethBalance[msg.sender] -= callbackFee;
+        // solhint-disable gas-strict-inequalities
+        require(
+            _gasTokenBalance[gasPayer] >= callbackFee,
+            InsufficientGasToken(callbackFee, _gasTokenBalance[gasPayer])
+        );
+        // solhint-enable gas-strict-inequalities
+        _gasTokenBalance[gasPayer] -= callbackFee;
 
+        address payable callback = BITE.submitCTX(
+            submitCTXAddress,
+            callbackFee / tx.gasprice,
+            encryptedArguments,
+            plaintextArguments
+        );
+        require(_callbackSenders.add(callback), AccessViolation());
+        callback.sendValue(callbackFee);
+    }
+
+    function _encryptArguments(
+        address from,
+        address to,
+        bytes memory encryptedValue
+    )
+        private
+        view
+        returns (bytes[] memory encryptedArguments)
+    {
         bytes memory encryptedFromBalance = bytes("");
         bytes memory encryptedToBalance = bytes("");
         uint256 encryptedArgumentsLength = 0;
@@ -351,9 +831,8 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
         }
         uint256 valueIndex = encryptedArgumentsLength;
         ++encryptedArgumentsLength;
-        bytes memory encryptedValue = Precompiled.encryptTE(encryptTEAddress, abi.encodePacked(value));
 
-        bytes[] memory encryptedArguments = new bytes[](encryptedArgumentsLength);
+        encryptedArguments = new bytes[](encryptedArgumentsLength);
         if (from != address(0)) {
             encryptedArguments[fromIndex] = encryptedFromBalance;
         }
@@ -361,57 +840,49 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
             encryptedArguments[toIndex] = encryptedToBalance;
         }
         encryptedArguments[valueIndex] = encryptedValue;
-
-        bytes[] memory plaintextArguments = new bytes[](1);
-        plaintextArguments[0] = abi.encode(from, to);
-
-        address payable callback = Precompiled.submitCTX(
-            submitCTXAddress,
-            callbackFee / tx.gasprice,
-            encryptedArguments,
-            plaintextArguments
-        );
-
-        require(_callbackSenders.add(callback), AccessViolation());
-
-        callback.sendValue(callbackFee);
-    }
-
-    // Private functions
-
-    function _setBalance(address holder, uint256 balance) private {
-        if (balance > 0) {
-            _thresholdBalances[holder] = Precompiled.encryptTE(encryptTEAddress, abi.encodePacked(balance));
-
-            if (_knownPublicKey(holder)) {
-                PublicKey memory holderPublicKey = publicKeys[holder];
-                _userBalances[holder] = Precompiled.encryptECIES(
-                    encryptECIESAddress,
-                    abi.encodePacked(balance),
-                    holderPublicKey
-                );
-            }
-        } else {
-            delete _thresholdBalances[holder];
-            delete _userBalances[holder];
-        }
     }
 
     function _getEncryptedBalance(address holder) private view returns (bytes memory encryptedBalance) {
         encryptedBalance = _thresholdBalances[holder];
         if (encryptedBalance.length == 0) {
-            encryptedBalance = Precompiled.encryptTE(
+            encryptedBalance = BITE.encryptTE(
                 encryptTEAddress,
                 abi.encodePacked(uint256(0))
             );
         }
     }
 
+    function _getViewKey(address holder) private view returns (PublicKey memory viewKey) {
+        viewKey = publicKeys[viewerAddresses[holder]];
+    }
+
+    function _viewerIsRegistered(address holder) private view returns (bool isRegistered) {
+        address viewer = viewerAddresses[holder];
+        return viewer != address(0) && _knownPublicKey(viewer);
+    }
+
     /// @notice Checks if a public key is known for a given holder address
     /// @param holder The address of the holder
-    /// @return True if the public key is known, false otherwise
-    function _knownPublicKey(address holder) private view returns (bool) {
-        return publicKeys[holder].x != bytes32(0) || publicKeys[holder].y != bytes32(0);
+    /// @return isKnown True if the public key is known, false otherwise
+    function _knownPublicKey(address holder) private view returns (bool isKnown) {
+        return _isValidPublicKey(publicKeys[holder]);
+    }
+
+    function _parseAction(
+        bytes[] calldata plaintextArguments
+    )
+        private
+        pure
+        returns (uint8 action)
+    {
+        // All actions require more than 1 plaintext argument in the array
+        require(plaintextArguments.length > 1, WrongPlaintextFormat());
+        require(plaintextArguments[0].length == 1, WrongPlaintextFormat());
+        return uint8(bytes1(plaintextArguments[0]));
+    }
+
+    function _isValidPublicKey(PublicKey memory publicKey) private pure returns (bool isValid) {
+        return publicKey.x != bytes32(0) || publicKey.y != bytes32(0);
     }
 
     function _decodeBalance(bytes calldata encodedBalance) private pure returns (uint256 balance) {
@@ -425,14 +896,14 @@ contract ConfidentialToken is EIP3009, ERC20Permit, AccessManaged, IConfidential
      * @notice Converts a public key to an Ethereum address
      * @dev Uses keccak256 hash of the concatenated public key components
      * @param publicKey The public key to convert
-     * @return nodeAddress The derived Ethereum address
+     * @return accountAddress The derived Ethereum address
      */
     function _publicKeyToAddress(
         PublicKey memory publicKey
     )
         private
         pure
-        returns (address nodeAddress)
+        returns (address accountAddress)
     {
         bytes32 hash = keccak256(abi.encodePacked(publicKey.x, publicKey.y));
         return address(uint160(uint256(hash)));

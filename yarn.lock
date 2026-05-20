@@ -2045,6 +2045,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@openzeppelin/contracts@npm:5.6.1":
+  version: 5.6.1
+  resolution: "@openzeppelin/contracts@npm:5.6.1"
+  checksum: 10c0/f00ecd2b63ca99361e772a9355a587345a2b2af8ead3e88996e0bd1eef89221c3f762cfb77632c1a6ea866a5d3bc030eea1790bd9d326d8ad71f8edee20a5b37
+  languageName: node
+  linkType: hard
+
 "@openzeppelin/defender-sdk-base-client@npm:^2.1.0, @openzeppelin/defender-sdk-base-client@npm:^2.7.0":
   version: 2.7.0
   resolution: "@openzeppelin/defender-sdk-base-client@npm:2.7.0"
@@ -2468,6 +2475,15 @@ __metadata:
   version: 5.6.0
   resolution: "@sindresorhus/is@npm:5.6.0"
   checksum: 10c0/66727344d0c92edde5760b5fd1f8092b717f2298a162a5f7f29e4953e001479927402d9d387e245fb9dc7d3b37c72e335e93ed5875edfc5203c53be8ecba1b52
+  languageName: node
+  linkType: hard
+
+"@skalenetwork/bite-solidity@npm:^1.0.1-stable.0":
+  version: 1.0.1
+  resolution: "@skalenetwork/bite-solidity@npm:1.0.1"
+  dependencies:
+    "@openzeppelin/contracts": "npm:5.6.1"
+  checksum: 10c0/4272b8fe8b7f21d11f68b4c6df57aceeea383cac5cfba87f14901c2f6b93be38e0521e669705402dbfd33d3a1df4991d15f956e418acd1d9eadf2c190d39ae05
   languageName: node
   linkType: hard
 
@@ -3658,13 +3674,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"antlr4@npm:^4.13.1-patch-1":
-  version: 4.13.2
-  resolution: "antlr4@npm:4.13.2"
-  checksum: 10c0/dfe7dcb24fe99ce103e1eac3ce30558a3df713cf5deeacd7e30686f5cca8206864e49b254af3bd5eff5904d31e5cd7902a7468c13dcb619da10caf3f703d03b4
-  languageName: node
-  linkType: hard
-
 "anymatch@npm:~3.1.2":
   version: 3.1.3
   resolution: "anymatch@npm:3.1.3"
@@ -4489,6 +4498,7 @@ __metadata:
     "@nomicfoundation/hardhat-ethers": "npm:^3.1.2"
     "@nomicfoundation/hardhat-network-helpers": "npm:^1.1.2"
     "@openzeppelin/contracts": "npm:5.4.0"
+    "@skalenetwork/bite-solidity": "npm:^1.0.1-stable.0"
     "@skalenetwork/upgrade-tools": "npm:4.0.0-develop.4"
     "@typechain/ethers-v6": "npm:^0.5.1"
     "@typechain/hardhat": "npm:^9.1.0"
@@ -4503,8 +4513,9 @@ __metadata:
     ethers: "npm:^6.16.0"
     globals: "npm:^16.5.0"
     hardhat: "npm:^2.27.1"
+    hardhat-dependency-compiler: "npm:^1.2.1"
     pm2: "npm:^6.0.14"
-    solhint: "npm:^6.0.2"
+    solhint: "npm:^6.0.3"
     solidity-coverage: "npm:^0.8.17"
     solidity-docgen: "npm:^0.6.0-beta.36"
     ts-node: "npm:^10.9.2"
@@ -6012,6 +6023,15 @@ __metadata:
   bin:
     handlebars: bin/handlebars
   checksum: 10c0/7aff423ea38a14bb379316f3857fe0df3c5d66119270944247f155ba1f08e07a92b340c58edaa00cfe985c21508870ee5183e0634dcb53dd405f35c93ef7f10d
+  languageName: node
+  linkType: hard
+
+"hardhat-dependency-compiler@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "hardhat-dependency-compiler@npm:1.2.1"
+  peerDependencies:
+    hardhat: ^2.0.0
+  checksum: 10c0/d4373422849fe8851d06f1151f51fe17d00fb9f3425cc77cce53bd2d0c9f325d4f1520f2aa8eae305b3a0d012b9841b398d57c3f2d5e7a3d29b6dd4aaebc1f6e
   languageName: node
   linkType: hard
 
@@ -8523,14 +8543,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"solhint@npm:^6.0.2":
-  version: 6.0.2
-  resolution: "solhint@npm:6.0.2"
+"solhint@npm:^6.0.3":
+  version: 6.0.3
+  resolution: "solhint@npm:6.0.3"
   dependencies:
     "@solidity-parser/parser": "npm:^0.20.2"
     ajv: "npm:^6.12.6"
     ajv-errors: "npm:^1.0.1"
-    antlr4: "npm:^4.13.1-patch-1"
     ast-parents: "npm:^0.0.1"
     better-ajv-errors: "npm:^2.0.2"
     chalk: "npm:^4.1.2"
@@ -8552,7 +8571,7 @@ __metadata:
       optional: true
   bin:
     solhint: solhint.js
-  checksum: 10c0/b2db0d547090148581eb7a8491d1c7d2ea848efd0063924a1eb31c84e8ff368900580982c4637e8d8381ef7e2625af0fa07f50da0b59a6c5561567f8cf10b071
+  checksum: 10c0/1dad7354ee19a29e3c642c5a03a3d716132d9df9780693f95f41f7ebfac2039e2b0b49f690a35488a712382599e25173560fd6628661eadfcbc0a96505526efa
   languageName: node
   linkType: hard
 

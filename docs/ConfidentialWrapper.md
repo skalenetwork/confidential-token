@@ -21,6 +21,12 @@ Has non-zero value only before the callback call is made_
 error OutdatedMint(address to, uint256 value)
 ```
 
+### ZeroValue
+
+```solidity
+error ZeroValue()
+```
+
 ### constructor
 
 ```solidity
@@ -29,8 +35,9 @@ constructor(contract IERC20Metadata underlyingToken, string version_, address in
 
 ### releaseTo
 
-Releases the wrapped tokens to the caller
-Almost never is used and is required only if callback call fails
+Releases the caller's pending wrapped tokens to `account`.
+Only the recipient of a prior `depositFor` (i.e. an address with a
+non-zero `requestedMints` entry) can call this; the depositor cannot.
 
 ```solidity
 function releaseTo(address account, uint256 value) external
@@ -40,8 +47,32 @@ function releaseTo(address account, uint256 value) external
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| account | address | The address to release tokens to |
+| account | address | The address to release the underlying tokens to |
 | value | uint256 | The amount of tokens to release |
+
+### transferFrom
+
+Transfers `value` tokens from `from` to `to` using allowance mechanism.
+
+```solidity
+function transferFrom(address from, address to, uint256 value) public virtual returns (bool result)
+```
+
+**dev:** _This function call may return true and revert on callback producing no changes_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address to transfer tokens from |
+| to | address | Address to transfer tokens to |
+| value | uint256 | Amount of tokens to be transferred |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| result | bool | Always returns true |
 
 ### depositFor
 
@@ -49,7 +80,8 @@ function releaseTo(address account, uint256 value) external
 function depositFor(address account, uint256 value) public returns (bool success)
 ```
 
-**dev:** _Allow a user to deposit underlying tokens and mint the corresponding number of wrapped tokens._
+**dev:** _Pending mint accounting is keyed by the recipient `account`, so only
+`account` can later call `releaseTo` for this deposit._
 
 ### withdrawTo
 
@@ -57,7 +89,8 @@ function depositFor(address account, uint256 value) public returns (bool success
 function withdrawTo(address account, uint256 value) public returns (bool success)
 ```
 
-**dev:** _Allow a user to burn a number of wrapped tokens and withdraw the corresponding number of underlying tokens._
+**dev:** _This operation is asynchronous and finalizes in the callback. On
+success, underlying tokens are sent to `account`._
 
 ### decimals
 
@@ -80,6 +113,44 @@ function balanceOf(address account) public pure returns (uint256 balance)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
+
+### _handleAction
+
+Dispatches decrypted CTX actions for wrapper-specific flows.
+
+```solidity
+function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+```
+
+**dev:** _Handles `_WITHDRAW_TO_ACTION` locally and delegates all other actions to
+the base ConfidentialToken logic._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| action | uint8 | Action discriminator encoded in callback plaintext. |
+| decryptedArguments | bytes[] | Decrypted callback arguments from BITE. |
+| plaintextArguments | bytes[] | Plaintext callback arguments used for routing. |
+
+### _burnTo
+
+Schedules an async burn that releases underlying to `to` on callback.
+
+```solidity
+function _burnTo(address from, address to, uint256 value) internal
+```
+
+**dev:** _Encodes `to` as extra plaintext callback data for
+`_handleWithdrawToRequest`._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | Address whose confidential balance is debited. |
+| to | address | Recipient of the released underlying token. |
+| value | uint256 | Amount to burn and unwrap. |
 
 ### _onUpdate
 

@@ -14,6 +14,7 @@
         ".yarn",
         "artifacts",
         "cache",
+        "contracts/hardhat-dependency-compiler",
         "cspell.json",
         "venv",
         "typechain-types",
@@ -26,6 +27,10 @@
     "overrides": [
     {
         "filename": "**/EIP3009.md",
+        "words": ["typehash"]
+    },
+    {
+        "filename": "**/ConfidentialEIP3009.md",
         "words": ["typehash"]
     },
     {
