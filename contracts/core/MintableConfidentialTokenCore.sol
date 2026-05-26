@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- *   MintableConfidentialToken.sol - confidential-token
+ *   MintableConfidentialTokenCore.sol - confidential-token
  *   Copyright (C) 2026-Present SKALE Labs
  *   @author Dmytro Stebaiev
  *
@@ -21,26 +21,37 @@
 
 pragma solidity ^0.8.27;
 
-import { MintableConfidentialTokenCore } from "./core/MintableConfidentialTokenCore.sol";
+import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";
+import { ConfidentialTokenCore } from "./ConfidentialTokenCore.sol";
 
 
-/// @title MintableConfidentialToken
+/// @title MintableConfidentialTokenCore
 /// @author Dmytro Stebaiev
 /// @notice ConfidentialToken with minting functionality
-contract MintableConfidentialToken is MintableConfidentialTokenCore {
-    /// @notice Constructor of the MintableConfidentialToken contract
-    /// @param name Name of the token
-    /// @param symbol Symbol of the token
-    /// @param version_ Version of the token
-    /// @param initialAuthority Initial authority address
-    constructor(
+abstract contract MintableConfidentialTokenCore is ConfidentialTokenCore, IMintableERC20 {
+    /// @inheritdoc IMintableERC20
+    function mint(address to, uint256 amount) external override restricted {
+        _mint(to, amount);
+    }
+
+    /// @inheritdoc IMintableERC20
+    function burn(uint256 amount) external override {
+        _burn(_msgSender(), amount);
+    }
+
+    // slither-disable-start naming-convention
+    // solhint-disable-next-line func-name-mixedcase
+    function __MintableConfidentialToken_init(
         string memory name,
         string memory symbol,
         string memory version_,
         address initialAuthority
     )
-        initializer
+        internal
+        onlyInitializing
     {
-        __MintableConfidentialToken_init(name, symbol, version_, initialAuthority);
+        __ConfidentialToken_init(name, symbol, version_, initialAuthority);
     }
+    // slither-disable-end naming-convention
+
 }

@@ -1,63 +1,39 @@
-import { ethers, network } from "hardhat";
+import { getVersion } from "@skalenetwork/upgrade-tools";
 import chalk from "chalk";
-import { promises as fs } from 'fs';
-import { getVersion, verify } from "@skalenetwork/upgrade-tools";
 import { AddressLike } from "ethers";
-import { AccessManager, ConfidentialWrapper } from "../typechain-types";
+import { ethers, upgrades } from "hardhat";
 import { getRequiredEnvironmentVariable } from "./deployMintable";
+import { storeAddresses, verifyAll } from "./deployWrapper";
+import { transferAndCheckUpgradeableOwnership } from "./upgradeableOwnership";
 
-export const contracts = [
-    "AccessManager",
-    "ConfidentialWrapper"
-];
-
-export interface DeployedContracts {
-    AccessManager: AccessManager,
-    ConfidentialWrapper: ConfidentialWrapper
-}
-
-export const deployWrapper = async (originToken: AddressLike, version: string, ownerAddress: AddressLike) => {
+export const deployWrapperUpgradeable = async (originToken: AddressLike, version: string, ownerAddress: AddressLike) => {
     console.log("Deploy ConfidentialWrapper for", await ethers.resolveAddress(originToken));
     const accessManagerFactory = await ethers.getContractFactory("AccessManager");
     const accessManager = await accessManagerFactory.deploy(ownerAddress);
     await accessManager.deploymentTransaction()!.wait();
     console.log(`Deployed AccessManager at: ${await ethers.resolveAddress(accessManager)}`);
 
-    const ConfidentialWrapperFactory = await ethers.getContractFactory("ConfidentialWrapper");
-    const confidentialWrapper = await ConfidentialWrapperFactory.deploy(
-        originToken,
-        version,
-        accessManager
+    const ConfidentialWrapperFactory = await ethers.getContractFactory("ConfidentialWrapperUpgradeable");
+    const confidentialWrapper = await upgrades.deployProxy(
+        ConfidentialWrapperFactory,
+        [
+            await ethers.resolveAddress(originToken),
+            version,
+            await ethers.resolveAddress(accessManager)
+        ],
+        {
+            initializer: "initialize",
+        }
     );
-    await confidentialWrapper.deploymentTransaction()!.wait();
+    await confidentialWrapper.waitForDeployment();
     console.log(`Deployed ConfidentialWrapper at: ${await ethers.resolveAddress(confidentialWrapper)}`);
+    await transferAndCheckUpgradeableOwnership(confidentialWrapper, accessManager, ownerAddress);
 
     return {
         AccessManager: accessManager,
         ConfidentialWrapper: confidentialWrapper
     };
 };
-
-export const storeAddresses = async (deployedContracts: DeployedContracts, version: string) => {
-    const addresses = Object.fromEntries(await Promise.all(Object.entries(deployedContracts).map(
-            async ([name, contract]) => [name, await ethers.resolveAddress(contract)]
-    )));
-    for (const contract in addresses) {
-        console.log(`${contract}: ${addresses[contract]}`);
-    }
-    await fs.writeFile(
-        `data/confidential-token-${version}-${network.name}-contracts.json`,
-        JSON.stringify(addresses, null, 4));
-}
-
-export const verifyAll = async (deployedContracts: DeployedContracts) => {
-    for (const contractName in deployedContracts) {
-        await verify(
-            contractName,
-            await ethers.resolveAddress(deployedContracts[contractName as keyof DeployedContracts])
-        )
-    }
-}
 
 const main = async () => {
     const version = await getVersion();
@@ -72,7 +48,7 @@ const main = async () => {
 
     console.log("Deploy contracts");
 
-    const deployedContracts = await deployWrapper(
+    const deployedContracts = await deployWrapperUpgradeable(
         getRequiredEnvironmentVariable("ORIGIN_TOKEN"),
         version,
         ownerAddress

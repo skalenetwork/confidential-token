@@ -44,7 +44,7 @@ export const deployMintable = async (tokenName: string, tokenSymbol: string, ver
     };
 };
 
-const storeAddresses = async (deployedContracts: DeployedContracts, version: string) => {
+export const storeAddresses = async (deployedContracts: DeployedContracts, version: string) => {
     const addresses = Object.fromEntries(await Promise.all(Object.entries(deployedContracts).map(
             async ([name, contract]) => [name, await ethers.resolveAddress(contract)]
     )));
@@ -56,7 +56,7 @@ const storeAddresses = async (deployedContracts: DeployedContracts, version: str
         JSON.stringify(addresses, null, 4));
 }
 
-const verifyAll = async (deployedContracts: DeployedContracts) => {
+export const verifyAll = async (deployedContracts: DeployedContracts) => {
     for (const contractName in deployedContracts) {
         await verify(
             contractName,

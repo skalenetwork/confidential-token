@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- *   ConfidentialToken.sol - confidential-token
- *   Copyright (C) 2025-Present SKALE Labs
- *   @author Dmytro Stebaiev
+ *   IConfidentialTokenUpgradeable.sol - confidential-token
+ *   Copyright (C) 2026-Present SKALE Labs
  *   @author Eduardo Vasques
  *
  *   confidential-token is free software: you can redistribute it and/or modify
@@ -22,27 +21,20 @@
 
 pragma solidity ^0.8.27;
 
-import { ConfidentialTokenCore } from "./core/ConfidentialTokenCore.sol";
 
-
-/// @title ConfidentialToken
-/// @author Dmytro Stebaiev
+/// @title IConfidentialTokenUpgradeable
 /// @author Eduardo Vasques
-/// @notice ERC20-like token with encrypted balances
-contract ConfidentialToken is ConfidentialTokenCore {
-    /// @notice Sets the values for {name} and {symbol}.
-    /// @param name_ Name of the token
-    /// @param symbol_ Symbol of the token
-    /// @param version_ Version of the contract
-    /// @param initialAuthority Address of AccessManager initial authority
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        string memory version_,
+/// @notice Initializer interface for upgradeable confidential token deployments.
+interface IConfidentialTokenUpgradeable {
+    /// @notice Initializes the contract for proxy deployment.
+    /// @param name_ Name of the token.
+    /// @param symbol_ Symbol of the token.
+    /// @param version_ Version of the contract.
+    /// @param initialAuthority Address of AccessManager initial authority.
+    function initialize(
+        string calldata name_,
+        string calldata symbol_,
+        string calldata version_,
         address initialAuthority
-    )
-        initializer
-    {
-        __ConfidentialToken_init(name_, symbol_, version_, initialAuthority);
-    }
+    ) external;
 }

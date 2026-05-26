@@ -3,6 +3,7 @@
 set -e
 
 NAME="D2 Token" SYMBOL="D2" yarn hardhat run migrations/deployMintable.ts
+NAME="D2 Token" SYMBOL="D2" yarn hardhat run migrations/deployMintableUpgradeable.ts
 
 ## Start hardhat node setup
 HARDHAT_NODE_SESSION="hardhat-node"
@@ -22,5 +23,6 @@ trap cleanup EXIT
 UNDERLYING_TOKEN_ADDRESS=$(yarn hardhat run scripts/deployTestERC20.ts --network localhost | grep --max-count 1 "TestERC20" | awk '{print $NF}')
 
 ORIGIN_TOKEN="$UNDERLYING_TOKEN_ADDRESS" yarn hardhat run migrations/deployWrapper.ts --network localhost
+ORIGIN_TOKEN="$UNDERLYING_TOKEN_ADDRESS" yarn hardhat run migrations/deployWrapperUpgradeable.ts --network localhost
 
 

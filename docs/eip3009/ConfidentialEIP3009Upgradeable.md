@@ -1,6 +1,6 @@
 # Solidity API
 
-## ConfidentialEIP3009
+## ConfidentialEIP3009Upgradeable
 
 Extension of EIP3009 with encrypted value parameter for SKALE chains using BITE
 
@@ -67,6 +67,12 @@ considerations)_
 | v | uint8 | v of the signature |
 | r | bytes32 | r of the signature |
 | s | bytes32 | s of the signature |
+
+### __ConfidentialEIP3009_init
+
+```solidity
+function __ConfidentialEIP3009_init() internal
+```
 
 ### _transferWithAuthorization
 
