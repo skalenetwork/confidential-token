@@ -19,6 +19,8 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// cspell:words mixedcase
+
 pragma solidity ^0.8.27;
 
 import { IMintableERC20 } from "../interfaces/IMintableERC20.sol";

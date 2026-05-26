@@ -23,7 +23,7 @@
 // This file extends the original EIP-3009 implementation with BITE functionality for SKALE chains.
 // ----------------------------------------------------------------------------
 
-// cspell:words typehash
+// cspell:words typehash mixedcase
 
 pragma solidity ^0.8.27;
 

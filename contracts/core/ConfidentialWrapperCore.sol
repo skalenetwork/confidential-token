@@ -19,7 +19,7 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// cspell:words IERC20
+// cspell:words IERC20 mixedcase
 
 pragma solidity ^0.8.27;
 

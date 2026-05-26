@@ -25,21 +25,21 @@
         "lib"
     ],
     "overrides": [
-    {
-        "filename": "**/EIP3009.md",
-        "words": ["typehash"]
-    },
-    {
-        "filename": "**/ConfidentialEIP3009.md",
-        "words": ["typehash"]
-    },
-    {
-        "filename": "licenses/LICENSE_COINBASE",
-        "words": ["SECZ"]
-    },
-    {
-        "filename": "docs/**/*.md",
-        "words": ["ECIES", "IERC20"]
-    }
-  ]
+        {
+            "filename": "**/EIP3009Upgradeable.md",
+            "words": ["typehash"]
+        },
+        {
+            "filename": "**/ConfidentialEIP3009Upgradeable.md",
+            "words": ["typehash"]
+        },
+        {
+            "filename": "licenses/LICENSE_COINBASE",
+            "words": ["SECZ"]
+        },
+        {
+            "filename": "docs/**/*.md",
+            "words": ["ECIES", "IERC20"]
+        }
+    ]
 }

@@ -30,7 +30,7 @@
 // /licenses/LICENSE_COINBASE
 // ----------------------------------------------------------------------------
 
-// cspell:words typehash
+// cspell:words typehash initializable mixedcase
 
 pragma solidity ^0.8.27;
 

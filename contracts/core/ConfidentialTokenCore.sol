@@ -20,7 +20,7 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// cspell:words ECIES
+// cspell:words ECIES mixedcase
 
 pragma solidity ^0.8.27;
 
