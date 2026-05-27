@@ -1,8 +1,8 @@
 
-import { getVersion } from "@skalenetwork/upgrade-tools";
+import { getVersion, verify, verifyProxy } from "@skalenetwork/upgrade-tools";
 import chalk from "chalk";
 import { ethers, upgrades } from "hardhat";
-import { getRequiredEnvironmentVariable, storeAddresses, verifyAll } from "./deployMintable";
+import { getRequiredEnvironmentVariable, storeAddresses } from "./deployMintable";
 import { AddressLike } from "ethers";
 import { transferAndCheckUpgradeableOwnership } from "./upgradeableOwnership";
 
@@ -59,7 +59,8 @@ const main = async () => {
     await storeAddresses(deployedContracts, version);
 
     console.log("Verify contracts");
-    await verifyAll(deployedContracts);
+    await verify("AccessManager", await ethers.resolveAddress(deployedContracts.AccessManager));
+    await verifyProxy("MintableConfidentialTokenUpgradeable", await ethers.resolveAddress(deployedContracts.ConfidentialToken));
 
     console.log("Done");
 }
