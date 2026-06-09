@@ -26,11 +26,11 @@
     ],
     "overrides": [
         {
-            "filename": "**/EIP3009Upgradeable.md",
+            "filename": "**/EIP3009.md",
             "words": ["typehash"]
         },
         {
-            "filename": "**/ConfidentialEIP3009Upgradeable.md",
+            "filename": "**/ConfidentialEIP3009.md",
             "words": ["typehash"]
         },
         {
