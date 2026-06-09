@@ -308,6 +308,23 @@ Allows the contract to receive gas token to pay for callback execution
 receive() external payable
 ```
 
+### initialize
+
+Initializes the contract for proxy deployment.
+
+```solidity
+function initialize(string name_, string symbol_, string version_, address initialAuthority) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| name_ | string | Name of the token. |
+| symbol_ | string | Symbol of the token. |
+| version_ | string | Version of the contract. |
+| initialAuthority | address | Address of AccessManager initial authority. |
+
 ### fundWithGasToken
 
 Deposits gas token to any holder balance

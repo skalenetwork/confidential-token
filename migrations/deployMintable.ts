@@ -30,6 +30,7 @@ export const deployMintable = async (tokenName: string, tokenSymbol: string, ver
 
     const ConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
     const confidentialToken = await ConfidentialTokenFactory.deploy(
+        false,
         tokenName,
         tokenSymbol,
         version,

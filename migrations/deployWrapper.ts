@@ -25,6 +25,7 @@ export const deployWrapper = async (originToken: AddressLike, version: string, o
 
     const ConfidentialWrapperFactory = await ethers.getContractFactory("ConfidentialWrapper");
     const confidentialWrapper = await ConfidentialWrapperFactory.deploy(
+        false,
         originToken,
         version,
         accessManager

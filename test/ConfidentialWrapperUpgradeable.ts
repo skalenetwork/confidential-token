@@ -7,7 +7,7 @@ import "chai/register-should";
 import {
     BiteMock,
     ConfidentialToken,
-    ConfidentialWrapperUpgradeable,
+    ConfidentialWrapper,
     TestERC20
 } from "../typechain-types";
 import { deployWrapperUpgradeable } from "../migrations/deployWrapperUpgradeable";
@@ -63,7 +63,7 @@ const deployUpgradeableWrapper = async () => {
         TOKEN_VERSION,
         owner
     );
-    const token = contracts.ConfidentialWrapper as unknown as ConfidentialWrapperUpgradeable;
+    const token = contracts.ConfidentialWrapper as unknown as ConfidentialWrapper;
 
     return {
         accessManager: contracts.AccessManager,
@@ -112,7 +112,7 @@ describe("ConfidentialWrapperUpgradeable", () => {
             TOKEN_VERSION,
             configuredOwner
         );
-        const token = contracts.ConfidentialWrapper as unknown as ConfidentialWrapperUpgradeable;
+        const token = contracts.ConfidentialWrapper as unknown as ConfidentialWrapper;
 
         const proxyAdminAddress = await upgrades.erc1967.getAdminAddress(await token.getAddress());
         const proxyAdmin = await ethers.getContractAt(PROXY_ADMIN_ABI, proxyAdminAddress);
@@ -130,7 +130,7 @@ describe("ConfidentialWrapperUpgradeable", () => {
     it("rejects repeated proxy initialization", async () => {
         const { token, accessManager, underlyingToken } = await loadFixture(deployUpgradeableWrapperFixture);
 
-        await token.initialize(
+        await token["initialize(address,string,address)"](
             underlyingToken,
             TOKEN_VERSION,
             accessManager
@@ -143,11 +143,11 @@ describe("ConfidentialWrapperUpgradeable", () => {
         const accessManagerFactory = await ethers.getContractFactory("AccessManager");
         const accessManager = await accessManagerFactory.deploy(owner);
         await accessManager.waitForDeployment();
-        const tokenFactory = await ethers.getContractFactory("ConfidentialWrapperUpgradeable");
-        const implementation = await tokenFactory.deploy() as ConfidentialWrapperUpgradeable;
+        const tokenFactory = await ethers.getContractFactory("ConfidentialWrapper");
+        const implementation = await tokenFactory.deploy(true, ethers.ZeroAddress, "", ethers.ZeroAddress) as ConfidentialWrapper;
         await implementation.waitForDeployment();
 
-        await implementation.initialize(
+        await implementation["initialize(address,string,address)"](
             underlyingToken,
             TOKEN_VERSION,
             accessManager
@@ -199,11 +199,12 @@ describe("ConfidentialWrapperUpgradeable", () => {
         const { token, underlyingToken } = await loadFixture(deployUpgradeableWrapperFixture);
         await token.setCallbackFee(123n);
 
-        const tokenFactory = await ethers.getContractFactory("ConfidentialWrapperUpgradeable");
+        const tokenFactory = await ethers.getContractFactory("ConfidentialWrapper");
         const upgraded = await upgrades.upgradeProxy(
             await token.getAddress(),
-            tokenFactory
-        ) as unknown as ConfidentialWrapperUpgradeable;
+            tokenFactory,
+            { constructorArgs: [true, ethers.ZeroAddress, "", ethers.ZeroAddress] }
+        ) as unknown as ConfidentialWrapper;
         await upgraded.waitForDeployment();
 
         (await upgraded.name()).should.be.equal(`Confidential ${UNDERLYING_NAME}`);

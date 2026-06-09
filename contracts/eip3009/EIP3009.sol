@@ -41,10 +41,10 @@ import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cry
 import { EIP712Utils } from "./EIP712Utils.sol";
 
 
-/// @title EIP3009Upgradeable
+/// @title EIP3009
 /// @author Dmytro Stebaiev
 /// @notice ERC20 token with transfer and receive with authorization functionality
-abstract contract EIP3009Upgradeable is Initializable, ERC20Upgradeable, EIP712Upgradeable {
+abstract contract EIP3009 is Initializable, ERC20Upgradeable, EIP712Upgradeable {
     /// @notice typehash for transfer with authorization
     bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH =
         // This is calculated during compilation time

@@ -4,7 +4,7 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
 import "chai/register-should";
-import { BiteMock, MintableConfidentialTokenUpgradeable } from "../typechain-types";
+import { BiteMock, MintableConfidentialToken } from "../typechain-types";
 import { deployMintableUpgradeable } from "../migrations/deployMintableUpgradeable";
 import { getPublicKey } from "./tools/cryptography";
 import { balanceOf } from "./tools/helpers";
@@ -52,7 +52,7 @@ const deployUpgradeableMintable = async () => {
         TOKEN_VERSION,
         owner
     );
-    const token = contracts.ConfidentialToken as unknown as MintableConfidentialTokenUpgradeable;
+    const token = contracts.ConfidentialToken as unknown as MintableConfidentialToken;
 
     return {
         accessManager: contracts.AccessManager,
@@ -98,7 +98,7 @@ describe("MintableConfidentialTokenUpgradeable", () => {
             TOKEN_VERSION,
             configuredOwner
         );
-        const token = contracts.ConfidentialToken as unknown as MintableConfidentialTokenUpgradeable;
+        const token = contracts.ConfidentialToken as unknown as MintableConfidentialToken;
 
         const proxyAdminAddress = await upgrades.erc1967.getAdminAddress(await token.getAddress());
         const proxyAdmin = await ethers.getContractAt(PROXY_ADMIN_ABI, proxyAdminAddress);
@@ -129,8 +129,10 @@ describe("MintableConfidentialTokenUpgradeable", () => {
         const accessManagerFactory = await ethers.getContractFactory("AccessManager");
         const accessManager = await accessManagerFactory.deploy(owner);
         await accessManager.waitForDeployment();
-        const tokenFactory = await ethers.getContractFactory("MintableConfidentialTokenUpgradeable");
-        const implementation = await tokenFactory.deploy() as MintableConfidentialTokenUpgradeable;
+        const tokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
+
+        // If deployed as proxy mode, the implementation contract is locked for initialization
+        const implementation = await tokenFactory.deploy(true, "", "", "", ethers.ZeroAddress) as MintableConfidentialToken;
         await implementation.waitForDeployment();
 
         await implementation.initialize(
@@ -193,11 +195,12 @@ describe("MintableConfidentialTokenUpgradeable", () => {
         const { token } = await loadFixture(deployUpgradeableMintableFixture);
         await token.setCallbackFee(123n);
 
-        const tokenFactory = await ethers.getContractFactory("MintableConfidentialTokenUpgradeable");
+        const tokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
         const upgraded = await upgrades.upgradeProxy(
             await token.getAddress(),
-            tokenFactory
-        ) as unknown as MintableConfidentialTokenUpgradeable;
+            tokenFactory,
+            { constructorArgs: [true, "", "", "", ethers.ZeroAddress] }
+        ) as unknown as MintableConfidentialToken;
         await upgraded.waitForDeployment();
 
         (await upgraded.name()).should.be.equal(TOKEN_NAME);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 /**
- *   ConfidentialEIP3009Upgradeable.sol - confidential-token
+ *   ConfidentialEIP3009.sol - confidential-token
  *   Copyright (C) 2025-Present SKALE Labs
  *   @author Eduardo Vasques
  *
@@ -27,13 +27,13 @@
 
 pragma solidity ^0.8.27;
 
-import { EIP3009Upgradeable, EIP712Utils } from "./EIP3009Upgradeable.sol";
+import { EIP3009, EIP712Utils } from "./EIP3009.sol";
 
 
 /// @title EIP3009 upgradeable extension for ConfidentialToken
 /// @author Eduardo Vasques
 /// @notice Extension of EIP3009 with encrypted value parameter for SKALE chains using BITE
-abstract contract ConfidentialEIP3009Upgradeable is EIP3009Upgradeable {
+abstract contract ConfidentialEIP3009 is EIP3009 {
 
     /// @notice typehash for transfer with authorization with encrypted value
     bytes32 public constant ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH =

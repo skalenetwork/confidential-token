@@ -52,6 +52,7 @@ const deploy = async () => {
     console.log(chalk.yellow("Deploying MintableConfidentialToken..."));
     const tokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
     token = await tokenFactory.deploy(
+        false,
         TOKEN_NAME,
         TOKEN_SYMBOL,
         VERSION,

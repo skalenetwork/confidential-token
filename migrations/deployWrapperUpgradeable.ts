@@ -13,7 +13,7 @@ export const deployWrapperUpgradeable = async (originToken: AddressLike, version
     await accessManager.deploymentTransaction()!.wait();
     console.log(`Deployed AccessManager at: ${await ethers.resolveAddress(accessManager)}`);
 
-    const ConfidentialWrapperFactory = await ethers.getContractFactory("ConfidentialWrapperUpgradeable");
+    const ConfidentialWrapperFactory = await ethers.getContractFactory("ConfidentialWrapper");
     const confidentialWrapper = await upgrades.deployProxy(
         ConfidentialWrapperFactory,
         [
@@ -22,7 +22,8 @@ export const deployWrapperUpgradeable = async (originToken: AddressLike, version
             await ethers.resolveAddress(accessManager)
         ],
         {
-            initializer: "initialize",
+            initializer: "initialize(address,string,address)",
+            constructorArgs: [true, ethers.ZeroAddress, "", ethers.ZeroAddress]
         }
     );
     await confidentialWrapper.waitForDeployment();
@@ -59,7 +60,7 @@ const main = async () => {
 
     console.log("Verify contracts");
     await verify("AccessManager", await ethers.resolveAddress(deployedContracts.AccessManager));
-    await verifyProxy("ConfidentialWrapperUpgradeable", await ethers.resolveAddress(deployedContracts.ConfidentialWrapper));
+    await verifyProxy("ConfidentialWrapper", await ethers.resolveAddress(deployedContracts.ConfidentialWrapper));
 
     console.log("Done");
 };

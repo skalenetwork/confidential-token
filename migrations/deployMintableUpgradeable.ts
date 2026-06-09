@@ -12,8 +12,7 @@ export const deployMintableUpgradeable = async (tokenName: string, tokenSymbol: 
     await accessManager.deploymentTransaction()!.wait();
     console.log(`Deployed AccessManager at: ${await ethers.resolveAddress(accessManager)}`);
 
-    const ConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialTokenUpgradeable");
-
+    const ConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
     const confidentialToken = await upgrades.deployProxy(
         ConfidentialTokenFactory,
         [
@@ -24,6 +23,7 @@ export const deployMintableUpgradeable = async (tokenName: string, tokenSymbol: 
         ],
         {
             initializer: "initialize",
+            constructorArgs: [true, "", "", "", ethers.ZeroAddress]
         }
     );
     await confidentialToken.waitForDeployment();
@@ -60,7 +60,7 @@ const main = async () => {
 
     console.log("Verify contracts");
     await verify("AccessManager", await ethers.resolveAddress(deployedContracts.AccessManager));
-    await verifyProxy("MintableConfidentialTokenUpgradeable", await ethers.resolveAddress(deployedContracts.ConfidentialToken));
+    await verifyProxy("MintableConfidentialToken", await ethers.resolveAddress(deployedContracts.ConfidentialToken));
 
     console.log("Done");
 }

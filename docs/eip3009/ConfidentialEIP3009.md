@@ -1,6 +1,6 @@
 # Solidity API
 
-## ConfidentialEIP3009Upgradeable
+## ConfidentialEIP3009
 
 Extension of EIP3009 with encrypted value parameter for SKALE chains using BITE
 
