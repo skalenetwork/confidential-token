@@ -52,7 +52,7 @@ const deployUpgradeableMintable = async () => {
         TOKEN_VERSION,
         owner
     );
-    const token = contracts.ConfidentialToken as unknown as MintableConfidentialToken;
+    const token = contracts.MintableConfidentialToken as unknown as MintableConfidentialToken;
 
     return {
         accessManager: contracts.AccessManager,
@@ -98,7 +98,7 @@ describe("MintableConfidentialTokenUpgradeable", () => {
             TOKEN_VERSION,
             configuredOwner
         );
-        const token = contracts.ConfidentialToken as unknown as MintableConfidentialToken;
+        const token = contracts.MintableConfidentialToken as unknown as MintableConfidentialToken;
 
         const proxyAdminAddress = await upgrades.erc1967.getAdminAddress(await token.getAddress());
         const proxyAdmin = await ethers.getContractAt(PROXY_ADMIN_ABI, proxyAdminAddress);

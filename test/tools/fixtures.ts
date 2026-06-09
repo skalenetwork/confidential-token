@@ -41,15 +41,15 @@ const deployMintableFixture = async () => {
         deployer
     );
     const mocks = await deployBiteMocks();
-    await contracts.ConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
-    await contracts.ConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
-    await contracts.ConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
-    await contracts.ConfidentialToken.setCallbackFee(ethers.parseEther("0.003"));
+    await contracts.MintableConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
+    await contracts.MintableConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
+    await contracts.MintableConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
+    await contracts.MintableConfidentialToken.setCallbackFee(ethers.parseEther("0.003"));
 
     return {
         accessManager: contracts.AccessManager,
         owner: deployer,
-        token: contracts.ConfidentialToken,
+        token: contracts.MintableConfidentialToken,
         ...mocks
     }
 }

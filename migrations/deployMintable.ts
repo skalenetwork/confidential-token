@@ -2,17 +2,17 @@ import { ethers, network } from "hardhat";
 import chalk from "chalk";
 import { promises as fs } from 'fs';
 import { getVersion, verify } from "@skalenetwork/upgrade-tools";
-import { AddressLike } from "ethers";
-import { AccessManager, ConfidentialToken } from "../typechain-types";
+import { AddressLike, BaseContract } from "ethers";
+import { AccessManager, MintableConfidentialToken } from "../typechain-types";
 
 export const contracts = [
     "AccessManager",
-    "ConfidentialToken"
+    "MintableConfidentialToken"
 ];
 
 export interface DeployedContracts {
     AccessManager: AccessManager,
-    ConfidentialToken: ConfidentialToken
+    MintableConfidentialToken: MintableConfidentialToken
 }
 
 export const getRequiredEnvironmentVariable = (name: string): string => {
@@ -28,24 +28,27 @@ export const deployMintable = async (tokenName: string, tokenSymbol: string, ver
     await accessManager.deploymentTransaction()!.wait();
     console.log(`Deployed AccessManager at: ${await ethers.resolveAddress(accessManager)}`);
 
-    const ConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
-    const confidentialToken = await ConfidentialTokenFactory.deploy(
+    const MintableConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
+    const mintableConfidentialToken = await MintableConfidentialTokenFactory.deploy(
         false,
         tokenName,
         tokenSymbol,
         version,
         await ethers.resolveAddress(accessManager)
     );
-    await confidentialToken.deploymentTransaction()!.wait();
-    console.log(`Deployed ConfidentialToken at: ${await ethers.resolveAddress(confidentialToken)}`);
+    await mintableConfidentialToken.deploymentTransaction()!.wait();
+    console.log(`Deployed MintableConfidentialToken at: ${await ethers.resolveAddress(mintableConfidentialToken)}`);
 
     return {
         AccessManager: accessManager,
-        ConfidentialToken: confidentialToken
+        MintableConfidentialToken: mintableConfidentialToken
     };
 };
 
-export const storeAddresses = async (deployedContracts: DeployedContracts, version: string) => {
+export const storeAddresses = async <TContracts extends Record<string, BaseContract>>(
+    deployedContracts: TContracts,
+    version: string
+) => {
     const addresses = Object.fromEntries(await Promise.all(Object.entries(deployedContracts).map(
             async ([name, contract]) => [name, await ethers.resolveAddress(contract)]
     )));

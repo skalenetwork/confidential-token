@@ -137,6 +137,17 @@ describe("ConfidentialWrapperUpgradeable", () => {
         ).should.be.revertedWithCustomError(token, "InvalidInitialization");
     });
 
+    it("rejects the inherited token initializer through the wrapper proxy", async () => {
+        const { token, owner } = await loadFixture(deployUpgradeableWrapperFixture);
+
+        await token["initialize(string,string,string,address)"](
+            "Wrapped",
+            "WRP",
+            TOKEN_VERSION,
+            owner
+        ).should.be.revertedWithCustomError(token, "WrongInitializer");
+    });
+
     it("locks the implementation contract", async () => {
         const [owner] = await ethers.getSigners();
         const underlyingToken = await deployUnderlyingToken();

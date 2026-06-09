@@ -151,6 +151,25 @@ function totalSupply() public view returns (uint256 supply)
 
 **dev:** _Returns the value of tokens in existence._
 
+### initialize
+
+Initializes the contract for proxy or direct deployment.
+
+```solidity
+function initialize(string, string, string, address) public pure
+```
+
+**dev:** _This function is disabled for the wrapper since the initializer is different._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+|  | string |  |
+|  | string |  |
+|  | string |  |
+|  | address |  |
+
 ### balanceOf
 
 ```solidity

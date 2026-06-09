@@ -33,7 +33,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { BITE } from "@skalenetwork/bite-solidity/BITE.sol";
-import { ConfidentialToken } from "./ConfidentialToken.sol";
+import { ConfidentialToken, IConfidentialToken } from "./ConfidentialToken.sol";
 import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 
 
@@ -160,6 +160,22 @@ contract ConfidentialWrapper is
     /// @inheritdoc ConfidentialToken
     function totalSupply() public view override(ConfidentialToken, ERC20Upgradeable) returns (uint256 supply) {
         return ConfidentialToken.totalSupply();
+    }
+
+    /// @inheritdoc ConfidentialToken
+    /// @dev This function is disabled for the wrapper since the initializer is different.
+    /// @custom:oz-upgrades-unsafe-allow missing-initializer-call
+    function initialize(
+        string memory /* name_ */,
+        string memory /* symbol_ */,
+        string memory /* version_ */,
+        address /* initialAuthority */
+    )
+        public
+        pure
+        override(ConfidentialToken, IConfidentialToken)
+    {
+        revert WrongInitializer();
     }
 
     /// @inheritdoc ConfidentialToken

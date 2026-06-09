@@ -12,9 +12,9 @@ export const deployMintableUpgradeable = async (tokenName: string, tokenSymbol: 
     await accessManager.deploymentTransaction()!.wait();
     console.log(`Deployed AccessManager at: ${await ethers.resolveAddress(accessManager)}`);
 
-    const ConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
-    const confidentialToken = await upgrades.deployProxy(
-        ConfidentialTokenFactory,
+    const MintableConfidentialTokenFactory = await ethers.getContractFactory("MintableConfidentialToken");
+    const mintableConfidentialToken = await upgrades.deployProxy(
+        MintableConfidentialTokenFactory,
         [
             tokenName,
             tokenSymbol,
@@ -26,13 +26,13 @@ export const deployMintableUpgradeable = async (tokenName: string, tokenSymbol: 
             constructorArgs: [true, "", "", "", ethers.ZeroAddress]
         }
     );
-    await confidentialToken.waitForDeployment();
-    console.log(`Deployed ConfidentialToken at: ${await ethers.resolveAddress(confidentialToken)}`);
-    await transferAndCheckUpgradeableOwnership(confidentialToken, accessManager, ownerAddress);
+    await mintableConfidentialToken.waitForDeployment();
+    console.log(`Deployed MintableConfidentialToken at: ${await ethers.resolveAddress(mintableConfidentialToken)}`);
+    await transferAndCheckUpgradeableOwnership(mintableConfidentialToken, accessManager, ownerAddress);
 
     return {
         AccessManager: accessManager,
-        ConfidentialToken: confidentialToken
+        MintableConfidentialToken: mintableConfidentialToken
     };
 }
 
@@ -60,7 +60,7 @@ const main = async () => {
 
     console.log("Verify contracts");
     await verify("AccessManager", await ethers.resolveAddress(deployedContracts.AccessManager));
-    await verifyProxy("MintableConfidentialToken", await ethers.resolveAddress(deployedContracts.ConfidentialToken));
+    await verifyProxy("MintableConfidentialToken", await ethers.resolveAddress(deployedContracts.MintableConfidentialToken));
 
     console.log("Done");
 }
