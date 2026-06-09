@@ -150,7 +150,7 @@ contract ConfidentialToken is
         if (proxyMode) {
             _disableInitializers();
         } else {
-            initialize(name_, symbol_, version_, initialAuthority);
+            ConfidentialToken.initialize(name_, symbol_, version_, initialAuthority);
         }
     }
 
