@@ -172,7 +172,7 @@ contract ConfidentialToken is
     }
 
     /// @inheritdoc IConfidentialToken
-    function encryptedTransfer(address to, bytes calldata value) external override {
+    function encryptedTransfer(address to, bytes calldata value) external payable override {
         _encryptedTransfer(msg.sender, to, value);
     }
 
@@ -181,7 +181,8 @@ contract ConfidentialToken is
         address from,
         address to,
         bytes calldata value
-    ) external override {
+    ) external payable override {
+        fundWithGasToken(msg.sender);
         _encryptedTransferFrom(from, to, value);
     }
 
@@ -827,6 +828,7 @@ contract ConfidentialToken is
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
+        fundWithGasToken(msg.sender);
         _encryptedUpdate({
             from: from,
             to: to,

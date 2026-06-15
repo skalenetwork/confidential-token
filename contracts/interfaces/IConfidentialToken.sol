@@ -219,13 +219,13 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Transfers tokens to another holder
     /// @param to The address of the recipient holder
     /// @param value The TE-encrypted amount of tokens to transfer
-    function encryptedTransfer(address to, bytes calldata value) external;
+    function encryptedTransfer(address to, bytes calldata value) external payable;
 
     /// @notice Transfers tokens from one holder to another using allowance
     /// @param from The address of the sender holder
     /// @param to The address of the recipient holder
     /// @param value The TE-encrypted amount of tokens to transfer
-    function encryptedTransferFrom(address from, address to, bytes calldata value) external;
+    function encryptedTransferFrom(address from, address to, bytes calldata value) external payable;
 
     /// @notice Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
     /// @dev Charges callbackFee from msg.sender even if not authorized to decrypt the payload
