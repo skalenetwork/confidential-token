@@ -104,6 +104,12 @@ error InsufficientGasToken(uint256 required, uint256 available)
 error InvalidPublicKey()
 ```
 
+### InvalidSaltForTransactionValue
+
+```solidity
+error InvalidSaltForTransactionValue()
+```
+
 ### InvalidTransferId
 
 ```solidity
@@ -760,4 +766,10 @@ function _encryptedTransfer(address from, address to, bytes value) internal virt
 | from | address | Address to transfer tokens from |
 | to | address | Address to transfer tokens to |
 | value | bytes | TE-encrypted amount of tokens to be transferred |
+
+### _encryptTEValueForHolder
+
+```solidity
+function _encryptTEValueForHolder(address holder, uint256 value) internal view returns (bytes encryptedValue)
+```
 

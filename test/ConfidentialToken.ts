@@ -355,7 +355,10 @@ describe("ConfidentialToken", () => {
         await bite.sendCallback();
 
         // Must be correctly encoded to hide the value, otherwise it leaks the length of the value
-        const encryptedAmount = await bite.encryptTE(ethers.zeroPadValue(ethers.toBeHex(amount), 32));
+        // Plaintext is abi.encode(from, amount) matching _encodeBalance on the contract
+        const encryptedAmount = await bite.encryptTE(
+            ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [owner.address, amount])
+        );
 
         await token.connect(owner).encryptedTransfer(recipient, encryptedAmount);
 
@@ -389,8 +392,12 @@ describe("ConfidentialToken", () => {
 
         await token.connect(owner).approve(spender, amount);
 
-        // Must be correctly encoded to hide the value, otherwise it leaks the length of the value
-        const encryptedAmount = await bite.encryptTE(ethers.zeroPadValue(ethers.toBeHex(amount), 32));
+        // Must be correctly encoded to hide the value, otherwise it leaks the length of the value.
+        // For transferFrom the value is salted to the spender (the submitter), matching the
+        // `spender != 0 ? spender : from` rule enforced on callback.
+        const encryptedAmount = await bite.encryptTE(
+            ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [spender.address, amount])
+        );
 
         await token.connect(spender).encryptedTransferFrom(owner, recipient, encryptedAmount);
 
@@ -1237,6 +1244,292 @@ describe("ConfidentialToken", () => {
             const callbackTx = await bite.sendCallback();
 
             await expect(callbackTx).to.not.emit(token, "TransferValueEncryptedForRecipient");
+        });
+    });
+
+    describe("Stress-testing salted encrypted data", () => {
+        // This section tests that the salted encryption of values prevents replaying encrypted balance values arbitrarily, which would otherwise allow an attacker to learn a victim's balance or transfer value.
+        const encryptValueFor = (bite: BiteMock, holder: string, amount: bigint) =>
+            bite.encryptTE(
+                ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [holder, amount])
+            );
+
+        it("should reject replaying a victim's stored balance cipher-text (passive-victim disclosure)", async () => {
+            const { token, bite, owner: victim } = await withMintedTokens();
+            const [, attacker, sink] = await ethers.getSigners();
+
+            // Victim merely holds tokens and registers a viewer, so a balance cipher-text is stored
+            await token.connect(victim).setViewerPublicKey(await getPublicKey(victim));
+            await bite.sendCallback();
+            const victimBalance = await balanceOf(token, bite, victim);
+
+            // Attacker reconstructs the victim's world-readable _thresholdBalances[victim] cipher-text
+            const victimBalanceCt = await encryptValueFor(bite, victim.address, victimBalance);
+
+            // Attacker fully sets up: registers their own viewer and funds gas for two callbacks
+            await token.fundWithGasToken(attacker, { value: (await token.callbackFee()) * 2n });
+            await token.connect(attacker).setViewerPublicKey(await getPublicKey(attacker));
+            await bite.sendCallback();
+
+            // Attacker replays the victim's cipher-text as their own transfer to a sink they control
+            await token.connect(attacker).encryptedTransfer(sink, victimBalanceCt);
+
+            // Callback must revert: salt (victim) does not match the transfer's `from` (attacker),
+            // so the decrypted balance is never re-encrypted to the attacker's viewer key
+            await expect(bite.sendCallback())
+                .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
+        });
+
+        it("should not leak balance information (revert is InvalidSalt, not InsufficientBalance)", async () => {
+            const { token, bite, owner: victim } = await withMintedTokens();
+            const [, attacker, sink] = await ethers.getSigners();
+
+            await token.connect(victim).setViewerPublicKey(await getPublicKey(victim));
+            await bite.sendCallback();
+            const victimBalance = await balanceOf(token, bite, victim);
+
+            const victimBalanceCt = await encryptValueFor(bite, victim.address, victimBalance);
+
+            // Attacker holds NO tokens (would fail any >= check) and only funds the callback gas
+            await token.fundWithGasToken(attacker, { value: await token.callbackFee() });
+            await token.connect(attacker).encryptedTransfer(sink, victimBalanceCt);
+
+            // The salt check fails before any balance comparison runs, so the revert reason is
+            // independent of whether the attacker's balance is >= or < the victim's balance.
+            // This denies the binary-search oracle described in CONF-01.
+            await expect(bite.sendCallback())
+                .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
+        });
+
+        it("should reject replaying a value cipher-text observed from another sender's transfer", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, attacker, sink] = await ethers.getSigners();
+            const amount = ethers.parseEther("10");
+
+            await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+            await bite.sendCallback();
+
+            // Owner crafts a self-salted value cipher-text and uses it in a legitimate transfer
+            const ownerValueCt = await encryptValueFor(bite, owner.address, amount);
+            await token.connect(owner).encryptedTransfer(recipient, ownerValueCt);
+            await bite.sendCallback();
+
+            // Attacker observed `ownerValueCt` in calldata and replays it as their own transfer
+            await token.fundWithGasToken(attacker, { value: await token.callbackFee() });
+            await token.connect(attacker).encryptedTransfer(sink, ownerValueCt);
+
+            await expect(bite.sendCallback())
+                .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
+        });
+
+        it("should reject replaying a victim's balance cipher-text via transferFrom without allowance", async () => {
+            const { token, bite, owner: victim } = await withMintedTokens();
+            const [, attacker, sink] = await ethers.getSigners();
+
+            await token.connect(victim).setViewerPublicKey(await getPublicKey(victim));
+            await bite.sendCallback();
+            const victimBalance = await balanceOf(token, bite, victim);
+            const victimBalanceCt = await encryptValueFor(bite, victim.address, victimBalance);
+
+            await token.fundWithGasToken(attacker, { value: await token.callbackFee() });
+
+            // Via transferFrom the value is salted to the spender (the attacker), so the victim's
+            // balance cipher-text (salted to the victim) fails the salt check on callback before
+            // the allowance is even consulted.
+            await token.connect(attacker).encryptedTransferFrom(victim, sink, victimBalanceCt);
+
+            await expect(bite.sendCallback())
+                .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
+        });
+
+        it("should allow a sender to reuse their OWN value cipher-text for legitimate transfers", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, recipient2] = await ethers.getSigners();
+            const amount = ethers.parseEther("5");
+            const gasFunding = ethers.parseEther("1.0");
+
+            await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+            await bite.sendCallback();
+            await token.connect(recipient).setViewerPublicKey(await getPublicKey(recipient), { value: gasFunding });
+            await bite.sendCallback();
+            await token.connect(recipient2).setViewerPublicKey(await getPublicKey(recipient2), { value: gasFunding });
+            await bite.sendCallback();
+
+            const ownValueCt = await encryptValueFor(bite, owner.address, amount);
+
+            // Self-salted cipher-text used in a legitimate transfer
+            await token.connect(owner).encryptedTransfer(recipient, ownValueCt);
+            await bite.sendCallback();
+            expect(await balanceOf(token, bite, recipient)).to.equal(amount);
+
+            // Reusing the same self-salted cipher-text is benign: it only ever moves the sender's
+            // own tokens and discloses the value only to the sender's own viewer key
+            await token.connect(owner).encryptedTransfer(recipient2, ownValueCt);
+            await bite.sendCallback();
+            expect(await balanceOf(token, bite, recipient2)).to.equal(amount);
+        });
+
+        it("should reject replaying a foreign-salted cipher-text even when it encodes zero", async () => {
+            const { token, bite, owner: victim } = await withMintedTokens();
+            const [, attacker, sink] = await ethers.getSigners();
+
+            await token.connect(victim).setViewerPublicKey(await getPublicKey(victim));
+            await bite.sendCallback();
+
+            // Cipher-text salted with the victim but encoding a zero amount. _decodeAndVerifyBalance
+            // requires holder == from unconditionally (no amount == 0 short-circuit), so even a
+            // zero-valued foreign-salted cipher-text is rejected. This is what closes the residual
+            // zero / non-zero balance oracle (see the test below).
+            const zeroCt = await encryptValueFor(bite, victim.address, 0n);
+
+            await token.fundWithGasToken(attacker, { value: await token.callbackFee() });
+            await token.connect(attacker).encryptedTransfer(sink, zeroCt);
+
+            await expect(bite.sendCallback())
+                .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
+        });
+
+        it("should allow a legitimate self-salted zero-value transfer", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient] = await ethers.getSigners();
+            const gasFunding = ethers.parseEther("1.0");
+
+            await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+            await bite.sendCallback();
+            await token.connect(recipient).setViewerPublicKey(await getPublicKey(recipient), { value: gasFunding });
+            await bite.sendCallback();
+
+            const ownerBalanceBefore = await balanceOf(token, bite, owner);
+
+            // Honest zero-value transfers are salted to the rightful sender, so holder == from
+            // holds and the callback finalizes without moving any tokens.
+            const ownZeroCt = await encryptValueFor(bite, owner.address, 0n);
+            await token.connect(owner).encryptedTransfer(recipient, ownZeroCt);
+            await expect(bite.sendCallback()).to.not.be.reverted;
+
+            expect(await balanceOf(token, bite, owner)).to.equal(ownerBalanceBefore);
+            expect(await balanceOf(token, bite, recipient)).to.equal(0n);
+        });
+
+        // Submission-time size gating
+        //
+        // The caller-supplied `value` is validated synchronously in _encryptedUpdateExtended:
+        //   require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 33, ...)
+        // TE_RETURN_SIZE_THRESHOLD is 323, so the only accepted length is 356 bytes. Any other
+        // length MUST revert in the submitting transaction itself.
+        const VALID_TE_PAYLOAD_SIZE = 356;
+
+        it("should reject any incorrectly-sized TE payload at submission time, not on callback", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient] = await ethers.getSigners();
+
+            await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+            await bite.sendCallback();
+
+            const invalidSizes = [
+                "0x",                                                  // empty
+                ethers.hexlify(ethers.randomBytes(1)),                 // single byte
+                ethers.hexlify(ethers.randomBytes(VALID_TE_PAYLOAD_SIZE - 1)), // one byte short
+                ethers.hexlify(ethers.randomBytes(VALID_TE_PAYLOAD_SIZE + 1)), // one byte long
+                ethers.hexlify(ethers.randomBytes(VALID_TE_PAYLOAD_SIZE * 2))  // far too long
+            ];
+
+            const callbackFee = await token.callbackFee();
+            for (const payload of invalidSizes) {
+                const gasTokenBefore = await token.gasTokenBalanceOf(owner);
+
+                // Rejected synchronously in the submitting transaction
+                await token.connect(owner).encryptedTransfer(recipient, payload)
+                    .should.be.revertedWithCustomError(token, "ValueWasNotEncryptedCorrectly");
+
+                // No CTX scheduled and no fee charged: behavior is fully gated up-front
+                expect(await token.gasTokenBalanceOf(owner)).to.equal(gasTokenBefore);
+                expect(callbackFee).to.be.greaterThan(0n);
+            }
+
+            // Every attempt reverted at submission, so the callback queue is empty
+            await bite.sendCallback().should.be.revertedWithCustomError(bite, "NoCallbacksQueued");
+        });
+
+        it("should reject an incorrectly-sized payload via transferFrom at submission time too", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, spender, recipient] = await ethers.getSigners();
+
+            await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+            await bite.sendCallback();
+            await token.fundWithGasToken(spender, { value: await token.callbackFee() });
+
+            const wrongSize = ethers.hexlify(ethers.randomBytes(VALID_TE_PAYLOAD_SIZE - 1));
+            const gasTokenBefore = await token.gasTokenBalanceOf(spender);
+
+            await token.connect(spender).encryptedTransferFrom(owner, recipient, wrongSize)
+                .should.be.revertedWithCustomError(token, "ValueWasNotEncryptedCorrectly");
+
+            // Spender's gas token untouched; nothing was queued
+            expect(await token.gasTokenBalanceOf(spender)).to.equal(gasTokenBefore);
+            await bite.sendCallback().should.be.revertedWithCustomError(bite, "NoCallbacksQueued");
+        });
+
+        it("should accept a correctly-sized payload at submission and only enforce content in the callback", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient] = await ethers.getSigners();
+
+            await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+            await bite.sendCallback();
+
+            // A real, self-salted cipher-text of the exact valid length is accepted and finalizes.
+            const amount = ethers.parseEther("1");
+            const validCt = await encryptValueFor(bite, owner.address, amount);
+            expect(ethers.dataLength(validCt)).to.equal(VALID_TE_PAYLOAD_SIZE);
+
+            await token.connect(recipient).setViewerPublicKey(
+                await getPublicKey(recipient), { value: ethers.parseEther("1.0") }
+            );
+            await bite.sendCallback();
+
+            await expect(token.connect(owner).encryptedTransfer(recipient, validCt)).to.not.be.reverted;
+            await bite.sendCallback();
+            expect(await balanceOf(token, bite, recipient)).to.equal(amount);
+        });
+
+        it("does not leak a victim's zero/non-zero balance", async () => {
+            const { token, bite, owner: richVictim } = await withMintedTokens();
+            const [, zeroVictim, attacker, sink] = await ethers.getSigners();
+            const gasFunding = ethers.parseEther("1.0");
+
+            // Both victims simply register a viewer (passive participants). richVictim holds the
+            // minted supply; zeroVictim holds nothing.
+            await token.connect(richVictim).setViewerPublicKey(await getPublicKey(richVictim));
+            await bite.sendCallback();
+            await token.connect(zeroVictim).setViewerPublicKey(await getPublicKey(zeroVictim), { value: gasFunding });
+            await bite.sendCallback();
+
+            const richBalance = await balanceOf(token, bite, richVictim);
+            expect(richBalance).to.be.greaterThan(0n);
+
+            // These are exactly the world-readable cipher-texts an attacker reads from storage; the
+            // attacker does NOT need to know the underlying amounts to replay the raw bytes.
+            const richBalanceCt = await encryptValueFor(bite, richVictim.address, richBalance);
+            const zeroBalanceCt = await encryptValueFor(bite, zeroVictim.address, 0n);
+
+            await token.fundWithGasToken(attacker, { value: (await token.callbackFee()) * 2n });
+
+            // Identical attacker action against each victim now yields the SAME outcome: both
+            // foreign-salted replays revert with InvalidSaltForTransactionValue, so the attacker
+            // learns nothing distinguishing about either victim's balance. The two cases are run
+            // from a shared snapshot because a reverting callback stays at the head of the BiteMock
+            // queue, which would otherwise prevent the second callback from ever executing.
+            const snapshot = await takeSnapshot();
+
+            await token.connect(attacker).encryptedTransfer(sink, richBalanceCt);
+            await expect(bite.sendCallback())
+                .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
+
+            await snapshot.restore();
+
+            await token.connect(attacker).encryptedTransfer(sink, zeroBalanceCt);
+            await expect(bite.sendCallback())
+                .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
         });
     });
 });

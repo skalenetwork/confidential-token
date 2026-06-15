@@ -118,6 +118,7 @@ contract ConfidentialToken is
     error InsufficientBalance();
     error InsufficientGasToken(uint256 required, uint256 available);
     error InvalidPublicKey();
+    error InvalidSaltForTransactionValue();
     error InvalidTransferId(uint256 transferId);
     error NoViewerRegisteredForHolder(address holder);
     error PublicKeyIsNotRegistered(address viewer);
@@ -539,7 +540,15 @@ contract ConfidentialToken is
         _validateDecryptedArguments(decryptedArguments, transferInfo.from, transferInfo.to);
 
         uint256 valueIndex = decryptedArguments.length - 1;
-        value = _decodeBalance(decryptedArguments[valueIndex]);
+        // The transfer value cipher-text is salted with the address that submitted it: the
+        // spender for delegated (transferFrom) flows, otherwise `from` (direct transfer, mint,
+        // burn, EIP-3009). This binds the value to its submitter and prevents replaying a third
+        // party's stored balance/value cipher-text (CONF-01).
+        address expectedSalt = transferInfo.from;
+        if (transferInfo.spender != address(0)) {
+            expectedSalt = transferInfo.spender;
+        }
+        value = _decodeAndVerifyBalance(decryptedArguments[valueIndex], expectedSalt);
 
         (uint256 fromBalance, uint256 toBalance) = _decodeOriginalBalances(decryptedArguments, transferInfo, value);
 
@@ -548,6 +557,7 @@ contract ConfidentialToken is
         bool updatedTo =
             transferInfo.to != address(0) && _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber;
         if (updatedFrom || updatedTo) {
+            // This MUST be kept always after decoding and verifying Balance (value)
             _reSubmitTransfer(transferInfo, value, plaintextArguments);
             return (false, value);
         }
@@ -575,11 +585,14 @@ contract ConfidentialToken is
         // Resending updated encrypted balances to perform the transfer
         emit CTXResubmitted(msg.sender);
 
-        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
-        bytes[] memory encryptedArguments = _encryptArguments(transferInfo.from, transferInfo.to, encryptedValue);
-
-        // TODO: will need transporting once we have encrypted allowances
+        // TODO: will need transporting spender once we have encrypted allowances
+        // Encrypted value was already validated on the first CTX. We clear the spender (so the
+        // allowance is not spent again) and re-salt the value to `from`, which is the holder the
+        // next callback verifies against now that spender == address(0).
+        bytes memory encryptedValue = _encryptTEValueForHolder(transferInfo.from, value);
         transferInfo.spender = address(0);
+        // End of TODO
+        bytes[] memory encryptedArguments = _encryptArguments(transferInfo.from, transferInfo.to, encryptedValue);
         transferInfo.submittedBlockNumber = block.number;
         uint256 numArgs = plaintextArguments.length;
         bytes[] memory updatedPlaintextArguments = new bytes[](numArgs);
@@ -689,7 +702,7 @@ contract ConfidentialToken is
     }
 
     function _updateWithGasPayer(address from, address to, address gasPayer, uint256 value) internal {
-        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        bytes memory encryptedValue = _encryptTEValueForHolder(from, value);
         _encryptedUpdate({
             from: from,
             to: to,
@@ -741,7 +754,7 @@ contract ConfidentialToken is
     {
         // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
         // slither-disable-next-line incorrect-equality
-        require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 1, ValueWasNotEncryptedCorrectly());
+        require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 33, ValueWasNotEncryptedCorrectly());
         bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
         uint256 extraPlaintextArgumentsLength = extraPlaintextArguments.length;
         bytes[] memory plaintextArguments = new bytes[](2 + extraPlaintextArgumentsLength);
@@ -767,7 +780,7 @@ contract ConfidentialToken is
         address to,
         uint256 value
     ) internal virtual {
-        _encryptedTransferFrom(from, to, BITE.encryptTE(encryptTEAddress, abi.encodePacked(value)));
+        _encryptedTransferFrom(from, to, _encryptTEValueForHolder(msg.sender, value));
     }
 
     function _encryptedTransferFrom(
@@ -810,10 +823,24 @@ contract ConfidentialToken is
         });
     }
 
+    function _encryptTEValueForHolder(
+        address holder,
+        uint256 value
+    )
+        internal
+        view
+        returns (bytes memory encryptedValue)
+    {
+        encryptedValue = BITE.encryptTE(
+            encryptTEAddress,
+            _encodeBalance(holder, value)
+        );
+    }
+
     // Private functions
 
     function _setBalance(address holder, uint256 balance) private {
-        _thresholdBalances[holder] = BITE.encryptTE(encryptTEAddress, abi.encodePacked(balance));
+        _thresholdBalances[holder] = _encryptTEValueForHolder(holder, balance);
         _lastChanged[holder] = block.number;
         if (_viewerIsRegistered(holder)) {
             PublicKey memory viewerPublicKey = _getViewKey(holder);
@@ -835,18 +862,18 @@ contract ConfidentialToken is
     {
         if (transferInfo.from == address(0)) {
             // mint
-            toBalance = _decodeBalance(decryptedArguments[0]);
+            toBalance = _decodeAndVerifyBalance(decryptedArguments[0], transferInfo.to);
         } else if (transferInfo.to == address(0)) {
             // burn
-            fromBalance = _decodeBalance(decryptedArguments[0]);
+            fromBalance = _decodeAndVerifyBalance(decryptedArguments[0], transferInfo.from);
         } else {
             // transfer
             if(transferInfo.spender != address(0)) {
                 // Allowances not encrypted
                 _spendAllowance(transferInfo.from, transferInfo.spender, value);
             }
-            fromBalance = _decodeBalance(decryptedArguments[0]);
-            toBalance = _decodeBalance(decryptedArguments[1]);
+            fromBalance = _decodeAndVerifyBalance(decryptedArguments[0], transferInfo.from);
+            toBalance = _decodeAndVerifyBalance(decryptedArguments[1], transferInfo.to);
         }
     }
 
@@ -917,10 +944,7 @@ contract ConfidentialToken is
     function _getEncryptedBalance(address holder) private view returns (bytes memory encryptedBalance) {
         encryptedBalance = _thresholdBalances[holder];
         if (encryptedBalance.length == 0) {
-            encryptedBalance = BITE.encryptTE(
-                encryptTEAddress,
-                abi.encodePacked(uint256(0))
-            );
+            encryptedBalance = _encryptTEValueForHolder(holder, uint256(0));
         }
     }
 
@@ -957,11 +981,29 @@ contract ConfidentialToken is
         return publicKey.x != bytes32(0) || publicKey.y != bytes32(0);
     }
 
-    function _decodeBalance(bytes calldata encodedBalance) private pure returns (uint256 balance) {
+    function _encodeBalance(address holder, uint256 balance) private pure returns (bytes memory encodedBalance) {
+        return abi.encode(holder, balance);
+    }
+
+    function _decodeBalance(bytes calldata encodedBalance) private pure returns (address holder, uint256 balance) {
         if (encodedBalance.length == 0) {
-            return 0;
+            return (address(0), 0);
         }
-        return uint256(bytes32(encodedBalance));
+        (address holderAddress, uint256 decodedBalance) = abi.decode(encodedBalance, (address, uint256));
+        return (holderAddress, decodedBalance);
+    }
+
+    function _decodeAndVerifyBalance(
+        bytes calldata encodedBalance,
+        address expectedHolder
+    )
+        private
+        pure
+        returns (uint256 balance)
+    {
+        (address holder, uint256 decodedBalance) = _decodeBalance(encodedBalance);
+        require(holder == expectedHolder, InvalidSaltForTransactionValue());
+        return decodedBalance;
     }
 
     /**
@@ -990,18 +1032,18 @@ contract ConfidentialToken is
         } else if (decryptedArguments.length == 3) {
             // token transfer
             require(
-                decryptedArguments[1].length == 32 || decryptedArguments[1].length == 0,
+                decryptedArguments[1].length == 64 || decryptedArguments[1].length == 0,
                 DecryptionBadFormat()
             );
         } else {
             revert DecryptionBadFormat();
         }
         require(
-            decryptedArguments[0].length == 32 || decryptedArguments[0].length == 0,
+            decryptedArguments[0].length == 64 || decryptedArguments[0].length == 0,
             DecryptionBadFormat()
         );
         require(
-            decryptedArguments[valueIndex].length == 32,
+            decryptedArguments[valueIndex].length == 64,
             DecryptionBadFormat()
         );
     }
