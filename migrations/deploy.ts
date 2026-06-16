@@ -165,7 +165,7 @@ export class TokenDeployer {
         console.log(`Deploying ${contractName}...`);
         const factory = await ethers.getContractFactory(contractName);
         const contract = await factory.deploy(...constructorArgs);
-        await contract.deploymentTransaction()?.wait();
+        await contract.waitForDeployment();
         const deployedAddress = await ethers.resolveAddress(contract);
         console.log(`Deployed ${contractName} at: ${deployedAddress}`);
         this._storeDeployment(contractName, deployedAddress);

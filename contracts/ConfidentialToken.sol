@@ -943,6 +943,9 @@ contract ConfidentialToken is
 
     function _getEncryptedBalance(address holder) private view returns (bytes memory encryptedBalance) {
         encryptedBalance = _thresholdBalances[holder];
+        // This is allways correct, as an empty encrypted balance is a zero balance.
+        // Empty balances only occur when a holder has never had any transfers before
+        // slither-disable-next-line incorrect-equality
         if (encryptedBalance.length == 0) {
             encryptedBalance = _encryptTEValueForHolder(holder, uint256(0));
         }
