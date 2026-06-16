@@ -323,6 +323,19 @@ contract ConfidentialToken is
     }
 
     /// @inheritdoc IConfidentialToken
+    function encryptValue(
+        address holder,
+        uint256 value
+    )
+        external
+        view
+        override
+        returns (bytes memory encryptedValue)
+    {
+        return _encryptTEValueForHolder(holder, value);
+    }
+
+    /// @inheritdoc IConfidentialToken
     function gasTokenBalanceOf(address holder) external view override returns (uint256 balance) {
         return _gasTokenBalance[holder];
     }

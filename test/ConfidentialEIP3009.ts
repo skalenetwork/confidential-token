@@ -40,12 +40,6 @@ describe("ConfidentialEIP3009", () => {
         nonce = ethers.hexlify(ethers.randomBytes(32));
     });
 
-    const encryptValue = async (from: AddressLike, value: BigNumberish): Promise<string> => {
-        return bite.encryptTE(
-            ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [await ethers.resolveAddress(from), value])
-        );
-    };
-
     it("has the expected type hashes", async () => {
         expect(await token.ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH()).to.equal(
             ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH
@@ -79,7 +73,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("executes a transfer when a valid authorization is given", async () => {
             const { from, to, value, validAfter, validBefore } = transferParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
             // create an authorization to transfer money from Alice to Bob and sign
             // with Alice's key
             const { v, r, s } = await signEncryptedTransferAuthorization(
@@ -123,7 +117,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the signature does not match given parameters", async () => {
             const { from, to, value, validAfter, validBefore } = transferParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization
             const { v, r, s } = await signEncryptedTransferAuthorization(
@@ -138,7 +132,7 @@ describe("ConfidentialEIP3009", () => {
             );
 
             // try to cheat by passing a different encrypted value
-            const wrongEncryptedValue = await encryptValue(from, Number(value) * 2);
+            const wrongEncryptedValue = await token.encryptValue(from, Number(value) * 2);
 
             await token.connect(charlie).encryptedTransferWithAuthorization(
                 from,
@@ -155,7 +149,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the signature is not signed with the right key", async () => {
             const { from, to, value, validAfter, validBefore } = transferParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create an authorization to transfer money from Alice to Bob, but
             // sign with Bob's key instead of Alice's
@@ -187,7 +181,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the authorization is not yet valid", async () => {
             const { from, to, value, validBefore } = transferParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization that won't be valid until 10 seconds
             // later
@@ -220,7 +214,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the authorization is expired", async () => {
             const { from, to, value, validAfter } = transferParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization that expires immediately
             const validBefore = await nowPlusSeconds(0);
@@ -253,7 +247,7 @@ describe("ConfidentialEIP3009", () => {
             const { from, to, validAfter, validBefore } = transferParams;
             // create a signed authorization
             const value = 1e6;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             const { v, r, s } = await signEncryptedTransferAuthorization(
                 from,
@@ -296,7 +290,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the authorization has a nonce that has already been used by the signer", async () => {
             const { from, to, value, validAfter, validBefore } = transferParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization
             const authorization = await signEncryptedTransferAuthorization(
@@ -325,7 +319,7 @@ describe("ConfidentialEIP3009", () => {
 
             // create another authorization with the same nonce, but with different
             // parameters
-            const smallerEncryptedValue = await encryptValue(from, 1e6);
+            const smallerEncryptedValue = await token.encryptValue(from, 1e6);
             const authorization2 = await signEncryptedTransferAuthorization(
                 from,
                 to,
@@ -356,7 +350,7 @@ describe("ConfidentialEIP3009", () => {
             // create a signed authorization that attempts to transfer an amount
             // that exceeds the sender's balance
             const value = initialBalance + 1;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             const { v, r, s } = await signEncryptedTransferAuthorization(
                 from,
@@ -393,7 +387,7 @@ describe("ConfidentialEIP3009", () => {
                 validAfter,
                 validBefore,
             } = transferParams;
-            const encryptedValue = await encryptValue(owner, value);
+            const encryptedValue = await token.encryptValue(owner, value);
 
             // create a signed authorization for a receive (wrong type)
             const { v, r, s } = await signEncryptedReceiveAuthorization(
@@ -436,7 +430,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("executes a transfer when a valid authorization is submitted by the payee", async () => {
             const { from, to, value, validAfter, validBefore } = receiveParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a receive authorization to transfer money from Alice to Charlie
             // and sign with Alice's key
@@ -484,7 +478,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the caller is not the payee", async () => {
             const { from, to, value, validAfter, validBefore } = receiveParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization
             const { v, r, s } = await signEncryptedReceiveAuthorization(
@@ -520,7 +514,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the signature does not match given parameters", async () => {
             const { from, to, value, validAfter, validBefore } = receiveParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization
             const { v, r, s } = await signEncryptedReceiveAuthorization(
@@ -535,7 +529,7 @@ describe("ConfidentialEIP3009", () => {
             );
 
             // try to cheat by passing a different encrypted value
-            const wrongEncryptedValue = await encryptValue(from, Number(value) * 2);
+            const wrongEncryptedValue = await token.encryptValue(from, Number(value) * 2);
 
             await token.connect(charlie).encryptedReceiveWithAuthorization(
                 from,
@@ -552,7 +546,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the signature is not signed with the right key", async () => {
             const { from, to, value, validAfter, validBefore } = receiveParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create an authorization to transfer money from Alice to Charlie, but
             // sign with Bob's key instead of Alice's
@@ -584,7 +578,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the authorization is not yet valid", async () => {
             const { from, to, value, validBefore } = receiveParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization that won't be valid until 10 seconds
             // later
@@ -616,7 +610,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the authorization is expired", async () => {
             const { from, to, value, validAfter } = receiveParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization that expires immediately
             const validBefore = await nowPlusSeconds(0);
@@ -649,7 +643,7 @@ describe("ConfidentialEIP3009", () => {
             const { from, to, validAfter, validBefore } = receiveParams;
             // create a signed authorization
             const value = 1e6;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             const { v, r, s } = await signEncryptedReceiveAuthorization(
                 from,
@@ -692,7 +686,7 @@ describe("ConfidentialEIP3009", () => {
 
         it("reverts if the authorization has a nonce that has already been used by the signer", async () => {
             const { from, to, value, validAfter, validBefore } = receiveParams;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             // create a signed authorization
             const authorization = await signEncryptedReceiveAuthorization(
@@ -723,7 +717,7 @@ describe("ConfidentialEIP3009", () => {
 
             // create another authorization with the same nonce, but with different
             // parameters
-            const smallerEncryptedValue = await encryptValue(from, 1e6);
+            const smallerEncryptedValue = await token.encryptValue(from, 1e6);
             const authorization2 = await signEncryptedReceiveAuthorization(
                 from,
                 to,
@@ -753,7 +747,7 @@ describe("ConfidentialEIP3009", () => {
             // create a signed authorization that attempts to transfer an amount
             // that exceeds the sender's balance
             const value = initialBalance + 1;
-            const encryptedValue = await encryptValue(from, value);
+            const encryptedValue = await token.encryptValue(from, value);
 
             const { v, r, s } = await signEncryptedReceiveAuthorization(
                 from,
@@ -794,7 +788,7 @@ describe("ConfidentialEIP3009", () => {
                 validAfter,
                 validBefore,
             } = receiveParams;
-            const encryptedValue = await encryptValue(owner, value);
+            const encryptedValue = await token.encryptValue(owner, value);
 
             // create a signed authorization for a transfer (wrong type)
             const { v, r, s } = await signEncryptedTransferAuthorization(

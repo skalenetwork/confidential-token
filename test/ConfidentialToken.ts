@@ -354,11 +354,7 @@ describe("ConfidentialToken", () => {
         );
         await bite.sendCallback();
 
-        // Must be correctly encoded to hide the value, otherwise it leaks the length of the value
-        // Plaintext is abi.encode(from, amount) matching _encodeBalance on the contract
-        const encryptedAmount = await bite.encryptTE(
-            ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [owner.address, amount])
-        );
+        const encryptedAmount = await token.encryptValue(owner.address, amount);
 
         await token.connect(owner).encryptedTransfer(recipient, encryptedAmount);
 
@@ -392,12 +388,8 @@ describe("ConfidentialToken", () => {
 
         await token.connect(owner).approve(spender, amount);
 
-        // Must be correctly encoded to hide the value, otherwise it leaks the length of the value.
-        // For transferFrom the value is salted to the spender (the submitter), matching the
-        // `spender != 0 ? spender : from` rule enforced on callback.
-        const encryptedAmount = await bite.encryptTE(
-            ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [spender.address, amount])
-        );
+        // For transferFrom the value must be salted to the spender, not the owner
+        const encryptedAmount = await token.encryptValue(spender.address, amount);
 
         await token.connect(spender).encryptedTransferFrom(owner, recipient, encryptedAmount);
 
@@ -1249,11 +1241,6 @@ describe("ConfidentialToken", () => {
 
     describe("Stress-testing salted encrypted data", () => {
         // This section tests that the salted encryption of values prevents replaying encrypted balance values arbitrarily, which would otherwise allow an attacker to learn a victim's balance or transfer value.
-        const encryptValueFor = (bite: BiteMock, holder: string, amount: bigint) =>
-            bite.encryptTE(
-                ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [holder, amount])
-            );
-
         it("should reject replaying a victim's stored balance cipher-text (passive-victim disclosure)", async () => {
             const { token, bite, owner: victim } = await withMintedTokens();
             const [, attacker, sink] = await ethers.getSigners();
@@ -1266,7 +1253,7 @@ describe("ConfidentialToken", () => {
             // Attacker reconstructs the victim's world-readable _thresholdBalances[victim] cipher-text
             // In the real world, the attacker would read storage from _thresholdBalances[victim].
             // Here in local tests, this is the same
-            const victimBalanceCt = await encryptValueFor(bite, victim.address, victimBalance);
+            const victimBalanceCt = await token.encryptValue(victim.address, victimBalance);
 
             // Attacker fully sets up: registers their own viewer and funds gas for two callbacks
             await token.fundWithGasToken(attacker, { value: (await token.callbackFee()) * 2n });
@@ -1290,7 +1277,7 @@ describe("ConfidentialToken", () => {
             await bite.sendCallback();
             const victimBalance = await balanceOf(token, bite, victim);
 
-            const victimBalanceCt = await encryptValueFor(bite, victim.address, victimBalance);
+            const victimBalanceCt = await token.encryptValue(victim.address, victimBalance);
 
             // Attacker holds NO tokens (would fail any >= check) and only funds the callback gas
             await token.fundWithGasToken(attacker, { value: await token.callbackFee() });
@@ -1312,7 +1299,7 @@ describe("ConfidentialToken", () => {
             await bite.sendCallback();
 
             // Owner crafts a self-salted value cipher-text and uses it in a legitimate transfer
-            const ownerValueCt = await encryptValueFor(bite, owner.address, amount);
+            const ownerValueCt = await token.encryptValue(owner.address, amount);
             await token.connect(owner).encryptedTransfer(recipient, ownerValueCt);
             await bite.sendCallback();
 
@@ -1331,7 +1318,7 @@ describe("ConfidentialToken", () => {
             await token.connect(victim).setViewerPublicKey(await getPublicKey(victim));
             await bite.sendCallback();
             const victimBalance = await balanceOf(token, bite, victim);
-            const victimBalanceCt = await encryptValueFor(bite, victim.address, victimBalance);
+            const victimBalanceCt = await token.encryptValue(victim.address, victimBalance);
 
             await token.fundWithGasToken(attacker, { value: await token.callbackFee() });
 
@@ -1357,7 +1344,7 @@ describe("ConfidentialToken", () => {
             await token.connect(recipient2).setViewerPublicKey(await getPublicKey(recipient2), { value: gasFunding });
             await bite.sendCallback();
 
-            const ownValueCt = await encryptValueFor(bite, owner.address, amount);
+            const ownValueCt = await token.encryptValue(owner.address, amount);
 
             // Self-salted cipher-text used in a legitimate transfer
             await token.connect(owner).encryptedTransfer(recipient, ownValueCt);
@@ -1382,7 +1369,7 @@ describe("ConfidentialToken", () => {
             // requires holder == from unconditionally (no amount == 0 short-circuit), so even a
             // zero-valued foreign-salted cipher-text is rejected. This is what closes the residual
             // zero / non-zero balance oracle (see the test below).
-            const zeroCt = await encryptValueFor(bite, victim.address, 0n);
+            const zeroCt = await token.encryptValue(victim.address, 0n);
 
             await token.fundWithGasToken(attacker, { value: await token.callbackFee() });
             await token.connect(attacker).encryptedTransfer(sink, zeroCt);
@@ -1405,7 +1392,7 @@ describe("ConfidentialToken", () => {
 
             // Honest zero-value transfers are salted to the rightful sender, so holder == from
             // holds and the callback finalizes without moving any tokens.
-            const ownZeroCt = await encryptValueFor(bite, owner.address, 0n);
+            const ownZeroCt = await token.encryptValue(owner.address, 0n);
             await token.connect(owner).encryptedTransfer(recipient, ownZeroCt);
             await expect(bite.sendCallback()).to.not.be.reverted;
 
@@ -1481,7 +1468,7 @@ describe("ConfidentialToken", () => {
 
             // A real, self-salted cipher-text of the exact valid length is accepted and finalizes.
             const amount = ethers.parseEther("1");
-            const validCt = await encryptValueFor(bite, owner.address, amount);
+            const validCt = await token.encryptValue(owner.address, amount);
             expect(ethers.dataLength(validCt)).to.equal(VALID_TE_PAYLOAD_SIZE);
 
             await token.connect(recipient).setViewerPublicKey(
@@ -1511,8 +1498,8 @@ describe("ConfidentialToken", () => {
 
             // These are exactly the world-readable cipher-texts an attacker reads from storage; the
             // attacker does NOT need to know the underlying amounts to replay the raw bytes.
-            const richBalanceCt = await encryptValueFor(bite, richVictim.address, richBalance);
-            const zeroBalanceCt = await encryptValueFor(bite, zeroVictim.address, 0n);
+            const richBalanceCt = await token.encryptValue(richVictim.address, richBalance);
+            const zeroBalanceCt = await token.encryptValue(zeroVictim.address, 0n);
 
             await token.fundWithGasToken(attacker, { value: (await token.callbackFee()) * 2n });
 
