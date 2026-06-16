@@ -752,7 +752,7 @@ contract ConfidentialToken is
         internal
         virtual
     {
-        // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
+        // Values should be padded exactly to 64 bytes (abi.encode(address,uint256))before encrypted with BITE TE
         // slither-disable-next-line incorrect-equality
         require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 33, ValueWasNotEncryptedCorrectly());
         bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
@@ -943,7 +943,7 @@ contract ConfidentialToken is
 
     function _getEncryptedBalance(address holder) private view returns (bytes memory encryptedBalance) {
         encryptedBalance = _thresholdBalances[holder];
-        // This is allways correct, as an empty encrypted balance is a zero balance.
+        // This is always correct, as an empty encrypted balance is a zero balance.
         // Empty balances only occur when a holder has never had any transfers before
         // slither-disable-next-line incorrect-equality
         if (encryptedBalance.length == 0) {

@@ -1264,6 +1264,8 @@ describe("ConfidentialToken", () => {
             const victimBalance = await balanceOf(token, bite, victim);
 
             // Attacker reconstructs the victim's world-readable _thresholdBalances[victim] cipher-text
+            // In the real world, the attacker would read storage from _thresholdBalances[victim].
+            // Here in local tests, this is the same
             const victimBalanceCt = await encryptValueFor(bite, victim.address, victimBalance);
 
             // Attacker fully sets up: registers their own viewer and funds gas for two callbacks
