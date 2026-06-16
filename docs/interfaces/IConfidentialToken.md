@@ -463,7 +463,7 @@ function retrieveGasToken(uint256 amount, address receiver) external
 Transfers tokens to another holder
 
 ```solidity
-function encryptedTransfer(address to, bytes value) external
+function encryptedTransfer(address to, bytes value) external payable
 ```
 
 #### Parameters
@@ -478,7 +478,7 @@ function encryptedTransfer(address to, bytes value) external
 Transfers tokens from one holder to another using allowance
 
 ```solidity
-function encryptedTransferFrom(address from, address to, bytes value) external
+function encryptedTransferFrom(address from, address to, bytes value) external payable
 ```
 
 #### Parameters

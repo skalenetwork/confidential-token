@@ -56,4 +56,10 @@ interface IConfidentialWrapper is IConfidentialToken {
         string calldata version_,
         address initialAuthority
     ) external;
+
+    /// @notice withdrawTo like function that allows to top up gas token wallet in the same transaction
+    /// @param account The address to release the underlying tokens to
+    /// @param value The amount of tokens to release
+    /// @return success Whether the withdrawal was successful
+    function withdrawToWithGasToken(address account, uint256 value) external payable returns (bool success);
 }

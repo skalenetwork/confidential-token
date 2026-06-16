@@ -131,6 +131,12 @@ contract ConfidentialWrapper is
         underlying().safeTransfer(account, value);
     }
 
+    /// @inheritdoc IConfidentialWrapper
+    function withdrawToWithGasToken(address account, uint256 value) external payable override returns (bool success) {
+        fundWithGasToken(msg.sender);
+        return withdrawTo(account, value);
+    }
+
     // Public functions
 
     ///@inheritdoc ConfidentialToken

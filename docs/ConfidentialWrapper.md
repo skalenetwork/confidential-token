@@ -57,26 +57,14 @@ constructor(bool proxyMode, contract IERC20Metadata underlyingToken, string vers
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| proxyMode | bool | If true, disables initializers for proxy deployment.                  If false, initializes the contract directly. |
-| underlyingToken | contract IERC20Metadata | Token to wrap confidentially. Ignored when proxyMode is true. |
-| version_ | string | Version of the wrapper. Ignored when proxyMode is true. |
-| initialAuthority | address | Initial authority address. Ignored when proxyMode is true. |
+| account | address | The address to credit the wrapped tokens to |
+| value | uint256 | The amount of tokens to wrap |
 
-### initialize
-
-Initializes the contract for proxy deployment.
-
-```solidity
-function initialize(contract IERC20Metadata underlyingToken, string version_, address initialAuthority) external
-```
-
-#### Parameters
+#### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| underlyingToken | contract IERC20Metadata | Token to wrap confidentially. |
-| version_ | string | Version of the wrapper. |
-| initialAuthority | address | Initial authority address. |
+| success | bool | Whether the deposit was successful |
 
 ### releaseTo
 

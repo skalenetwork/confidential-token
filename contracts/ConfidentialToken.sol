@@ -187,7 +187,7 @@ contract ConfidentialToken is
     }
 
     /// @inheritdoc IConfidentialToken
-    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external override {
+    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external payable override {
         // This function is kept for backward compatibility with older versions of the contract
         requestDecryptHistoricTransferFor(encryptedTransferData, msg.sender);
     }
@@ -390,9 +390,11 @@ contract ConfidentialToken is
         address historicViewer
     )
         public
+        payable
         override
         onlyRegisteredUser(historicViewer)
     {
+        fundWithGasToken(msg.sender);
         bytes[] memory encryptedArguments = new bytes[](1);
         encryptedArguments[0] = encryptedTransferData;
 
