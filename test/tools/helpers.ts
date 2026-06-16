@@ -1,11 +1,17 @@
 // cspell:words ECIES
 
 import { AddressLike } from "ethers";
-import { BiteMock, ConfidentialToken } from "../../typechain-types";
+import { BiteMock } from "../../typechain-types";
 import { ethers } from "hardhat";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
-export const balanceOf = async (token: ConfidentialToken, bite: BiteMock, holder: AddressLike) => {
+type EncryptedBalanceToken = {
+    encryptedBalanceOf(holder: AddressLike): Promise<string>;
+    viewerAddresses(holder: AddressLike): Promise<string>;
+    publicKeys(address: string): Promise<{ x: string; y: string }>;
+};
+
+export const balanceOf = async (token: EncryptedBalanceToken, bite: BiteMock, holder: AddressLike) => {
     const encryptedBalance = await token.encryptedBalanceOf(holder);
     if (encryptedBalance === "0x") throw new Error("Unexpected empty data");
 

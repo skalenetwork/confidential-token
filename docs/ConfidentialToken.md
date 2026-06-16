@@ -2,7 +2,7 @@
 
 ## ConfidentialToken
 
-ERC20-like token with encrypted balances
+Upgradeable ERC20-like token with encrypted balances
 
 ### TransferInfo
 
@@ -156,20 +156,21 @@ modifier onlyRegisteredUser(address user)
 
 ### constructor
 
-Sets the values for {name} and {symbol}.
+Sets up the contract for proxy or direct deployment.
 
 ```solidity
-constructor(string name_, string symbol_, string version_, address initialAuthority) public
+constructor(bool proxyMode, string name_, string symbol_, string version_, address initialAuthority) public
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| name_ | string | Name of the token |
-| symbol_ | string | Symbol of the token |
-| version_ | string | Version of the contract |
-| initialAuthority | address | Address of AccessManager initial authority |
+| proxyMode | bool | If true, disables initializers for proxy deployment.                  If false, initializes the contract directly. |
+| name_ | string | Name of the token. Ignored when proxyMode is true. |
+| symbol_ | string | Symbol of the token. Ignored when proxyMode is true. |
+| version_ | string | Version of the contract. Ignored when proxyMode is true. |
+| initialAuthority | address | Address of AccessManager initial authority. Ignored when proxyMode is true. |
 
 ### receive
 
@@ -502,6 +503,23 @@ function canDecryptHistoricTransfer(address viewer, uint256 transferId, address 
 | ---- | ---- | ----------- |
 | canDecrypt | bool | True if the viewer is authorized to decrypt the transfer, false otherwise |
 
+### initialize
+
+Initializes the contract for proxy or direct deployment.
+
+```solidity
+function initialize(string name_, string symbol_, string version_, address initialAuthority) public virtual
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| name_ | string | Name of the token. |
+| symbol_ | string | Symbol of the token. |
+| version_ | string | Version of the contract. |
+| initialAuthority | address | Address of AccessManager initial authority. |
+
 ### requestDecryptHistoricTransferFor
 
 Requests decryption of a single historic encrypted transfer payload
@@ -604,6 +622,18 @@ function balanceOf(address) public pure virtual returns (uint256)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
+
+### __ConfidentialToken_init
+
+```solidity
+function __ConfidentialToken_init(string name_, string symbol_, string version_, address initialAuthority) internal
+```
+
+### __ConfidentialToken_init_unchained
+
+```solidity
+function __ConfidentialToken_init_unchained(string version_) internal
+```
 
 ### _handleAction
 

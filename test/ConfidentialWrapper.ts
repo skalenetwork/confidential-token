@@ -54,7 +54,7 @@ describe("ConfidentialWrapper", () => {
         await accessManager.deploymentTransaction()!.wait();
 
         const wrapperFactory = await ethers.getContractFactory("ConfidentialWrapper");
-        const token = await wrapperFactory.deploy(underlyingToken, "testing", accessManager) as ConfidentialWrapper;
+        const token = await wrapperFactory.deploy(false, underlyingToken, "testing", accessManager) as ConfidentialWrapper;
         await token.deploymentTransaction()!.wait();
 
         const mocks = await deployBiteMocks();

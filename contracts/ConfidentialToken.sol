@@ -20,13 +20,17 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// cspell:words ECIES
+// cspell:words ECIES mixedcase
 
 pragma solidity ^0.8.27;
 
-import { AccessManaged } from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    AccessManagedUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/manager/AccessManagedUpgradeable.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {
+    ERC20PermitUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -40,8 +44,13 @@ import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialT
 /// @title ConfidentialToken
 /// @author Dmytro Stebaiev
 /// @author Eduardo Vasques
-/// @notice ERC20-like token with encrypted balances
-contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, IConfidentialToken {
+/// @notice Upgradeable ERC20-like token with encrypted balances
+contract ConfidentialToken is
+    ERC20PermitUpgradeable,
+    ConfidentialEIP3009,
+    AccessManagedUpgradeable,
+    IConfidentialToken
+{
     using Address for address;
     using Address for address payable;
     using Math for uint256;
@@ -60,13 +69,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     uint8 private constant _HISTORIC_VIEW_ACTION = 1;
 
     /// @notice Specifies amount of gas token to be sent to pay for callback execution
-    uint256 public callbackFee = 1_000 gwei;
+    uint256 public callbackFee;
 
     /// @notice Address of the EncryptECIES precompiled contract
-    address public encryptECIESAddress = BITE.ENCRYPT_ECIES_ADDRESS;
+    address public encryptECIESAddress;
 
     /// @notice Address of the EncryptTE precompiled contract
-    address public encryptTEAddress = BITE.ENCRYPT_TE_ADDRESS;
+    address public encryptTEAddress;
 
     /// @notice Mapping of holder addresses to their viewers' addresses
     mapping(address holder => address viewerAddress) public viewerAddresses;
@@ -75,7 +84,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     mapping(address accountAddress => PublicKey publicKey) public publicKeys;
 
     /// @notice Address of the submitCTX precompiled contract
-    address public submitCTXAddress = BITE.SUBMIT_CTX_ADDRESS;
+    address public submitCTXAddress;
 
     /// @notice Version of the contract
     /// @dev Is used to get proper ABI
@@ -123,28 +132,33 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         _;
     }
 
-    /// @notice Sets the values for {name} and {symbol}.
-    /// @param name_     Name of the token
-    /// @param symbol_   Symbol of the token
-    /// @param version_  Version of the contract
-    /// @param initialAuthority Address of AccessManager initial authority
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    /// @notice Sets up the contract for proxy or direct deployment.
+    /// @param proxyMode If true, disables initializers for proxy deployment.
+    ///                  If false, initializes the contract directly.
+    /// @param name_ Name of the token. Ignored when proxyMode is true.
+    /// @param symbol_ Symbol of the token. Ignored when proxyMode is true.
+    /// @param version_ Version of the contract. Ignored when proxyMode is true.
+    /// @param initialAuthority Address of AccessManager initial authority. Ignored when proxyMode is true.
     constructor(
+        bool proxyMode,
         string memory name_,
         string memory symbol_,
         string memory version_,
         address initialAuthority
-    )
-        ERC20(name_, symbol_)
-        ERC20Permit(name_)
-        AccessManaged(initialAuthority)
-    {
-        version = version_;
+    ) {
+        if (proxyMode) {
+            _disableInitializers();
+        } else {
+            ConfidentialToken.initialize(name_, symbol_, version_, initialAuthority);
+        }
     }
 
     /// @inheritdoc IConfidentialToken
     receive() external payable override {
         fundWithGasToken(msg.sender);
     }
+
 
     /// @inheritdoc IBiteSupplicant
     function onDecrypt(
@@ -336,6 +350,25 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     // Public functions
 
+    /// @notice Initializes the contract for proxy or direct deployment.
+    /// @param name_ Name of the token.
+    /// @param symbol_ Symbol of the token.
+    /// @param version_ Version of the contract.
+    /// @param initialAuthority Address of AccessManager initial authority.
+    function initialize(
+        string memory name_,
+        string memory symbol_,
+        string memory version_,
+        address initialAuthority
+    )
+        public
+        virtual
+        override
+        initializer
+    {
+        __ConfidentialToken_init(name_, symbol_, version_, initialAuthority);
+    }
+
     /// @inheritdoc IConfidentialToken
     function requestDecryptHistoricTransferFor(
         bytes calldata encryptedTransferData,
@@ -399,7 +432,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         }
     }
 
-    /// @inheritdoc ERC20
+    /// @inheritdoc ERC20Upgradeable
     function totalSupply() public view virtual override returns (uint256 supply) {
         return _totalSupply;
     }
@@ -407,13 +440,52 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     // If name returned variable
     // compiler gives warning about unused variable
     // solhint-disable gas-named-return-values
-    /// @inheritdoc ERC20
+    /// @inheritdoc ERC20Upgradeable
     function balanceOf(address) public pure virtual override returns (uint256) {
         revert ValueIsEncrypted();
     }
     // solhint-enable gas-named-return-values
 
     // Internal functions
+
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
+    // slither-disable-start naming-convention
+    // solhint-disable-next-line func-name-mixedcase
+    function __ConfidentialToken_init(
+        string memory name_,
+        string memory symbol_,
+        string memory version_,
+        address initialAuthority
+    )
+        internal
+        onlyInitializing
+    {
+        __ERC20_init(name_, symbol_);
+        __ERC20Permit_init(name_);
+        __ConfidentialEIP3009_init();
+        __AccessManaged_init(initialAuthority);
+        __ConfidentialToken_init_unchained(version_);
+    }
+    // slither-disable-end naming-convention
+
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
+    // slither-disable-start naming-convention
+    // solhint-disable-next-line func-name-mixedcase
+    function __ConfidentialToken_init_unchained(
+        string memory version_
+    )
+        internal
+        onlyInitializing
+    {
+        callbackFee = 1_000 gwei;
+        encryptECIESAddress = BITE.ENCRYPT_ECIES_ADDRESS;
+        encryptTEAddress = BITE.ENCRYPT_TE_ADDRESS;
+        submitCTXAddress = BITE.SUBMIT_CTX_ADDRESS;
+        version = version_;
+    }
+    // slither-disable-end naming-convention
 
     function _handleAction(
         uint8 action,

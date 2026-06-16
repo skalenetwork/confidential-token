@@ -19,13 +19,18 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+// cspell:words IERC20
+
+
 pragma solidity ^0.8.27;
 
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { IConfidentialToken } from "./IConfidentialToken.sol";
 
 
 /// @title IConfidentialWrapper
 /// @author Dmytro Stebaiev
+/// @author Eduardo Vasques
 /// @notice Interface of ConfidentialWrapper that adds confidentiality to an ERC20 token
 interface IConfidentialWrapper is IConfidentialToken {
 
@@ -35,4 +40,14 @@ interface IConfidentialWrapper is IConfidentialToken {
     /// @param account The address to release the underlying tokens to
     /// @param value The amount of tokens to release
     function releaseTo(address account, uint256 value) external;
+
+    /// @notice Initializes the contract for proxy deployment.
+    /// @param underlyingToken Token to wrap confidentially.
+    /// @param version_ Version of the wrapper.
+    /// @param initialAuthority Initial authority address.
+    function initialize(
+        IERC20Metadata underlyingToken,
+        string calldata version_,
+        address initialAuthority
+    ) external;
 }

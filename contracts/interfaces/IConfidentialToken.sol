@@ -164,6 +164,18 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Allows the contract to receive gas token to pay for callback execution
     receive() external payable;
 
+    /// @notice Initializes the contract for proxy deployment.
+    /// @param name_ Name of the token.
+    /// @param symbol_ Symbol of the token.
+    /// @param version_ Version of the contract.
+    /// @param initialAuthority Address of AccessManager initial authority.
+    function initialize(
+        string calldata name_,
+        string calldata symbol_,
+        string calldata version_,
+        address initialAuthority
+    ) external;
+
     /// @notice Deposits gas token to any holder balance
     /// @param receiver The address of the receiver holder
     function fundWithGasToken(address receiver) external payable;

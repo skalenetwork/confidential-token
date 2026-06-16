@@ -127,13 +127,16 @@ In a SKALE chain, callback functions (Conditional transactions) are executed aut
 
 ## Deployment
 
-To deploy tokens, the following env. variables are always required:
+To deploy tokens, set the following env. variables:
 
 ```bash
-ENDPOINT="http://endpoit.to.network" # this should be the endpoint to the SKALE chain you are deploying to
+ENDPOINT="http://endpoint.to.network" # this should be the endpoint to the SKALE chain you are deploying to
 PRIVATE_KEY="0x..." # The private key of the account that will pay for deployment costs
-OWNER="0xAddress"   # The address of the account that should be the final owner of the new token. If not set, defaults to the address of PRIVATE_KEY (i.e. the deployer)
+UPGRADEABLE="true"  # must be "true" or "false". Controls proxy deployment mode
+OWNER="0xAddress"   # Optional. Final owner of the deployed contracts. If not set, defaults to PRIVATE_KEY address (the deployer)
 ```
+
+Both deployment scripts support non-upgradeable and upgradeable deployments. The mode is selected by `UPGRADEABLE`.
 
 ### [migrations/deployMintable.ts](migrations/deployMintable.ts)
 Deployment script for MintableConfidentialToken.
@@ -146,7 +149,7 @@ NAME=".."    # The token name
 
 **Deploys:**
 - AccessManager: Controls permissions
-- MintableConfidentialToken: Main token contract
+- MintableConfidentialToken: Main token contract (direct deployment when `UPGRADEABLE="false"`, proxy deployment when `UPGRADEABLE="true"`)
 
 **Usage:**
 ```bash
@@ -167,7 +170,7 @@ ORIGIN_TOKEN="0xAddress" # The address of the ERC20 to wrap
 
 **Deploys:**
 - AccessManager: Controls permissions
-- ConfidentialWrapper: Wraps existing ERC20 token
+- ConfidentialWrapper: Wraps existing ERC20 token (direct deployment when `UPGRADEABLE="false"`, proxy deployment when `UPGRADEABLE="true"`)
 
 **Usage:**
 ```bash

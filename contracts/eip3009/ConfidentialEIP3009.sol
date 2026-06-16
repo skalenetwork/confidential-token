@@ -23,17 +23,17 @@
 // This file extends the original EIP-3009 implementation with BITE functionality for SKALE chains.
 // ----------------------------------------------------------------------------
 
-// cspell:words typehash
+// cspell:words typehash mixedcase
 
 pragma solidity ^0.8.27;
 
 import { EIP3009, EIP712Utils } from "./EIP3009.sol";
 
 
-/// @title EIP3009 extension for ConfidentialToken
+/// @title EIP3009 upgradeable extension for ConfidentialToken
 /// @author Eduardo Vasques
 /// @notice Extension of EIP3009 with encrypted value parameter for SKALE chains using BITE
-abstract contract ConfidentialEIP3009 is EIP3009{
+abstract contract ConfidentialEIP3009 is EIP3009 {
 
     /// @notice typehash for transfer with authorization with encrypted value
     bytes32 public constant ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH =
@@ -142,6 +142,15 @@ abstract contract ConfidentialEIP3009 is EIP3009{
             s: s
         });
     }
+
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
+    // slither-disable-start naming-convention
+    // solhint-disable-next-line func-name-mixedcase
+    function __ConfidentialEIP3009_init() internal onlyInitializing {
+        __EIP3009_init();
+    }
+    // slither-disable-end naming-convention
 
     /// @notice Internal function to execute transfer with authorization
     /// @param typeHash      Type hash of the authorization

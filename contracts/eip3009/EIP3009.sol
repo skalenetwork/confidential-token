@@ -30,12 +30,13 @@
 // /licenses/LICENSE_COINBASE
 // ----------------------------------------------------------------------------
 
-// cspell:words typehash
+// cspell:words typehash initializable mixedcase
 
 pragma solidity ^0.8.27;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 
 import { EIP712Utils } from "./EIP712Utils.sol";
 
@@ -43,7 +44,7 @@ import { EIP712Utils } from "./EIP712Utils.sol";
 /// @title EIP3009
 /// @author Dmytro Stebaiev
 /// @notice ERC20 token with transfer and receive with authorization functionality
-abstract contract EIP3009 is ERC20, EIP712 {
+abstract contract EIP3009 is Initializable, ERC20Upgradeable, EIP712Upgradeable {
     /// @notice typehash for transfer with authorization
     bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH =
         // This is calculated during compilation time
@@ -237,6 +238,13 @@ abstract contract EIP3009 is ERC20, EIP712 {
     {
         return _authorizationStates[authorizer][nonce];
     }
+
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
+    // slither-disable-start naming-convention
+    // solhint-disable-next-line func-name-mixedcase, no-empty-blocks
+    function __EIP3009_init() internal onlyInitializing {}
+    // slither-disable-end naming-convention
 
     /// @notice Internal function to execute transfer with authorization
     /// @param typeHash      Type hash of the authorization

@@ -2038,6 +2038,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@openzeppelin/contracts-upgradeable@npm:5.4.0":
+  version: 5.4.0
+  resolution: "@openzeppelin/contracts-upgradeable@npm:5.4.0"
+  peerDependencies:
+    "@openzeppelin/contracts": 5.4.0
+  checksum: 10c0/0bf78ad1a42151eb41eb7ff6645714a65649766643514b704d398927fe72533d2a143557306610db93f625124dfef9ee06b2c9ca624ada16074962cbcb622b6b
+  languageName: node
+  linkType: hard
+
 "@openzeppelin/contracts@npm:5.4.0":
   version: 5.4.0
   resolution: "@openzeppelin/contracts@npm:5.4.0"
@@ -2085,7 +2094,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@openzeppelin/hardhat-upgrades@npm:^3.1.1":
+"@openzeppelin/hardhat-upgrades@npm:^3.1.1, @openzeppelin/hardhat-upgrades@npm:^3.9.1":
   version: 3.9.1
   resolution: "@openzeppelin/hardhat-upgrades@npm:3.9.1"
   dependencies:
@@ -3230,6 +3239,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/lodash@npm:^4":
+  version: 4.17.24
+  resolution: "@types/lodash@npm:4.17.24"
+  checksum: 10c0/b72f60d4daacdad1fa643edb3faba204c02a01eb1ac00a83ff73496a6d236fc55e459c06106e8ced42277dba932d087d8fc090f8de4ef590d3f91e6d6f7ce85a
+  languageName: node
+  linkType: hard
+
 "@types/minimatch@npm:*":
   version: 5.1.2
   resolution: "@types/minimatch@npm:5.1.2"
@@ -3845,7 +3861,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^1.4.0, axios@npm:^1.7.4":
+"axios@npm:1.13.2, axios@npm:^1.4.0, axios@npm:^1.7.4":
   version: 1.13.2
   resolution: "axios@npm:1.13.2"
   dependencies:
@@ -4498,13 +4514,17 @@ __metadata:
     "@nomicfoundation/hardhat-ethers": "npm:^3.1.2"
     "@nomicfoundation/hardhat-network-helpers": "npm:^1.1.2"
     "@openzeppelin/contracts": "npm:5.4.0"
+    "@openzeppelin/contracts-upgradeable": "npm:5.4.0"
+    "@openzeppelin/hardhat-upgrades": "npm:^3.9.1"
     "@skalenetwork/bite-solidity": "npm:^1.0.1-stable.0"
     "@skalenetwork/upgrade-tools": "npm:4.0.0-develop.4"
     "@typechain/ethers-v6": "npm:^0.5.1"
     "@typechain/hardhat": "npm:^9.1.0"
     "@types/chai": "npm:^5.2.3"
+    "@types/lodash": "npm:^4"
     "@types/mocha": "npm:^10.0.10"
     "@types/node": "npm:^25.0.3"
+    axios: "npm:1.13.2"
     chai: "npm:^6.2.1"
     chalk: "npm:^5"
     cspell: "npm:^9.4.0"
@@ -4514,6 +4534,7 @@ __metadata:
     globals: "npm:^16.5.0"
     hardhat: "npm:^2.27.1"
     hardhat-dependency-compiler: "npm:^1.2.1"
+    lodash: "npm:4.17.21"
     pm2: "npm:^6.0.14"
     solhint: "npm:^6.0.3"
     solidity-coverage: "npm:^0.8.17"
@@ -6842,7 +6863,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.17.11, lodash@npm:^4.17.15, lodash@npm:^4.17.21":
+"lodash@npm:4.17.21, lodash@npm:^4.17.11, lodash@npm:^4.17.15, lodash@npm:^4.17.21":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: 10c0/d8cbea072bb08655bb4c989da418994b073a608dffa608b09ac04b43a791b12aeae7cd7ad919aa4c925f33b48490b5cfe6c1f71d827956071dae2e7bb3a6b74c
