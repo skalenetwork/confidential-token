@@ -237,7 +237,7 @@ function encryptedTransferFrom(address from, address to, bytes value) external p
 Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
 
 ```solidity
-function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
+function requestDecryptHistoricTransfer(bytes encryptedTransferData) external payable
 ```
 
 **dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
@@ -556,7 +556,7 @@ function initialize(string name_, string symbol_, string version_, address initi
 Requests decryption of a single historic encrypted transfer payload
 
 ```solidity
-function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public
+function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public payable
 ```
 
 **dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_

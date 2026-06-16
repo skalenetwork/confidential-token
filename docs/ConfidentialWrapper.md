@@ -83,6 +83,27 @@ function releaseTo(address account, uint256 value) external
 | account | address | The address to release the underlying tokens to |
 | value | uint256 | The amount of tokens to release |
 
+### withdrawToWithGasToken
+
+withdrawTo like function that allows to top up gas token wallet in the same transaction
+
+```solidity
+function withdrawToWithGasToken(address account, uint256 value) external payable returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| account | address | The address to release the underlying tokens to |
+| value | uint256 | The amount of tokens to release |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Whether the withdrawal was successful |
+
 ### transferFrom
 
 Transfers `value` tokens from `from` to `to` using allowance mechanism.

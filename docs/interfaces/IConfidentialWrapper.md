@@ -42,19 +42,24 @@ function releaseTo(address account, uint256 value) external
 | account | address | The address to release the underlying tokens to |
 | value | uint256 | The amount of tokens to release |
 
-### initialize
+### withdrawToWithGasToken
 
-Initializes the contract for proxy deployment.
+withdrawTo like function that allows to top up gas token wallet in the same transaction
 
 ```solidity
-function initialize(contract IERC20Metadata underlyingToken, string version_, address initialAuthority) external
+function withdrawToWithGasToken(address account, uint256 value) external payable returns (bool success)
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| underlyingToken | contract IERC20Metadata | Token to wrap confidentially. |
-| version_ | string | Version of the wrapper. |
-| initialAuthority | address | Initial authority address. |
+| account | address | The address to release the underlying tokens to |
+| value | uint256 | The amount of tokens to release |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Whether the withdrawal was successful |
 
