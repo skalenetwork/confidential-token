@@ -42,11 +42,17 @@ import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 // arguments, so one free function per argument is the cleanest achievable pattern.
 
 function _wrapperName(bool proxyMode, IERC20Metadata token) view returns (string memory name) {
-    return proxyMode ? "" : string.concat("Confidential ", token.name());
+    name = "";
+    if (!proxyMode) {
+        name = string.concat("Confidential ", token.name());
+    }
 }
 
 function _wrapperSymbol(bool proxyMode, IERC20Metadata token) view returns (string memory symbol) {
-    return proxyMode ? "" : string.concat("cnf", token.symbol());
+    symbol = "";
+    if (!proxyMode) {
+        symbol = string.concat("cnf", token.symbol());
+    }
 }
 
 /// @title ConfidentialWrapper
@@ -190,6 +196,8 @@ contract ConfidentialWrapper is
 
     // Internal functions
 
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
     // slither-disable-start naming-convention
     // solhint-disable-next-line func-name-mixedcase
     function __ConfidentialWrapper_init(

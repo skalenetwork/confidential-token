@@ -448,6 +448,8 @@ contract ConfidentialToken is
 
     // Internal functions
 
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
     // slither-disable-start naming-convention
     // solhint-disable-next-line func-name-mixedcase
     function __ConfidentialToken_init(
@@ -467,6 +469,8 @@ contract ConfidentialToken is
     }
     // slither-disable-end naming-convention
 
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
     // slither-disable-start naming-convention
     // solhint-disable-next-line func-name-mixedcase
     function __ConfidentialToken_init_unchained(

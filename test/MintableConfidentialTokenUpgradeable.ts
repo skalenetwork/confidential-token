@@ -5,7 +5,7 @@ import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
 import "chai/register-should";
 import { BiteMock, MintableConfidentialToken } from "../typechain-types";
-import { deployMintableUpgradeable } from "../migrations/deployMintableUpgradeable";
+import { deployMintableWithTokenDeployer } from "./tools/tokenDeployerHelpers";
 import { getPublicKey } from "./tools/cryptography";
 import { balanceOf } from "./tools/helpers";
 import { BaseContract } from "ethers";
@@ -46,12 +46,14 @@ const deployBiteMocks = async (): Promise<BiteMocks> => {
 
 const deployUpgradeableMintable = async () => {
     const [owner] = await ethers.getSigners();
-    const contracts = await deployMintableUpgradeable(
-        TOKEN_NAME,
-        TOKEN_SYMBOL,
-        TOKEN_VERSION,
-        owner
-    );
+    const contracts = await deployMintableWithTokenDeployer({
+        proxyMode: true,
+        ownerEnvVariable: "TEST_OWNER_MINTABLE",
+        ownerAddress: owner,
+        name: TOKEN_NAME,
+        symbol: TOKEN_SYMBOL,
+        version: TOKEN_VERSION
+    });
     const token = contracts.MintableConfidentialToken as unknown as MintableConfidentialToken;
 
     return {
@@ -92,12 +94,14 @@ describe("MintableConfidentialTokenUpgradeable", () => {
 
     it("transfers proxy admin ownership to configured owner", async () => {
         const [, configuredOwner] = await ethers.getSigners();
-        const contracts = await deployMintableUpgradeable(
-            TOKEN_NAME,
-            TOKEN_SYMBOL,
-            TOKEN_VERSION,
-            configuredOwner
-        );
+        const contracts = await deployMintableWithTokenDeployer({
+            proxyMode: true,
+            ownerEnvVariable: "TEST_OWNER_MINTABLE",
+            ownerAddress: configuredOwner,
+            name: TOKEN_NAME,
+            symbol: TOKEN_SYMBOL,
+            version: TOKEN_VERSION
+        });
         const token = contracts.MintableConfidentialToken as unknown as MintableConfidentialToken;
 
         const proxyAdminAddress = await upgrades.erc1967.getAdminAddress(await token.getAddress());

@@ -143,6 +143,8 @@ abstract contract ConfidentialEIP3009 is EIP3009 {
         });
     }
 
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
     // slither-disable-start naming-convention
     // solhint-disable-next-line func-name-mixedcase
     function __ConfidentialEIP3009_init() internal onlyInitializing {

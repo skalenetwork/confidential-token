@@ -10,7 +10,7 @@ import {
     ConfidentialWrapper,
     TestERC20
 } from "../typechain-types";
-import { deployWrapperUpgradeable } from "../migrations/deployWrapperUpgradeable";
+import { deployWrapperWithTokenDeployer } from "./tools/tokenDeployerHelpers";
 import { getPublicKey } from "./tools/cryptography";
 import { balanceOf } from "./tools/helpers";
 
@@ -58,11 +58,13 @@ const deployUnderlyingToken = async () => {
 const deployUpgradeableWrapper = async () => {
     const [owner] = await ethers.getSigners();
     const underlyingToken = await deployUnderlyingToken();
-    const contracts = await deployWrapperUpgradeable(
-        underlyingToken,
-        TOKEN_VERSION,
-        owner
-    );
+    const contracts = await deployWrapperWithTokenDeployer({
+        proxyMode: true,
+        ownerEnvVariable: "TEST_OWNER_WRAPPER",
+        ownerAddress: owner,
+        originToken: underlyingToken,
+        version: TOKEN_VERSION
+    });
     const token = contracts.ConfidentialWrapper as unknown as ConfidentialWrapper;
 
     return {
@@ -107,11 +109,13 @@ describe("ConfidentialWrapperUpgradeable", () => {
     it("transfers proxy admin ownership to configured owner", async () => {
         const [, configuredOwner] = await ethers.getSigners();
         const underlyingToken = await deployUnderlyingToken();
-        const contracts = await deployWrapperUpgradeable(
-            underlyingToken,
-            TOKEN_VERSION,
-            configuredOwner
-        );
+        const contracts = await deployWrapperWithTokenDeployer({
+            proxyMode: true,
+            ownerEnvVariable: "TEST_OWNER_WRAPPER",
+            ownerAddress: configuredOwner,
+            originToken: underlyingToken,
+            version: TOKEN_VERSION
+        });
         const token = contracts.ConfidentialWrapper as unknown as ConfidentialWrapper;
 
         const proxyAdminAddress = await upgrades.erc1967.getAdminAddress(await token.getAddress());

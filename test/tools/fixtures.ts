@@ -1,9 +1,12 @@
 import {
     loadFixture
 } from "@nomicfoundation/hardhat-network-helpers";
-import { deployMintable } from "../../migrations/deployMintable";
 import { ethers } from "hardhat";
-import { deployWrapper } from "../../migrations/deployWrapper";
+import { AccessManager, MintableConfidentialToken } from "../../typechain-types";
+import {
+    deployMintableWithTokenDeployer,
+    deployWrapperWithTokenDeployer
+} from "./tokenDeployerHelpers";
 import { deployTestERC20 } from "../../scripts/deployTestERC20";
 
 // cspell:words ECIES
@@ -34,22 +37,28 @@ const deployMintableFixture = async () => {
     const tokenSymbol = "CTK";
     const version = "testing";
     const [deployer] = await ethers.getSigners();
-    const contracts = await deployMintable(
-        tokenName,
-        tokenSymbol,
-        version,
-        deployer
-    );
+
+    const deployedContracts = await deployMintableWithTokenDeployer({
+        proxyMode: false,
+        ownerEnvVariable: "TEST_OWNER_MINTABLE_FIXTURE",
+        ownerAddress: deployer,
+        name: tokenName,
+        symbol: tokenSymbol,
+        version
+    });
+    const accessManager = deployedContracts.AccessManager as AccessManager;
+    const mintableConfidentialToken = deployedContracts.MintableConfidentialToken as MintableConfidentialToken;
+
     const mocks = await deployBiteMocks();
-    await contracts.MintableConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
-    await contracts.MintableConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
-    await contracts.MintableConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
-    await contracts.MintableConfidentialToken.setCallbackFee(ethers.parseEther("0.003"));
+    await mintableConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
+    await mintableConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
+    await mintableConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
+    await mintableConfidentialToken.setCallbackFee(ethers.parseEther("0.003"));
 
     return {
-        accessManager: contracts.AccessManager,
+        accessManager,
         owner: deployer,
-        token: contracts.MintableConfidentialToken,
+        token: mintableConfidentialToken,
         ...mocks
     }
 }
@@ -79,11 +88,13 @@ const deployWrapperFixture = async () => {
         "D2E"
     );
 
-    const contracts = await deployWrapper(
-        underlyingToken,
-        version,
-        deployer
-    );
+    const contracts = await deployWrapperWithTokenDeployer({
+        proxyMode: false,
+        ownerEnvVariable: "TEST_OWNER_WRAPPER_FIXTURE",
+        ownerAddress: deployer,
+        originToken: underlyingToken,
+        version
+    });
 
     const mocks = await deployBiteMocks();
     await contracts.ConfidentialWrapper.setEncryptECIESAddress(mocks.encryptECIES);

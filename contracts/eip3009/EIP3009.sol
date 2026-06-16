@@ -239,6 +239,8 @@ abstract contract EIP3009 is Initializable, ERC20Upgradeable, EIP712Upgradeable 
         return _authorizationStates[authorizer][nonce];
     }
 
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
     // slither-disable-start naming-convention
     // solhint-disable-next-line func-name-mixedcase, no-empty-blocks
     function __EIP3009_init() internal onlyInitializing {}
