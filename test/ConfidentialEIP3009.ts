@@ -34,6 +34,8 @@ describe("ConfidentialEIP3009", () => {
 
     beforeEach(async () => {
         ({ bite, token, alice, bob, charlie } = await withEIP3009Setup());
+        const latestBlock = await ethers.provider.getBlock("latest");
+        await ethers.provider.send("evm_setNextBlockTimestamp", [latestBlock!.timestamp + 1]);
         domainSeparator = await token.DOMAIN_SEPARATOR();
         nonce = ethers.hexlify(ethers.randomBytes(32));
     });

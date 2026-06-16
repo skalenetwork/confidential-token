@@ -1,3 +1,3 @@
 module.exports = {
-    skipFiles: ["test/", "hardhat-dependency-compiler/"]
+    skipFiles: ["test/", "hardhat-dependency-compiler/", "interfaces/"]
 }
