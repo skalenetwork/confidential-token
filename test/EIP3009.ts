@@ -1,12 +1,11 @@
 // cspell:words typehash
 
 import { ethers } from "hardhat";
-import { AddressLike, BaseWallet, BigNumberish, HDNodeWallet, Wallet } from "ethers";
+import { AddressLike, BaseWallet, BigNumberish, HDNodeWallet } from "ethers";
 import { expect } from "chai";
 import { BiteMock, ConfidentialToken } from "../typechain-types";
-import { withMintedTokens } from "./tools/fixtures";
-import { getPublicKey } from "./tools/cryptography";
-import { balanceOf, feedAccounts, nowPlusSeconds } from "./tools/helpers";
+import { withEIP3009Setup } from "./tools/fixtures";
+import { balanceOf, nowPlusSeconds } from "./tools/helpers";
 
 const TRANSFER_WITH_AUTHORIZATION_TYPEHASH = ethers.id(
     "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
@@ -30,41 +29,10 @@ describe("EIP3009", () => {
     let nonce: string;
     const initialBalance = 10e6;
 
-    before(async () => {
-        alice = Wallet.createRandom(ethers.provider);
-        bob = Wallet.createRandom(ethers.provider);
-        charlie = Wallet.createRandom(ethers.provider);
-    });
-
     beforeEach(async () => {
-        const { bite: deployedBite, token: deployedToken } =
-            await withMintedTokens();
-        bite = deployedBite;
-        token = deployedToken;
+        ({ bite, token, alice, bob, charlie } = await withEIP3009Setup());
         domainSeparator = await token.DOMAIN_SEPARATOR();
         nonce = ethers.hexlify(ethers.randomBytes(32));
-
-        await feedAccounts([
-            alice,
-            bob,
-            charlie
-        ]);
-
-        for (const user of [alice, bob, charlie]) {
-            await token
-                .connect(user)
-                .fundWithGasToken(user, { value: ethers.parseEther("3") });
-        }
-
-        await token.connect(alice).setViewerPublicKey(await getPublicKey(alice));
-        await bite.sendCallback();
-        await token.connect(bob).setViewerPublicKey(await getPublicKey(bob));
-        await bite.sendCallback();
-        await token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
-        await bite.sendCallback();
-
-        await token.transfer(alice, initialBalance);
-        await bite.sendCallback();
     });
 
     it("has the expected type hashes", async () => {
@@ -92,7 +60,7 @@ describe("EIP3009", () => {
     describe("transferWithAuthorization", () => {
         let transferParams: TransferParams;
 
-        before(async () => {
+        beforeEach(() => {
             transferParams = {
                 from: alice,
                 to: bob,
@@ -438,7 +406,7 @@ describe("EIP3009", () => {
 
     describe("receiveWithAuthorization", () => {
         let receiveParams: TransferParams;
-        before(async () => {
+        beforeEach(() => {
             receiveParams = {
                 from: alice,
                 to: charlie,
@@ -817,7 +785,7 @@ describe("EIP3009", () => {
 
     describe("cancelAuthorization", () => {
         let receiveParams: TransferParams;
-        before(async () => {
+        beforeEach(() => {
             receiveParams = {
                 from: alice,
                 to: charlie,
