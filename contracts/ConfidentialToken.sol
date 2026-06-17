@@ -765,7 +765,7 @@ contract ConfidentialToken is
         internal
         virtual
     {
-        // Values should be padded exactly to 64 bytes (abi.encode(address,uint256))before encrypted with BITE TE
+        // Values should be padded exactly to 64 bytes (abi.encode(address,uint256)) before encrypted with BITE TE
         // slither-disable-next-line incorrect-equality
         require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 33, ValueWasNotEncryptedCorrectly());
         bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
