@@ -104,6 +104,12 @@ error InsufficientGasToken(uint256 required, uint256 available)
 error InvalidPublicKey()
 ```
 
+### InvalidSaltForTransactionValue
+
+```solidity
+error InvalidSaltForTransactionValue()
+```
+
 ### InvalidTransferId
 
 ```solidity
@@ -457,6 +463,31 @@ function encryptedBalanceOf(address holder) external view returns (bytes encrypt
 | ---- | ---- | ----------- |
 | encryptedBalance | bytes | The encrypted balance of the holder |
 
+### encryptValue
+
+Encrypts `value` for `holder` using Threshold Encryption
+
+```solidity
+function encryptValue(address holder, uint256 value) external view returns (bytes encryptedValue)
+```
+
+**dev:** _Produces a cipher-text suitable for use in `encryptedTransfer` and `encryptedTransferFrom`.
+     The cipher-text binds `holder` as the salt — only a transaction submitted by `holder`
+     (or by a spender in `encryptedTransferFrom`) will pass the on-callback salt check._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| holder | address | The address used as the encryption salt; must match the submitter at callback time |
+| value | uint256 | The plaintext token amount to encrypt |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedValue | bytes | TE-encrypted bytes ready to pass to `encryptedTransfer` or `encryptedTransferFrom` |
+
 ### gasTokenBalanceOf
 
 Gets the gas token balance of a holder
@@ -760,4 +791,10 @@ function _encryptedTransfer(address from, address to, bytes value) internal virt
 | from | address | Address to transfer tokens from |
 | to | address | Address to transfer tokens to |
 | value | bytes | TE-encrypted amount of tokens to be transferred |
+
+### _encryptTEValueForHolder
+
+```solidity
+function _encryptTEValueForHolder(address holder, uint256 value) internal view returns (bytes encryptedValue)
+```
 

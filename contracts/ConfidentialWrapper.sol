@@ -32,7 +32,6 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { BITE } from "@skalenetwork/bite-solidity/BITE.sol";
 import { ConfidentialToken, IConfidentialToken } from "./ConfidentialToken.sol";
 import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 
@@ -247,7 +246,7 @@ contract ConfidentialWrapper is
             revert ERC20InvalidReceiver(to);
         }
         require(value != 0, ZeroValue());
-        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        bytes memory encryptedValue = _encryptTEValueForHolder(from, value);
         bytes[] memory extraArgs = new bytes[](1);
         extraArgs[0] = abi.encodePacked(to);
         _encryptedUpdateExtended({

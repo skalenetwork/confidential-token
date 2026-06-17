@@ -295,6 +295,15 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @return encryptedBalance The encrypted balance of the holder
     function encryptedBalanceOf(address holder) external view returns (bytes memory encryptedBalance);
 
+    /// @notice Encrypts `value` for `holder` using Threshold Encryption
+    /// @dev Produces a cipher-text suitable for use in `encryptedTransfer` and `encryptedTransferFrom`.
+    ///      The cipher-text binds `holder` as the salt — only a transaction submitted by `holder`
+    ///      (or by a spender in `encryptedTransferFrom`) will pass the on-callback salt check.
+    /// @param holder The address used as the encryption salt; must match the submitter at callback time
+    /// @param value The plaintext token amount to encrypt
+    /// @return encryptedValue TE-encrypted bytes ready to pass to `encryptedTransfer` or `encryptedTransferFrom`
+    function encryptValue(address holder, uint256 value) external view returns (bytes memory encryptedValue);
+
     /// @notice Gets the gas token balance of a holder
     /// @param holder The address of the holder
     /// @return balance The gas token balance of the holder
