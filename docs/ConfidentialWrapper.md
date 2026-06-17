@@ -57,6 +57,39 @@ constructor(bool proxyMode, contract IERC20Metadata underlyingToken, string vers
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
+| proxyMode | bool | If true, disables initializers for proxy deployment.                  If false, initializes the contract directly. |
+| underlyingToken | contract IERC20Metadata | Token to wrap confidentially. Ignored when proxyMode is true. |
+| version_ | string | Version of the wrapper. Ignored when proxyMode is true. |
+| initialAuthority | address | Initial authority address. Ignored when proxyMode is true. |
+
+### initialize
+
+Initializes the contract for proxy deployment.
+
+```solidity
+function initialize(contract IERC20Metadata underlyingToken, string version_, address initialAuthority) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| underlyingToken | contract IERC20Metadata | Token to wrap confidentially. |
+| version_ | string | Version of the wrapper. |
+| initialAuthority | address | Initial authority address. |
+
+### depositForWithGasToken
+
+depositFor like function that allows to top up gas token wallet in the same transaction
+
+```solidity
+function depositForWithGasToken(address account, uint256 value) external payable returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | account | address | The address to credit the wrapped tokens to |
 | value | uint256 | The amount of tokens to wrap |
 
