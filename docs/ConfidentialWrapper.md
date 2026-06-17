@@ -80,7 +80,7 @@ function initialize(contract IERC20Metadata underlyingToken, string version_, ad
 
 ### depositForWithGasToken
 
-depositFor like function that allows to top up gas token wallet in the same transaction
+depositFor like function that allows to top up gas token wallet of the sender in the same transaction
 
 ```solidity
 function depositForWithGasToken(address account, uint256 value) external payable returns (bool success)
@@ -118,7 +118,7 @@ function releaseTo(address account, uint256 value) external
 
 ### withdrawToWithGasToken
 
-withdrawTo like function that allows to top up gas token wallet in the same transaction
+withdrawTo like function that allows to top up gas token wallet of the sender in the same transaction
 
 ```solidity
 function withdrawToWithGasToken(address account, uint256 value) external payable returns (bool success)
