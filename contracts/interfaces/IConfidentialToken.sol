@@ -219,24 +219,27 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Transfers tokens to another holder
     /// @param to The address of the recipient holder
     /// @param value The TE-encrypted amount of tokens to transfer
-    function encryptedTransfer(address to, bytes calldata value) external;
+    function encryptedTransfer(address to, bytes calldata value) external payable;
 
     /// @notice Transfers tokens from one holder to another using allowance
     /// @param from The address of the sender holder
     /// @param to The address of the recipient holder
     /// @param value The TE-encrypted amount of tokens to transfer
-    function encryptedTransferFrom(address from, address to, bytes calldata value) external;
+    function encryptedTransferFrom(address from, address to, bytes calldata value) external payable;
 
     /// @notice Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
     /// @dev Charges callbackFee from msg.sender even if not authorized to decrypt the payload
     /// @param encryptedTransferData TE-encrypted transfer payload emitted by the token
-    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external;
+    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external payable;
 
     /// @notice Requests decryption of a single historic encrypted transfer payload
     /// @dev Charges callbackFee from msg.sender even if not authorized to decrypt the payload
     /// @param encryptedTransferData TE-encrypted transfer payload emitted by the token
     /// @param historicViewer Address of the viewer who will receive the decrypted transfer event if authorized
-    function requestDecryptHistoricTransferFor(bytes calldata encryptedTransferData, address historicViewer) external;
+    function requestDecryptHistoricTransferFor(
+        bytes calldata encryptedTransferData,
+        address historicViewer
+    ) external payable;
 
     /// @notice Removes all historic view permissions for a viewer for msg.sender's history
     /// @dev Resets time window and clears explicitly authorized transfer IDs

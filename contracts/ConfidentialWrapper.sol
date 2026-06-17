@@ -120,9 +120,21 @@ contract ConfidentialWrapper is
 
 
     /// @inheritdoc IConfidentialWrapper
+    function depositForWithGasToken(address account, uint256 value) external payable override returns (bool success) {
+        fundWithGasToken(msg.sender);
+        return depositFor(account, value);
+    }
+
+    /// @inheritdoc IConfidentialWrapper
     function releaseTo(address account, uint256 value) external override {
         requestedMints[_msgSender()] -= value;
         underlying().safeTransfer(account, value);
+    }
+
+    /// @inheritdoc IConfidentialWrapper
+    function withdrawToWithGasToken(address account, uint256 value) external payable override returns (bool success) {
+        fundWithGasToken(msg.sender);
+        return withdrawTo(account, value);
     }
 
     // Public functions

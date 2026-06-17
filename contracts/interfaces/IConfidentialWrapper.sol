@@ -34,6 +34,13 @@ import { IConfidentialToken } from "./IConfidentialToken.sol";
 /// @notice Interface of ConfidentialWrapper that adds confidentiality to an ERC20 token
 interface IConfidentialWrapper is IConfidentialToken {
 
+    /// @notice depositFor-like function
+    /// @notice that allows the sender to top up their gas token balance in the same transaction
+    /// @param account The address to credit the wrapped tokens to
+    /// @param value The amount of tokens to wrap
+    /// @return success Whether the deposit was successful
+    function depositForWithGasToken(address account, uint256 value) external payable returns (bool success);
+
     /// @notice Releases the caller's pending wrapped tokens to `account`.
     /// @notice Only the recipient of a prior `depositFor` (i.e. an address with a
     /// non-zero `requestedMints` entry) can call this; the depositor cannot.
@@ -50,4 +57,11 @@ interface IConfidentialWrapper is IConfidentialToken {
         string calldata version_,
         address initialAuthority
     ) external;
+
+    /// @notice withdrawTo-like function
+    /// @notice that allows the sender to top up their gas token balance in the same transaction
+    /// @param account The address to release the underlying tokens to
+    /// @param value The amount of tokens to release
+    /// @return success Whether the withdrawal was successful
+    function withdrawToWithGasToken(address account, uint256 value) external payable returns (bool success);
 }

@@ -172,7 +172,7 @@ contract ConfidentialToken is
     }
 
     /// @inheritdoc IConfidentialToken
-    function encryptedTransfer(address to, bytes calldata value) external override {
+    function encryptedTransfer(address to, bytes calldata value) external payable override {
         _encryptedTransfer(msg.sender, to, value);
     }
 
@@ -181,12 +181,13 @@ contract ConfidentialToken is
         address from,
         address to,
         bytes calldata value
-    ) external override {
+    ) external payable override {
+        fundWithGasToken(msg.sender);
         _encryptedTransferFrom(from, to, value);
     }
 
     /// @inheritdoc IConfidentialToken
-    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external override {
+    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external payable override {
         // This function is kept for backward compatibility with older versions of the contract
         requestDecryptHistoricTransferFor(encryptedTransferData, msg.sender);
     }
@@ -389,9 +390,11 @@ contract ConfidentialToken is
         address historicViewer
     )
         public
+        payable
         override
         onlyRegisteredUser(historicViewer)
     {
+        fundWithGasToken(msg.sender);
         bytes[] memory encryptedArguments = new bytes[](1);
         encryptedArguments[0] = encryptedTransferData;
 
@@ -827,6 +830,7 @@ contract ConfidentialToken is
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
+        fundWithGasToken(msg.sender);
         _encryptedUpdate({
             from: from,
             to: to,

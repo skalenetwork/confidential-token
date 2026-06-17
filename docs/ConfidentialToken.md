@@ -206,7 +206,7 @@ function onDecrypt(bytes[] decryptedArguments, bytes[] plaintextArguments) exter
 Transfers tokens to another holder
 
 ```solidity
-function encryptedTransfer(address to, bytes value) external
+function encryptedTransfer(address to, bytes value) external payable
 ```
 
 #### Parameters
@@ -221,7 +221,7 @@ function encryptedTransfer(address to, bytes value) external
 Transfers tokens from one holder to another using allowance
 
 ```solidity
-function encryptedTransferFrom(address from, address to, bytes value) external
+function encryptedTransferFrom(address from, address to, bytes value) external payable
 ```
 
 #### Parameters
@@ -237,7 +237,7 @@ function encryptedTransferFrom(address from, address to, bytes value) external
 Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
 
 ```solidity
-function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
+function requestDecryptHistoricTransfer(bytes encryptedTransferData) external payable
 ```
 
 **dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
@@ -556,7 +556,7 @@ function initialize(string name_, string symbol_, string version_, address initi
 Requests decryption of a single historic encrypted transfer payload
 
 ```solidity
-function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public
+function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public payable
 ```
 
 **dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_

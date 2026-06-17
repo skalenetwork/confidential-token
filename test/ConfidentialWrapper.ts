@@ -364,6 +364,62 @@ describe("ConfidentialWrapper", () => {
             .should.be.revertedWithCustomError(token, "ValueIsEncrypted");
     });
 
+    it("depositForWithGasToken works with zero gas-token balance", async () => {
+        const { token, underlyingToken, owner, bite } = await cleanWrapperDeployment();
+
+        const callbackFee = await token.callbackFee();
+        const availableGasTokenBalance = await token.gasTokenBalanceOf(owner);
+        await token.connect(owner).retrieveGasToken(availableGasTokenBalance, owner);
+        (await token.gasTokenBalanceOf(owner)).should.be.equal(0);
+
+        const amount = ethers.parseEther("1");
+        await underlyingToken.mint(owner, amount);
+        await underlyingToken.connect(owner).approve(token, amount);
+
+        await expect(
+            token.connect(owner).depositForWithGasToken(owner, amount, { value: callbackFee })
+        ).to.not.be.reverted;
+
+        (await token.requestedMints(owner)).should.be.equal(amount);
+        (await token.totalSupply()).should.be.equal(0);
+        (await underlyingToken.balanceOf(token)).should.be.equal(amount);
+        await expectWrapperInvariant(token, underlyingToken, [owner]);
+
+        await expect(bite.sendCallback()).to.not.be.reverted;
+
+        (await token.requestedMints(owner)).should.be.equal(0);
+        (await token.totalSupply()).should.be.equal(amount);
+        (await underlyingToken.balanceOf(token)).should.be.equal(amount);
+        await expectWrapperInvariant(token, underlyingToken, [owner]);
+    });
+
+    it("withdrawToWithGasToken works with zero gas-token balance", async () => {
+        const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
+        const [, recipient] = await ethers.getSigners();
+
+        const callbackFee = await token.callbackFee();
+        const availableGasTokenBalance = await token.gasTokenBalanceOf(owner);
+        await token.connect(owner).retrieveGasToken(availableGasTokenBalance, owner);
+        (await token.gasTokenBalanceOf(owner)).should.be.equal(0);
+
+        const amount = wrapped / 2n;
+        await expect(
+            token.connect(owner).withdrawToWithGasToken(recipient, amount, { value: callbackFee })
+        ).to.not.be.reverted;
+
+        (await token.totalSupply()).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(0);
+        await expectWrapperInvariant(token, underlyingToken, [owner]);
+
+        await expect(bite.sendCallback()).to.not.be.reverted;
+
+        (await token.totalSupply()).should.be.equal(wrapped - amount);
+        (await underlyingToken.balanceOf(token)).should.be.equal(wrapped - amount);
+        (await underlyingToken.balanceOf(recipient)).should.be.equal(amount);
+        await expectWrapperInvariant(token, underlyingToken, [owner]);
+    });
+
     describe("ConfidentialWrapper — requestedMints scenarios", () => {
 
         const topUpWrapperGasToken = async (

@@ -25,7 +25,7 @@ bytes32 ENCRYPTED_RECEIVE_WITH_AUTHORIZATION_TYPEHASH
 Execute a transfer with a signed authorization
 
 ```solidity
-function encryptedTransferWithAuthorization(address from, address to, bytes value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external
+function encryptedTransferWithAuthorization(address from, address to, bytes value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external payable
 ```
 
 #### Parameters
@@ -47,7 +47,7 @@ function encryptedTransferWithAuthorization(address from, address to, bytes valu
 Receive a transfer with a signed authorization from the payer
 
 ```solidity
-function encryptedReceiveWithAuthorization(address from, address to, bytes value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external
+function encryptedReceiveWithAuthorization(address from, address to, bytes value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external payable
 ```
 
 **dev:** _This has an additional check to ensure that the payee's address matches

@@ -86,7 +86,7 @@ abstract contract ConfidentialEIP3009 is EIP3009 {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external {
+    ) external payable {
         _transferWithAuthorization({
             typeHash: ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH,
             from: from,
@@ -126,7 +126,7 @@ abstract contract ConfidentialEIP3009 is EIP3009 {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external {
+    ) external payable {
         require(to == msg.sender, CallerMustBeThePayee(msg.sender, to));
 
         _transferWithAuthorization({
