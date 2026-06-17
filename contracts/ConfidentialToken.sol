@@ -20,13 +20,17 @@
  *   along with confidential-token.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// cspell:words ECIES
+// cspell:words ECIES mixedcase
 
 pragma solidity ^0.8.27;
 
-import { AccessManaged } from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    AccessManagedUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/manager/AccessManagedUpgradeable.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {
+    ERC20PermitUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -40,8 +44,13 @@ import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialT
 /// @title ConfidentialToken
 /// @author Dmytro Stebaiev
 /// @author Eduardo Vasques
-/// @notice ERC20-like token with encrypted balances
-contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, IConfidentialToken {
+/// @notice Upgradeable ERC20-like token with encrypted balances
+contract ConfidentialToken is
+    ERC20PermitUpgradeable,
+    ConfidentialEIP3009,
+    AccessManagedUpgradeable,
+    IConfidentialToken
+{
     using Address for address;
     using Address for address payable;
     using Math for uint256;
@@ -60,13 +69,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     uint8 private constant _HISTORIC_VIEW_ACTION = 1;
 
     /// @notice Specifies amount of gas token to be sent to pay for callback execution
-    uint256 public callbackFee = 1_000 gwei;
+    uint256 public callbackFee;
 
     /// @notice Address of the EncryptECIES precompiled contract
-    address public encryptECIESAddress = BITE.ENCRYPT_ECIES_ADDRESS;
+    address public encryptECIESAddress;
 
     /// @notice Address of the EncryptTE precompiled contract
-    address public encryptTEAddress = BITE.ENCRYPT_TE_ADDRESS;
+    address public encryptTEAddress;
 
     /// @notice Mapping of holder addresses to their viewers' addresses
     mapping(address holder => address viewerAddress) public viewerAddresses;
@@ -75,7 +84,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     mapping(address accountAddress => PublicKey publicKey) public publicKeys;
 
     /// @notice Address of the submitCTX precompiled contract
-    address public submitCTXAddress = BITE.SUBMIT_CTX_ADDRESS;
+    address public submitCTXAddress;
 
     /// @notice Version of the contract
     /// @dev Is used to get proper ABI
@@ -109,6 +118,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     error InsufficientBalance();
     error InsufficientGasToken(uint256 required, uint256 available);
     error InvalidPublicKey();
+    error InvalidSaltForTransactionValue();
     error InvalidTransferId(uint256 transferId);
     error NoViewerRegisteredForHolder(address holder);
     error PublicKeyIsNotRegistered(address viewer);
@@ -123,28 +133,33 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         _;
     }
 
-    /// @notice Sets the values for {name} and {symbol}.
-    /// @param name_     Name of the token
-    /// @param symbol_   Symbol of the token
-    /// @param version_  Version of the contract
-    /// @param initialAuthority Address of AccessManager initial authority
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    /// @notice Sets up the contract for proxy or direct deployment.
+    /// @param proxyMode If true, disables initializers for proxy deployment.
+    ///                  If false, initializes the contract directly.
+    /// @param name_ Name of the token. Ignored when proxyMode is true.
+    /// @param symbol_ Symbol of the token. Ignored when proxyMode is true.
+    /// @param version_ Version of the contract. Ignored when proxyMode is true.
+    /// @param initialAuthority Address of AccessManager initial authority. Ignored when proxyMode is true.
     constructor(
+        bool proxyMode,
         string memory name_,
         string memory symbol_,
         string memory version_,
         address initialAuthority
-    )
-        ERC20(name_, symbol_)
-        ERC20Permit(name_)
-        AccessManaged(initialAuthority)
-    {
-        version = version_;
+    ) {
+        if (proxyMode) {
+            _disableInitializers();
+        } else {
+            ConfidentialToken.initialize(name_, symbol_, version_, initialAuthority);
+        }
     }
 
     /// @inheritdoc IConfidentialToken
     receive() external payable override {
         fundWithGasToken(msg.sender);
     }
+
 
     /// @inheritdoc IBiteSupplicant
     function onDecrypt(
@@ -157,7 +172,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     }
 
     /// @inheritdoc IConfidentialToken
-    function encryptedTransfer(address to, bytes calldata value) external override {
+    function encryptedTransfer(address to, bytes calldata value) external payable override {
         _encryptedTransfer(msg.sender, to, value);
     }
 
@@ -166,12 +181,13 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         address from,
         address to,
         bytes calldata value
-    ) external override {
+    ) external payable override {
+        fundWithGasToken(msg.sender);
         _encryptedTransferFrom(from, to, value);
     }
 
     /// @inheritdoc IConfidentialToken
-    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external override {
+    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external payable override {
         // This function is kept for backward compatibility with older versions of the contract
         requestDecryptHistoricTransferFor(encryptedTransferData, msg.sender);
     }
@@ -308,6 +324,19 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     }
 
     /// @inheritdoc IConfidentialToken
+    function encryptValue(
+        address holder,
+        uint256 value
+    )
+        external
+        view
+        override
+        returns (bytes memory encryptedValue)
+    {
+        return _encryptTEValueForHolder(holder, value);
+    }
+
+    /// @inheritdoc IConfidentialToken
     function gasTokenBalanceOf(address holder) external view override returns (uint256 balance) {
         return _gasTokenBalance[holder];
     }
@@ -336,15 +365,36 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     // Public functions
 
+    /// @notice Initializes the contract for proxy or direct deployment.
+    /// @param name_ Name of the token.
+    /// @param symbol_ Symbol of the token.
+    /// @param version_ Version of the contract.
+    /// @param initialAuthority Address of AccessManager initial authority.
+    function initialize(
+        string memory name_,
+        string memory symbol_,
+        string memory version_,
+        address initialAuthority
+    )
+        public
+        virtual
+        override
+        initializer
+    {
+        __ConfidentialToken_init(name_, symbol_, version_, initialAuthority);
+    }
+
     /// @inheritdoc IConfidentialToken
     function requestDecryptHistoricTransferFor(
         bytes calldata encryptedTransferData,
         address historicViewer
     )
         public
+        payable
         override
         onlyRegisteredUser(historicViewer)
     {
+        fundWithGasToken(msg.sender);
         bytes[] memory encryptedArguments = new bytes[](1);
         encryptedArguments[0] = encryptedTransferData;
 
@@ -399,7 +449,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         }
     }
 
-    /// @inheritdoc ERC20
+    /// @inheritdoc ERC20Upgradeable
     function totalSupply() public view virtual override returns (uint256 supply) {
         return _totalSupply;
     }
@@ -407,13 +457,52 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     // If name returned variable
     // compiler gives warning about unused variable
     // solhint-disable gas-named-return-values
-    /// @inheritdoc ERC20
+    /// @inheritdoc ERC20Upgradeable
     function balanceOf(address) public pure virtual override returns (uint256) {
         revert ValueIsEncrypted();
     }
     // solhint-enable gas-named-return-values
 
     // Internal functions
+
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
+    // slither-disable-start naming-convention
+    // solhint-disable-next-line func-name-mixedcase
+    function __ConfidentialToken_init(
+        string memory name_,
+        string memory symbol_,
+        string memory version_,
+        address initialAuthority
+    )
+        internal
+        onlyInitializing
+    {
+        __ERC20_init(name_, symbol_);
+        __ERC20Permit_init(name_);
+        __ConfidentialEIP3009_init();
+        __AccessManaged_init(initialAuthority);
+        __ConfidentialToken_init_unchained(version_);
+    }
+    // slither-disable-end naming-convention
+
+    // The OpenZeppelin Upgrades plugin's static analyzer relies on the __ContractName_init naming
+    // convention to identify and track which parent contracts have been initialized.
+    // slither-disable-start naming-convention
+    // solhint-disable-next-line func-name-mixedcase
+    function __ConfidentialToken_init_unchained(
+        string memory version_
+    )
+        internal
+        onlyInitializing
+    {
+        callbackFee = 1_000 gwei;
+        encryptECIESAddress = BITE.ENCRYPT_ECIES_ADDRESS;
+        encryptTEAddress = BITE.ENCRYPT_TE_ADDRESS;
+        submitCTXAddress = BITE.SUBMIT_CTX_ADDRESS;
+        version = version_;
+    }
+    // slither-disable-end naming-convention
 
     function _handleAction(
         uint8 action,
@@ -467,7 +556,15 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         _validateDecryptedArguments(decryptedArguments, transferInfo.from, transferInfo.to);
 
         uint256 valueIndex = decryptedArguments.length - 1;
-        value = _decodeBalance(decryptedArguments[valueIndex]);
+        // The transfer value cipher-text is salted with the address that submitted it: the
+        // spender for delegated (transferFrom) flows, otherwise `from` (direct transfer, mint,
+        // burn, EIP-3009). This binds the value to its submitter and prevents replaying a third
+        // party's stored balance/value cipher-text (CONF-01).
+        address expectedSalt = transferInfo.from;
+        if (transferInfo.spender != address(0)) {
+            expectedSalt = transferInfo.spender;
+        }
+        value = _decodeAndVerifyBalance(decryptedArguments[valueIndex], expectedSalt);
 
         (uint256 fromBalance, uint256 toBalance) = _decodeOriginalBalances(decryptedArguments, transferInfo, value);
 
@@ -476,6 +573,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         bool updatedTo =
             transferInfo.to != address(0) && _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber;
         if (updatedFrom || updatedTo) {
+            // This MUST be kept always after decoding and verifying Balance (value)
             _reSubmitTransfer(transferInfo, value, plaintextArguments);
             return (false, value);
         }
@@ -503,11 +601,14 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         // Resending updated encrypted balances to perform the transfer
         emit CTXResubmitted(msg.sender);
 
-        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
-        bytes[] memory encryptedArguments = _encryptArguments(transferInfo.from, transferInfo.to, encryptedValue);
-
-        // TODO: will need transporting once we have encrypted allowances
+        // TODO: will need transporting spender once we have encrypted allowances
+        // Encrypted value was already validated on the first CTX. We clear the spender (so the
+        // allowance is not spent again) and re-salt the value to `from`, which is the holder the
+        // next callback verifies against now that spender == address(0).
+        bytes memory encryptedValue = _encryptTEValueForHolder(transferInfo.from, value);
         transferInfo.spender = address(0);
+        // End of TODO
+        bytes[] memory encryptedArguments = _encryptArguments(transferInfo.from, transferInfo.to, encryptedValue);
         transferInfo.submittedBlockNumber = block.number;
         uint256 numArgs = plaintextArguments.length;
         bytes[] memory updatedPlaintextArguments = new bytes[](numArgs);
@@ -617,7 +718,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     }
 
     function _updateWithGasPayer(address from, address to, address gasPayer, uint256 value) internal {
-        bytes memory encryptedValue = BITE.encryptTE(encryptTEAddress, abi.encodePacked(value));
+        bytes memory encryptedValue = _encryptTEValueForHolder(from, value);
         _encryptedUpdate({
             from: from,
             to: to,
@@ -667,9 +768,9 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         internal
         virtual
     {
-        // Values should be padded to 32 bytes before encrypted with BITE TE, to length is strict preventing leaks
+        // Values should be padded exactly to 64 bytes (abi.encode(address,uint256)) before encrypted with BITE TE
         // slither-disable-next-line incorrect-equality
-        require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 1, ValueWasNotEncryptedCorrectly());
+        require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 33, ValueWasNotEncryptedCorrectly());
         bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
         uint256 extraPlaintextArgumentsLength = extraPlaintextArguments.length;
         bytes[] memory plaintextArguments = new bytes[](2 + extraPlaintextArgumentsLength);
@@ -695,7 +796,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         address to,
         uint256 value
     ) internal virtual {
-        _encryptedTransferFrom(from, to, BITE.encryptTE(encryptTEAddress, abi.encodePacked(value)));
+        _encryptedTransferFrom(from, to, _encryptTEValueForHolder(msg.sender, value));
     }
 
     function _encryptedTransferFrom(
@@ -729,6 +830,7 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
+        fundWithGasToken(msg.sender);
         _encryptedUpdate({
             from: from,
             to: to,
@@ -738,10 +840,24 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         });
     }
 
+    function _encryptTEValueForHolder(
+        address holder,
+        uint256 value
+    )
+        internal
+        view
+        returns (bytes memory encryptedValue)
+    {
+        encryptedValue = BITE.encryptTE(
+            encryptTEAddress,
+            _encodeBalance(holder, value)
+        );
+    }
+
     // Private functions
 
     function _setBalance(address holder, uint256 balance) private {
-        _thresholdBalances[holder] = BITE.encryptTE(encryptTEAddress, abi.encodePacked(balance));
+        _thresholdBalances[holder] = _encryptTEValueForHolder(holder, balance);
         _lastChanged[holder] = block.number;
         if (_viewerIsRegistered(holder)) {
             PublicKey memory viewerPublicKey = _getViewKey(holder);
@@ -763,18 +879,18 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
     {
         if (transferInfo.from == address(0)) {
             // mint
-            toBalance = _decodeBalance(decryptedArguments[0]);
+            toBalance = _decodeAndVerifyBalance(decryptedArguments[0], transferInfo.to);
         } else if (transferInfo.to == address(0)) {
             // burn
-            fromBalance = _decodeBalance(decryptedArguments[0]);
+            fromBalance = _decodeAndVerifyBalance(decryptedArguments[0], transferInfo.from);
         } else {
             // transfer
             if(transferInfo.spender != address(0)) {
                 // Allowances not encrypted
                 _spendAllowance(transferInfo.from, transferInfo.spender, value);
             }
-            fromBalance = _decodeBalance(decryptedArguments[0]);
-            toBalance = _decodeBalance(decryptedArguments[1]);
+            fromBalance = _decodeAndVerifyBalance(decryptedArguments[0], transferInfo.from);
+            toBalance = _decodeAndVerifyBalance(decryptedArguments[1], transferInfo.to);
         }
     }
 
@@ -844,11 +960,11 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
 
     function _getEncryptedBalance(address holder) private view returns (bytes memory encryptedBalance) {
         encryptedBalance = _thresholdBalances[holder];
+        // This is always correct, as an empty encrypted balance is a zero balance.
+        // Empty balances only occur when a holder has never had any transfers before
+        // slither-disable-next-line incorrect-equality
         if (encryptedBalance.length == 0) {
-            encryptedBalance = BITE.encryptTE(
-                encryptTEAddress,
-                abi.encodePacked(uint256(0))
-            );
+            encryptedBalance = _encryptTEValueForHolder(holder, uint256(0));
         }
     }
 
@@ -885,11 +1001,29 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         return publicKey.x != bytes32(0) || publicKey.y != bytes32(0);
     }
 
-    function _decodeBalance(bytes calldata encodedBalance) private pure returns (uint256 balance) {
+    function _encodeBalance(address holder, uint256 balance) private pure returns (bytes memory encodedBalance) {
+        return abi.encode(holder, balance);
+    }
+
+    function _decodeBalance(bytes calldata encodedBalance) private pure returns (address holder, uint256 balance) {
         if (encodedBalance.length == 0) {
-            return 0;
+            return (address(0), 0);
         }
-        return uint256(bytes32(encodedBalance));
+        (address holderAddress, uint256 decodedBalance) = abi.decode(encodedBalance, (address, uint256));
+        return (holderAddress, decodedBalance);
+    }
+
+    function _decodeAndVerifyBalance(
+        bytes calldata encodedBalance,
+        address expectedHolder
+    )
+        private
+        pure
+        returns (uint256 balance)
+    {
+        (address holder, uint256 decodedBalance) = _decodeBalance(encodedBalance);
+        require(holder == expectedHolder, InvalidSaltForTransactionValue());
+        return decodedBalance;
     }
 
     /**
@@ -918,18 +1052,18 @@ contract ConfidentialToken is ConfidentialEIP3009, ERC20Permit, AccessManaged, I
         } else if (decryptedArguments.length == 3) {
             // token transfer
             require(
-                decryptedArguments[1].length == 32 || decryptedArguments[1].length == 0,
+                decryptedArguments[1].length == 64 || decryptedArguments[1].length == 0,
                 DecryptionBadFormat()
             );
         } else {
             revert DecryptionBadFormat();
         }
         require(
-            decryptedArguments[0].length == 32 || decryptedArguments[0].length == 0,
+            decryptedArguments[0].length == 64 || decryptedArguments[0].length == 0,
             DecryptionBadFormat()
         );
         require(
-            decryptedArguments[valueIndex].length == 32,
+            decryptedArguments[valueIndex].length == 64,
             DecryptionBadFormat()
         );
     }

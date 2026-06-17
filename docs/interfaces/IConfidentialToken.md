@@ -308,6 +308,23 @@ Allows the contract to receive gas token to pay for callback execution
 receive() external payable
 ```
 
+### initialize
+
+Initializes the contract for proxy deployment.
+
+```solidity
+function initialize(string name_, string symbol_, string version_, address initialAuthority) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| name_ | string | Name of the token. |
+| symbol_ | string | Symbol of the token. |
+| version_ | string | Version of the contract. |
+| initialAuthority | address | Address of AccessManager initial authority. |
+
 ### fundWithGasToken
 
 Deposits gas token to any holder balance
@@ -446,7 +463,7 @@ function retrieveGasToken(uint256 amount, address receiver) external
 Transfers tokens to another holder
 
 ```solidity
-function encryptedTransfer(address to, bytes value) external
+function encryptedTransfer(address to, bytes value) external payable
 ```
 
 #### Parameters
@@ -461,7 +478,7 @@ function encryptedTransfer(address to, bytes value) external
 Transfers tokens from one holder to another using allowance
 
 ```solidity
-function encryptedTransferFrom(address from, address to, bytes value) external
+function encryptedTransferFrom(address from, address to, bytes value) external payable
 ```
 
 #### Parameters
@@ -477,7 +494,7 @@ function encryptedTransferFrom(address from, address to, bytes value) external
 Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
 
 ```solidity
-function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
+function requestDecryptHistoricTransfer(bytes encryptedTransferData) external payable
 ```
 
 **dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
@@ -493,7 +510,7 @@ function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
 Requests decryption of a single historic encrypted transfer payload
 
 ```solidity
-function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) external
+function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) external payable
 ```
 
 **dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
@@ -658,6 +675,31 @@ function encryptedBalanceOf(address holder) external view returns (bytes encrypt
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | encryptedBalance | bytes | The encrypted balance of the holder |
+
+### encryptValue
+
+Encrypts `value` for `holder` using Threshold Encryption
+
+```solidity
+function encryptValue(address holder, uint256 value) external view returns (bytes encryptedValue)
+```
+
+**dev:** _Produces a cipher-text suitable for use in `encryptedTransfer` and `encryptedTransferFrom`.
+     The cipher-text binds `holder` as the salt — only a transaction submitted by `holder`
+     (or by a spender in `encryptedTransferFrom`) will pass the on-callback salt check._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| holder | address | The address used as the encryption salt; must match the submitter at callback time |
+| value | uint256 | The plaintext token amount to encrypt |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedValue | bytes | TE-encrypted bytes ready to pass to `encryptedTransfer` or `encryptedTransferFrom` |
 
 ### gasTokenBalanceOf
 

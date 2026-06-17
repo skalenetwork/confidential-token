@@ -2,7 +2,7 @@
 
 ## ConfidentialToken
 
-ERC20-like token with encrypted balances
+Upgradeable ERC20-like token with encrypted balances
 
 ### TransferInfo
 
@@ -104,6 +104,12 @@ error InsufficientGasToken(uint256 required, uint256 available)
 error InvalidPublicKey()
 ```
 
+### InvalidSaltForTransactionValue
+
+```solidity
+error InvalidSaltForTransactionValue()
+```
+
 ### InvalidTransferId
 
 ```solidity
@@ -156,20 +162,21 @@ modifier onlyRegisteredUser(address user)
 
 ### constructor
 
-Sets the values for {name} and {symbol}.
+Sets up the contract for proxy or direct deployment.
 
 ```solidity
-constructor(string name_, string symbol_, string version_, address initialAuthority) public
+constructor(bool proxyMode, string name_, string symbol_, string version_, address initialAuthority) public
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| name_ | string | Name of the token |
-| symbol_ | string | Symbol of the token |
-| version_ | string | Version of the contract |
-| initialAuthority | address | Address of AccessManager initial authority |
+| proxyMode | bool | If true, disables initializers for proxy deployment.                  If false, initializes the contract directly. |
+| name_ | string | Name of the token. Ignored when proxyMode is true. |
+| symbol_ | string | Symbol of the token. Ignored when proxyMode is true. |
+| version_ | string | Version of the contract. Ignored when proxyMode is true. |
+| initialAuthority | address | Address of AccessManager initial authority. Ignored when proxyMode is true. |
 
 ### receive
 
@@ -199,7 +206,7 @@ function onDecrypt(bytes[] decryptedArguments, bytes[] plaintextArguments) exter
 Transfers tokens to another holder
 
 ```solidity
-function encryptedTransfer(address to, bytes value) external
+function encryptedTransfer(address to, bytes value) external payable
 ```
 
 #### Parameters
@@ -214,7 +221,7 @@ function encryptedTransfer(address to, bytes value) external
 Transfers tokens from one holder to another using allowance
 
 ```solidity
-function encryptedTransferFrom(address from, address to, bytes value) external
+function encryptedTransferFrom(address from, address to, bytes value) external payable
 ```
 
 #### Parameters
@@ -230,7 +237,7 @@ function encryptedTransferFrom(address from, address to, bytes value) external
 Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
 
 ```solidity
-function requestDecryptHistoricTransfer(bytes encryptedTransferData) external
+function requestDecryptHistoricTransfer(bytes encryptedTransferData) external payable
 ```
 
 **dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
@@ -456,6 +463,31 @@ function encryptedBalanceOf(address holder) external view returns (bytes encrypt
 | ---- | ---- | ----------- |
 | encryptedBalance | bytes | The encrypted balance of the holder |
 
+### encryptValue
+
+Encrypts `value` for `holder` using Threshold Encryption
+
+```solidity
+function encryptValue(address holder, uint256 value) external view returns (bytes encryptedValue)
+```
+
+**dev:** _Produces a cipher-text suitable for use in `encryptedTransfer` and `encryptedTransferFrom`.
+     The cipher-text binds `holder` as the salt — only a transaction submitted by `holder`
+     (or by a spender in `encryptedTransferFrom`) will pass the on-callback salt check._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| holder | address | The address used as the encryption salt; must match the submitter at callback time |
+| value | uint256 | The plaintext token amount to encrypt |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| encryptedValue | bytes | TE-encrypted bytes ready to pass to `encryptedTransfer` or `encryptedTransferFrom` |
+
 ### gasTokenBalanceOf
 
 Gets the gas token balance of a holder
@@ -502,12 +534,29 @@ function canDecryptHistoricTransfer(address viewer, uint256 transferId, address 
 | ---- | ---- | ----------- |
 | canDecrypt | bool | True if the viewer is authorized to decrypt the transfer, false otherwise |
 
+### initialize
+
+Initializes the contract for proxy or direct deployment.
+
+```solidity
+function initialize(string name_, string symbol_, string version_, address initialAuthority) public virtual
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| name_ | string | Name of the token. |
+| symbol_ | string | Symbol of the token. |
+| version_ | string | Version of the contract. |
+| initialAuthority | address | Address of AccessManager initial authority. |
+
 ### requestDecryptHistoricTransferFor
 
 Requests decryption of a single historic encrypted transfer payload
 
 ```solidity
-function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public
+function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address historicViewer) public payable
 ```
 
 **dev:** _Charges callbackFee from msg.sender even if not authorized to decrypt the payload_
@@ -604,6 +653,18 @@ function balanceOf(address) public pure virtual returns (uint256)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
+
+### __ConfidentialToken_init
+
+```solidity
+function __ConfidentialToken_init(string name_, string symbol_, string version_, address initialAuthority) internal
+```
+
+### __ConfidentialToken_init_unchained
+
+```solidity
+function __ConfidentialToken_init_unchained(string version_) internal
+```
 
 ### _handleAction
 
@@ -730,4 +791,10 @@ function _encryptedTransfer(address from, address to, bytes value) internal virt
 | from | address | Address to transfer tokens from |
 | to | address | Address to transfer tokens to |
 | value | bytes | TE-encrypted amount of tokens to be transferred |
+
+### _encryptTEValueForHolder
+
+```solidity
+function _encryptTEValueForHolder(address holder, uint256 value) internal view returns (bytes encryptedValue)
+```
 

@@ -1,5 +1,17 @@
 # Solidity API
 
+## _wrapperName
+
+```solidity
+function _wrapperName(bool proxyMode, contract IERC20Metadata token) internal view returns (string name)
+```
+
+## _wrapperSymbol
+
+```solidity
+function _wrapperSymbol(bool proxyMode, contract IERC20Metadata token) internal view returns (string symbol)
+```
+
 ## ConfidentialWrapper
 
 Confidential wrapper that adds confidentiality to an ERC20 token
@@ -21,6 +33,12 @@ Has non-zero value only before the callback call is made_
 error OutdatedMint(address to, uint256 value)
 ```
 
+### WrongInitializer
+
+```solidity
+error WrongInitializer()
+```
+
 ### ZeroValue
 
 ```solidity
@@ -29,9 +47,58 @@ error ZeroValue()
 
 ### constructor
 
+Sets up the contract for proxy or direct deployment.
+
 ```solidity
-constructor(contract IERC20Metadata underlyingToken, string version_, address initialAuthority) public
+constructor(bool proxyMode, contract IERC20Metadata underlyingToken, string version_, address initialAuthority) public
 ```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| proxyMode | bool | If true, disables initializers for proxy deployment.                  If false, initializes the contract directly. |
+| underlyingToken | contract IERC20Metadata | Token to wrap confidentially. Ignored when proxyMode is true. |
+| version_ | string | Version of the wrapper. Ignored when proxyMode is true. |
+| initialAuthority | address | Initial authority address. Ignored when proxyMode is true. |
+
+### initialize
+
+Initializes the contract for proxy deployment.
+
+```solidity
+function initialize(contract IERC20Metadata underlyingToken, string version_, address initialAuthority) external
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| underlyingToken | contract IERC20Metadata | Token to wrap confidentially. |
+| version_ | string | Version of the wrapper. |
+| initialAuthority | address | Initial authority address. |
+
+### depositForWithGasToken
+
+depositFor-like function
+that allows the sender to top up their gas token balance in the same transaction
+
+```solidity
+function depositForWithGasToken(address account, uint256 value) external payable returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| account | address | The address to credit the wrapped tokens to |
+| value | uint256 | The amount of tokens to wrap |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Whether the deposit was successful |
 
 ### releaseTo
 
@@ -49,6 +116,28 @@ function releaseTo(address account, uint256 value) external
 | ---- | ---- | ----------- |
 | account | address | The address to release the underlying tokens to |
 | value | uint256 | The amount of tokens to release |
+
+### withdrawToWithGasToken
+
+withdrawTo-like function
+that allows the sender to top up their gas token balance in the same transaction
+
+```solidity
+function withdrawToWithGasToken(address account, uint256 value) external payable returns (bool success)
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| account | address | The address to release the underlying tokens to |
+| value | uint256 | The amount of tokens to release |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| success | bool | Whether the withdrawal was successful |
 
 ### transferFrom
 
@@ -106,6 +195,25 @@ function totalSupply() public view returns (uint256 supply)
 
 **dev:** _Returns the value of tokens in existence._
 
+### initialize
+
+Initializes the contract for proxy or direct deployment.
+
+```solidity
+function initialize(string, string, string, address) public pure
+```
+
+**dev:** _This function is disabled for the wrapper since the initializer is different._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+|  | string |  |
+|  | string |  |
+|  | string |  |
+|  | address |  |
+
 ### balanceOf
 
 ```solidity
@@ -113,6 +221,12 @@ function balanceOf(address account) public pure returns (uint256 balance)
 ```
 
 **dev:** _Returns the value of tokens owned by `account`._
+
+### __ConfidentialWrapper_init
+
+```solidity
+function __ConfidentialWrapper_init(contract IERC20Metadata underlyingToken, string version_, address initialAuthority) internal
+```
 
 ### _handleAction
 

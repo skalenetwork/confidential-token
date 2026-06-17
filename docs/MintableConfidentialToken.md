@@ -6,20 +6,21 @@ ConfidentialToken with minting functionality
 
 ### constructor
 
-Constructor of the MintableConfidentialToken contract
+Sets up the contract for proxy or direct deployment.
 
 ```solidity
-constructor(string name, string symbol, string version_, address initialAuthority) public
+constructor(bool proxyMode, string name, string symbol, string version_, address initialAuthority) public
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| name | string | Name of the token |
-| symbol | string | Symbol of the token |
-| version_ | string | Version of the token |
-| initialAuthority | address | Initial authority address |
+| proxyMode | bool | If true, disables initializers for proxy deployment.                  If false, initializes the contract directly. |
+| name | string | Name of the token. Ignored when proxyMode is true. |
+| symbol | string | Symbol of the token. Ignored when proxyMode is true. |
+| version_ | string | Version of the token. Ignored when proxyMode is true. |
+| initialAuthority | address | Initial authority address. Ignored when proxyMode is true. |
 
 ### mint
 
@@ -49,4 +50,27 @@ function burn(uint256 amount) external
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | amount | uint256 | The amount of tokens to burn |
+
+### initialize
+
+Initializes the contract for proxy deployment.
+
+```solidity
+function initialize(string name, string symbol, string version_, address initialAuthority) public
+```
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| name | string | Name of the token. |
+| symbol | string | Symbol of the token. |
+| version_ | string | Version of the token. |
+| initialAuthority | address | Initial authority address. |
+
+### __MintableConfidentialToken_init
+
+```solidity
+function __MintableConfidentialToken_init(string name, string symbol, string version_, address initialAuthority) internal
+```
 

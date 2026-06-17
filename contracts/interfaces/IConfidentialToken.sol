@@ -164,6 +164,18 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Allows the contract to receive gas token to pay for callback execution
     receive() external payable;
 
+    /// @notice Initializes the contract for proxy deployment.
+    /// @param name_ Name of the token.
+    /// @param symbol_ Symbol of the token.
+    /// @param version_ Version of the contract.
+    /// @param initialAuthority Address of AccessManager initial authority.
+    function initialize(
+        string calldata name_,
+        string calldata symbol_,
+        string calldata version_,
+        address initialAuthority
+    ) external;
+
     /// @notice Deposits gas token to any holder balance
     /// @param receiver The address of the receiver holder
     function fundWithGasToken(address receiver) external payable;
@@ -207,24 +219,27 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Transfers tokens to another holder
     /// @param to The address of the recipient holder
     /// @param value The TE-encrypted amount of tokens to transfer
-    function encryptedTransfer(address to, bytes calldata value) external;
+    function encryptedTransfer(address to, bytes calldata value) external payable;
 
     /// @notice Transfers tokens from one holder to another using allowance
     /// @param from The address of the sender holder
     /// @param to The address of the recipient holder
     /// @param value The TE-encrypted amount of tokens to transfer
-    function encryptedTransferFrom(address from, address to, bytes calldata value) external;
+    function encryptedTransferFrom(address from, address to, bytes calldata value) external payable;
 
     /// @notice Requests decryption of a single historic encrypted transfer payload with msg.sender as the viewer
     /// @dev Charges callbackFee from msg.sender even if not authorized to decrypt the payload
     /// @param encryptedTransferData TE-encrypted transfer payload emitted by the token
-    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external;
+    function requestDecryptHistoricTransfer(bytes calldata encryptedTransferData) external payable;
 
     /// @notice Requests decryption of a single historic encrypted transfer payload
     /// @dev Charges callbackFee from msg.sender even if not authorized to decrypt the payload
     /// @param encryptedTransferData TE-encrypted transfer payload emitted by the token
     /// @param historicViewer Address of the viewer who will receive the decrypted transfer event if authorized
-    function requestDecryptHistoricTransferFor(bytes calldata encryptedTransferData, address historicViewer) external;
+    function requestDecryptHistoricTransferFor(
+        bytes calldata encryptedTransferData,
+        address historicViewer
+    ) external payable;
 
     /// @notice Removes all historic view permissions for a viewer for msg.sender's history
     /// @dev Resets time window and clears explicitly authorized transfer IDs
@@ -282,6 +297,15 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param holder The address of the holder
     /// @return encryptedBalance The encrypted balance of the holder
     function encryptedBalanceOf(address holder) external view returns (bytes memory encryptedBalance);
+
+    /// @notice Encrypts `value` for `holder` using Threshold Encryption
+    /// @dev Produces a cipher-text suitable for use in `encryptedTransfer` and `encryptedTransferFrom`.
+    ///      The cipher-text binds `holder` as the salt — only a transaction submitted by `holder`
+    ///      (or by a spender in `encryptedTransferFrom`) will pass the on-callback salt check.
+    /// @param holder The address used as the encryption salt; must match the submitter at callback time
+    /// @param value The plaintext token amount to encrypt
+    /// @return encryptedValue TE-encrypted bytes ready to pass to `encryptedTransfer` or `encryptedTransferFrom`
+    function encryptValue(address holder, uint256 value) external view returns (bytes memory encryptedValue);
 
     /// @notice Gets the gas token balance of a holder
     /// @param holder The address of the holder

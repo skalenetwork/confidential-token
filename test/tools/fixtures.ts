@@ -1,10 +1,16 @@
 import {
     loadFixture
 } from "@nomicfoundation/hardhat-network-helpers";
-import { deployMintable } from "../../migrations/deployMintable";
 import { ethers } from "hardhat";
-import { deployWrapper } from "../../migrations/deployWrapper";
+import { HDNodeWallet, Wallet } from "ethers";
+import { AccessManager, MintableConfidentialToken } from "../../typechain-types";
+import {
+    deployMintableWithTokenDeployer,
+    deployWrapperWithTokenDeployer
+} from "./tokenDeployerHelpers";
 import { deployTestERC20 } from "../../scripts/deployTestERC20";
+import { getPublicKey } from "./cryptography";
+import { feedAccounts } from "./helpers";
 
 // cspell:words ECIES
 
@@ -34,22 +40,28 @@ const deployMintableFixture = async () => {
     const tokenSymbol = "CTK";
     const version = "testing";
     const [deployer] = await ethers.getSigners();
-    const contracts = await deployMintable(
-        tokenName,
-        tokenSymbol,
-        version,
-        deployer
-    );
+
+    const deployedContracts = await deployMintableWithTokenDeployer({
+        proxyMode: false,
+        ownerEnvVariable: "TEST_OWNER_MINTABLE_FIXTURE",
+        ownerAddress: deployer,
+        name: tokenName,
+        symbol: tokenSymbol,
+        version
+    });
+    const accessManager = deployedContracts.AccessManager as AccessManager;
+    const mintableConfidentialToken = deployedContracts.MintableConfidentialToken as MintableConfidentialToken;
+
     const mocks = await deployBiteMocks();
-    await contracts.ConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
-    await contracts.ConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
-    await contracts.ConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
-    await contracts.ConfidentialToken.setCallbackFee(ethers.parseEther("0.003"));
+    await mintableConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
+    await mintableConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
+    await mintableConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
+    await mintableConfidentialToken.setCallbackFee(ethers.parseEther("0.003"));
 
     return {
-        accessManager: contracts.AccessManager,
+        accessManager,
         owner: deployer,
-        token: contracts.ConfidentialToken,
+        token: mintableConfidentialToken,
         ...mocks
     }
 }
@@ -79,11 +91,13 @@ const deployWrapperFixture = async () => {
         "D2E"
     );
 
-    const contracts = await deployWrapper(
-        underlyingToken,
-        version,
-        deployer
-    );
+    const contracts = await deployWrapperWithTokenDeployer({
+        proxyMode: false,
+        ownerEnvVariable: "TEST_OWNER_WRAPPER_FIXTURE",
+        ownerAddress: deployer,
+        originToken: underlyingToken,
+        version
+    });
 
     const mocks = await deployBiteMocks();
     await contracts.ConfidentialWrapper.setEncryptECIESAddress(mocks.encryptECIES);
@@ -121,9 +135,42 @@ const wrappedFixture = async () => {
     }
 }
 
+const eip3009Fixture = async () => {
+    const alice = Wallet.createRandom(ethers.provider) as HDNodeWallet;
+    const bob = Wallet.createRandom(ethers.provider) as HDNodeWallet;
+    const charlie = Wallet.createRandom(ethers.provider) as HDNodeWallet;
+
+    // Inline minting setup — avoids nesting loadFixture calls
+    const minted = ethers.parseEther("1000");
+    const gasTokenBalance = ethers.parseEther("1.0");
+    const context = await deployMintableFixture();
+    await context.owner.sendTransaction({
+        to: await ethers.resolveAddress(context.token),
+        value: gasTokenBalance
+    });
+    await context.token.mint(context.owner, minted);
+    await context.bite.sendCallback();
+
+    await feedAccounts([alice, bob, charlie]);
+    for (const user of [alice, bob, charlie]) {
+        await context.token.connect(user).fundWithGasToken(user, { value: ethers.parseEther("3") });
+    }
+    await context.token.connect(alice).setViewerPublicKey(await getPublicKey(alice));
+    await context.bite.sendCallback();
+    await context.token.connect(bob).setViewerPublicKey(await getPublicKey(bob));
+    await context.bite.sendCallback();
+    await context.token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
+    await context.bite.sendCallback();
+    await context.token.transfer(alice, 10e6);
+    await context.bite.sendCallback();
+
+    return { ...context, alice, bob, charlie, minted };
+};
+
 // External functions
 
 export const cleanMintableDeployment = async () => loadFixture(deployMintableFixture);
 export const withMintedTokens = async () => loadFixture(mintedFixture);
 export const cleanWrapperDeployment = async () => loadFixture(deployWrapperFixture);
 export const withWrappedTokens = async () => loadFixture(wrappedFixture);
+export const withEIP3009Setup = async () => loadFixture(eip3009Fixture);
