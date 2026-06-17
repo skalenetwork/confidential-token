@@ -399,6 +399,84 @@ describe("ConfidentialToken", () => {
         decryptedBalance.should.be.equal(amount);
     });
 
+    it("should allow encryptedTransfer with inline callback fee", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, recipient] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+        const callbackFee = await token.callbackFee();
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner),
+            { value: callbackFee * 2n }
+        );
+        await bite.sendCallback();
+
+        await token.connect(recipient).setViewerPublicKey(
+            await getPublicKey(recipient),
+            { value: callbackFee * 2n }
+        );
+        await bite.sendCallback();
+
+        const ownerGasTokenBalance = await token.gasTokenBalanceOf(owner);
+        await token.connect(owner).retrieveGasToken(ownerGasTokenBalance, owner);
+        (await token.gasTokenBalanceOf(owner)).should.be.equal(0n);
+
+        const encryptedAmount = await token.encryptValue(owner.address, amount);
+        await token.connect(owner).encryptedTransfer(recipient, encryptedAmount, { value: callbackFee });
+
+        // funded and charged exactly once inline
+        (await token.gasTokenBalanceOf(owner)).should.be.equal(0n);
+
+        await bite.sendCallback();
+
+        (await token.gasTokenBalanceOf(owner)).should.be.equal(0n);
+        (await balanceOf(token, bite, recipient)).should.be.equal(amount);
+    });
+
+    it("should allow encryptedTransferFrom with inline callback fee", async () => {
+        const amount = ethers.parseEther("1.0");
+        const [owner, spender, recipient] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+        const callbackFee = await token.callbackFee();
+        const overpayment = callbackFee * 3n;
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner),
+            { value: callbackFee * 2n }
+        );
+        await bite.sendCallback();
+
+        await token.connect(spender).setViewerPublicKey(
+            await getPublicKey(spender),
+            { value: callbackFee * 2n }
+        );
+        await bite.sendCallback();
+
+        await token.connect(recipient).setViewerPublicKey(
+            await getPublicKey(recipient),
+            { value: callbackFee * 2n }
+        );
+        await bite.sendCallback();
+
+        await token.connect(owner).approve(spender, amount);
+
+        const spenderGasTokenBalance = await token.gasTokenBalanceOf(spender);
+        await token.connect(spender).retrieveGasToken(spenderGasTokenBalance, spender);
+        (await token.gasTokenBalanceOf(spender)).should.be.equal(0n);
+
+        // For transferFrom the value must be salted to the spender, not the owner
+        const encryptedAmount = await token.encryptValue(spender.address, amount);
+        await token.connect(spender).encryptedTransferFrom(owner, recipient, encryptedAmount, { value: overpayment });
+
+        const expectedRemainder = overpayment - callbackFee;
+        (await token.gasTokenBalanceOf(spender)).should.be.equal(expectedRemainder);
+
+        await bite.sendCallback();
+
+        (await token.gasTokenBalanceOf(spender)).should.be.equal(expectedRemainder);
+        (await balanceOf(token, bite, recipient)).should.be.equal(amount);
+    });
+
     it("should not allow double spending during BITE execution", async () => {
         const amount = ethers.parseEther("1.0");
         const [owner, user1, user2] = await ethers.getSigners();
@@ -520,6 +598,8 @@ describe("ConfidentialToken", () => {
         await bite.sendCallback()
             .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
     });
+
+
 
     describe("Re Encryption of Historical transfers", () => {
         const gasTokenFunding = ethers.parseEther("1.0");
@@ -756,6 +836,37 @@ describe("ConfidentialToken", () => {
             await expect(callbackTx).to.emit(token, "ReEncryptedTransfer");
             expect(await decryptReEncryptedTransferValue(token, bite, viewer, callbackTx))
                 .to.equal(transferAmount);
+        });
+
+        it("should allow an unfunded viewer to call requestDecryptHistoricTransferFor with inline callbackFee", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, viewer] = await ethers.getSigners();
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
+
+            const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
+            await token.connect(owner).authorizeHistoricViewTransferId(viewer, event.transferId);
+
+            const callbackFee = await token.callbackFee();
+            const viewerGasTokenBalance = await token.gasTokenBalanceOf(viewer.address);
+            await token.connect(viewer).retrieveGasToken(viewerGasTokenBalance, viewer);
+            expect(await token.gasTokenBalanceOf(viewer.address)).to.equal(0);
+
+            await token.connect(viewer).requestDecryptHistoricTransferFor(
+                event.encryptedData,
+                viewer,
+                { value: callbackFee }
+            );
+
+            // Inline top-up is consumed exactly once by the callback
+            expect(await token.gasTokenBalanceOf(viewer.address)).to.equal(0);
+
+            const callbackTx = await bite.sendCallback();
+            await expect(callbackTx).to.emit(token, "ReEncryptedTransfer");
+            expect(await decryptReEncryptedTransferValue(token, bite, viewer, callbackTx))
+                .to.equal(transferAmount);
+            expect(await token.gasTokenBalanceOf(viewer.address)).to.equal(0);
         });
 
         it("should be able to grant historic view permission to a viewer with fromTimestamp and toTimestamp valid, and decrypt a transfer event", async () => {
