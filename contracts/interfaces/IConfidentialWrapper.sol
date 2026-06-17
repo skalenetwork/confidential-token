@@ -34,7 +34,8 @@ import { IConfidentialToken } from "./IConfidentialToken.sol";
 /// @notice Interface of ConfidentialWrapper that adds confidentiality to an ERC20 token
 interface IConfidentialWrapper is IConfidentialToken {
 
-    /// @notice depositFor like function that allows to top up gas token wallet of the sender in the same transaction
+    /// @notice depositFor-like function
+    /// @notice that allows the sender to top up their gas token balance in the same transaction
     /// @param account The address to credit the wrapped tokens to
     /// @param value The amount of tokens to wrap
     /// @return success Whether the deposit was successful
@@ -57,7 +58,8 @@ interface IConfidentialWrapper is IConfidentialToken {
         address initialAuthority
     ) external;
 
-    /// @notice withdrawTo like function that allows to top up gas token wallet of the sender in the same transaction
+    /// @notice withdrawTo-like function
+    /// @notice that allows the sender to top up their gas token balance in the same transaction
     /// @param account The address to release the underlying tokens to
     /// @param value The amount of tokens to release
     /// @return success Whether the withdrawal was successful
