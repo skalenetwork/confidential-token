@@ -599,8 +599,6 @@ describe("ConfidentialToken", () => {
             .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
     });
 
-
-
     describe("Re Encryption of Historical transfers", () => {
         const gasTokenFunding = ethers.parseEther("1.0");
         const transferAmount = ethers.parseEther("10.0");
