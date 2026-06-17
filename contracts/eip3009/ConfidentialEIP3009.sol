@@ -126,7 +126,7 @@ abstract contract ConfidentialEIP3009 is EIP3009 {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external {
+    ) external payable {
         require(to == msg.sender, CallerMustBeThePayee(msg.sender, to));
 
         _transferWithAuthorization({
