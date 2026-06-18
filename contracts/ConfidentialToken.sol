@@ -101,6 +101,12 @@ contract ConfidentialToken is
 
     mapping(address holder => uint256 gasToken) private _gasTokenBalance;
 
+    uint256 private _gasTokenBalancesSum;
+
+    address private _lastGasTokenRefundReceiver;
+
+    mapping (address callbackSender => address gasPayer) private _gasPayers;
+
     mapping(address holder => uint256 blockNumber) private _lastChanged;
 
     EnumerableSet.AddressSet private _callbackSenders;
@@ -167,6 +173,7 @@ contract ConfidentialToken is
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
+        _setUpGasTokenRefund(msg.sender);
         uint8 action = _parseAction(plaintextArguments);
         _handleAction(action, decryptedArguments, plaintextArguments);
     }
@@ -308,11 +315,11 @@ contract ConfidentialToken is
         // so no ability to save some gas here
         // solhint-disable gas-strict-inequalities
         require(
-            _gasTokenBalance[msg.sender] >= value,
-            InsufficientGasToken(value, _gasTokenBalance[msg.sender])
+            _getGasTokenBalance(msg.sender) >= value,
+            InsufficientGasToken(value, _getGasTokenBalance(msg.sender))
         );
         // solhint-enable gas-strict-inequalities
-        _gasTokenBalance[msg.sender] -= value;
+        _setGasTokenBalance(msg.sender, _getGasTokenBalance(msg.sender) - value);
         emit GasTokenWithdrawn(receiver, value);
         payable(receiver).sendValue(value);
     }
@@ -338,6 +345,12 @@ contract ConfidentialToken is
 
     /// @inheritdoc IConfidentialToken
     function gasTokenBalanceOf(address holder) external view override returns (uint256 balance) {
+        uint256 refund = 0;
+        if (address(this).balance > _gasTokenBalancesSum) {
+            if (holder == _lastGasTokenRefundReceiver) {
+                refund = address(this).balance - _gasTokenBalancesSum;
+            }
+        }
         return _gasTokenBalance[holder];
     }
 
@@ -409,7 +422,7 @@ contract ConfidentialToken is
     function fundWithGasToken(address receiver) public payable override {
         uint256 value = msg.value;
         if (value > 0) {
-            _gasTokenBalance[receiver] += value;
+            _setGasTokenBalance(receiver, _getGasTokenBalance(receiver) + value);
             emit GasTokenBalanceToppedUp(msg.sender, receiver, value);
         }
     }
@@ -905,11 +918,11 @@ contract ConfidentialToken is
         // so no ability to save some gas here
         // solhint-disable gas-strict-inequalities
         require(
-            _gasTokenBalance[gasPayer] >= callbackFee,
-            InsufficientGasToken(callbackFee, _gasTokenBalance[gasPayer])
+            _getGasTokenBalance(gasPayer) >= callbackFee,
+            InsufficientGasToken(callbackFee, _getGasTokenBalance(gasPayer))
         );
         // solhint-enable gas-strict-inequalities
-        _gasTokenBalance[gasPayer] -= callbackFee;
+        _setGasTokenBalance(gasPayer, _getGasTokenBalance(gasPayer) - callbackFee);
 
         address payable callback = BITE.submitCTX(
             submitCTXAddress,
@@ -918,7 +931,38 @@ contract ConfidentialToken is
             plaintextArguments
         );
         require(_callbackSenders.add(callback), AccessViolation());
+        _gasPayers[callback] = gasPayer;
         callback.sendValue(callbackFee);
+    }
+
+    function _getGasTokenBalance(address holder) private returns (uint256 balance) {
+        _flushGasTokenRefund();
+        return _gasTokenBalance[holder];
+    }
+
+    function _setGasTokenBalance(address holder, uint256 balance) private {
+        uint256 currentBalance = _gasTokenBalance[holder];
+        _gasTokenBalance[holder] = balance;
+        if (balance > currentBalance) {
+            _gasTokenBalancesSum += balance - currentBalance;
+        } else {
+            _gasTokenBalancesSum -= currentBalance - balance;
+        }
+    }
+
+    function _flushGasTokenRefund() private {
+        if (address(this).balance > _gasTokenBalancesSum) {
+            _setGasTokenBalance(
+                _lastGasTokenRefundReceiver,
+                _gasTokenBalance[_lastGasTokenRefundReceiver] + address(this).balance - _gasTokenBalancesSum
+            );
+        }
+    }
+
+    function _setUpGasTokenRefund(address callbackSender) private {
+        _flushGasTokenRefund();
+        _lastGasTokenRefundReceiver = _gasPayers[callbackSender];
+        delete _gasPayers[callbackSender];
     }
 
     function _encryptArguments(
