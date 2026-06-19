@@ -172,8 +172,8 @@ const eip3009Fixture = async () => {
 
     await context.token.connect(alice).setViewerPublicKey(await getPublicKey(alice));
     await context.bite.sendCallback();
-    await context.token.connect(bob).setViewerPublicKey(await getPublicKey(bob));
-    await context.bite.sendCallback();
+    //await context.token.connect(bob).setViewerPublicKey(await getPublicKey(bob));
+    //await context.bite.sendCallback();
     //await context.token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
     //await context.bite.sendCallback();
     // End: Time consuming section under coverage

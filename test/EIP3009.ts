@@ -32,7 +32,6 @@ describe("EIP3009", () => {
 
     before(async function() {
         // warmup the fixture with larger timeout. This runs only once and is loaded in all following tests
-        this.timeout(60_000);
         await withEIP3009Setup();
     });
 
@@ -80,6 +79,8 @@ describe("EIP3009", () => {
         });
 
         it("executes a transfer when a valid authorization is given", async () => {
+            await token.connect(bob).setViewerPublicKey(await getPublicKey(bob));
+            await bite.sendCallback();
             const { from, to, value, validAfter, validBefore } = transferParams;
             // create an authorization to transfer money from Alice to Bob and sign
             // with Alice's key
