@@ -933,6 +933,24 @@ describe("EIP3009", () => {
                 cancellation.s
             ).should.be.revertedWithCustomError(token, "AuthorizationUsedError").withArgs(alice, nonce);
         });
+
+        it("reverts if the cancellation is not signed by the authorizer", async () => {
+            // Sign a cancellation with Bob's key, then submit it claiming Alice is the
+            // authorizer. The recovered signer no longer matches `authorizer`.
+            const cancellation = await signCancelAuthorization(
+                nonce,
+                domainSeparator,
+                bob
+            );
+
+            await token.connect(charlie).cancelAuthorization(
+                alice,
+                nonce,
+                cancellation.v,
+                cancellation.r,
+                cancellation.s
+            ).should.be.revertedWithCustomError(token, "InvalidSignature");
+        });
     });
 });
 

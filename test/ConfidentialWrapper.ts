@@ -364,6 +364,31 @@ describe("ConfidentialWrapper", () => {
             .should.be.revertedWithCustomError(token, "ValueIsEncrypted");
     });
 
+    it("transferFrom moves the confidential balance through the allowance mechanism", async () => {
+        const { token, bite, owner } = await withWrappedTokens();
+        const [, spender, recipient] = await ethers.getSigners();
+        const amount = ethers.parseEther("10");
+
+        // Recipient needs a registered viewer so we can decrypt and assert its balance.
+        await token.connect(recipient).setViewerPublicKey(
+            await getPublicKey(recipient),
+            { value: ethers.parseEther("1") }
+        );
+        await bite.sendCallback();
+        // The spender (gas payer of the delegated transfer) funds the callback fee.
+        await token.connect(spender).fundWithGasToken(spender, { value: ethers.parseEther("1") });
+
+        await token.connect(owner).approve(spender, amount);
+        expect(await token.allowance(owner, spender)).to.equal(amount);
+
+        await token.connect(spender).transferFrom(owner, recipient, amount);
+        await bite.sendCallback();
+
+        // Allowance is consumed and the value lands on the recipient's confidential balance.
+        expect(await token.allowance(owner, spender)).to.equal(0n);
+        expect(await balanceOf(token, bite, recipient)).to.equal(amount);
+    });
+
     it("depositForWithGasToken works with zero gas-token balance", async () => {
         const { token, underlyingToken, owner, bite } = await cleanWrapperDeployment();
 
