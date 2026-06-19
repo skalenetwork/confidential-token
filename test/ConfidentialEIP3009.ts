@@ -27,11 +27,6 @@ describe("ConfidentialEIP3009", () => {
     let nonce: string;
     const initialBalance = 10e6;
 
-    before(async function() {
-        // warmup the fixture
-        await withEIP3009Setup();
-    });
-
     beforeEach(async () => {
         ({ bite, token, alice, bob, charlie } = await withEIP3009Setup());
         const latestBlock = await ethers.provider.getBlock("latest");
