@@ -166,16 +166,12 @@ const eip3009Fixture = async () => {
         await context.token.connect(user).fundWithGasToken(user, { value: ethers.parseEther("3") });
     }
 
-    // Start: Time consuming section under coverage
+    // Start: Time consuming section under coverage. Avoid unnecessary registrations and callbacks
     await context.token.transfer(alice, 10e6);
     await context.bite.sendCallback();
 
     await context.token.connect(alice).setViewerPublicKey(await getPublicKey(alice));
     await context.bite.sendCallback();
-    //await context.token.connect(bob).setViewerPublicKey(await getPublicKey(bob));
-    //await context.bite.sendCallback();
-    //await context.token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
-    //await context.bite.sendCallback();
     // End: Time consuming section under coverage
 
     return { ...context, alice, bob, charlie, minted };
