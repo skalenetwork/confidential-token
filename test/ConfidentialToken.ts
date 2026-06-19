@@ -599,6 +599,74 @@ describe("ConfidentialToken", () => {
             .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
     });
 
+    describe("precompile address setters", () => {
+        it("allows the owner to update the EncryptECIES address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setEncryptECIESAddress(newAddress)
+                .should.emit(token, "EncryptECIESAddressChanged").withArgs(newAddress);
+            (await token.encryptECIESAddress()).should.equal(newAddress);
+        });
+
+        it("allows the owner to update the EncryptTE address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setEncryptTEAddress(newAddress)
+                .should.emit(token, "EncryptTEAddressChanged").withArgs(newAddress);
+            (await token.encryptTEAddress()).should.equal(newAddress);
+        });
+
+        it("allows the owner to update the SubmitCTX address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setSubmitCTXAddress(newAddress)
+                .should.emit(token, "SubmitCTXAddressChanged").withArgs(newAddress);
+            (await token.submitCTXAddress()).should.equal(newAddress);
+        });
+
+        it("blocks unauthorized callers from setting EncryptECIES address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setEncryptECIESAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("blocks unauthorized callers from setting EncryptTE address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setEncryptTEAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("blocks unauthorized callers from setting SubmitCTX address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setSubmitCTXAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("reverts when setting EncryptECIES address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setEncryptECIESAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
+
+        it("reverts when setting EncryptTE address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setEncryptTEAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
+
+        it("reverts when setting SubmitCTX address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setSubmitCTXAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
+    });
+
     describe("Re Encryption of Historical transfers", () => {
         const gasTokenFunding = ethers.parseEther("1.0");
         const transferAmount = ethers.parseEther("10.0");

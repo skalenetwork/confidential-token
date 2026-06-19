@@ -6,6 +6,7 @@ import { expect } from "chai";
 import { BiteMock, ConfidentialToken } from "../typechain-types";
 import { withEIP3009Setup } from "./tools/fixtures";
 import { balanceOf, nowPlusSeconds } from "./tools/helpers";
+import { getPublicKey } from "./tools/cryptography";
 
 const TRANSFER_WITH_AUTHORIZATION_TYPEHASH = ethers.id(
     "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
@@ -426,6 +427,8 @@ describe("EIP3009", () => {
 
 
         it("executes a transfer when a valid authorization is submitted by the payee", async () => {
+            await token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
+            await bite.sendCallback();
             const { from, to, value, validAfter, validBefore } = receiveParams;
             // create a receive authorization to transfer money from Alice to Charlie
             // and sign with Alice's key
@@ -472,6 +475,8 @@ describe("EIP3009", () => {
         });
 
         it("reverts if the caller is not the payee", async () => {
+            await token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
+            await bite.sendCallback();
             const { from, to, value, validAfter, validBefore } = receiveParams;
             // create a signed authorization
             const { v, r, s } = await signReceiveAuthorization(
