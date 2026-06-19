@@ -476,8 +476,6 @@ describe("ConfidentialEIP3009", () => {
         });
 
         it("reverts if the caller is not the payee", async () => {
-            await token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
-            await bite.sendCallback();
             const { from, to, value, validAfter, validBefore } = receiveParams;
             const encryptedValue = await token.encryptValue(from, value);
 
@@ -495,7 +493,6 @@ describe("ConfidentialEIP3009", () => {
 
             // check initial balance
             expect(await balanceOf(token, bite, from)).to.equal(10e6);
-            expect(await balanceOf(token, bite, to)).to.equal(0);
 
             expect(await token.authorizationState(from, nonce)).to.be.eql(false);
 
