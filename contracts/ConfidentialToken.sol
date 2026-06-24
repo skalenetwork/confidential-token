@@ -351,7 +351,7 @@ contract ConfidentialToken is
                 refund = address(this).balance - _gasTokenBalancesSum;
             }
         }
-        return _gasTokenBalance[holder];
+        return _gasTokenBalance[holder] + refund;
     }
 
     ///@inheritdoc IConfidentialToken
@@ -941,20 +941,21 @@ contract ConfidentialToken is
     }
 
     function _setGasTokenBalance(address holder, uint256 balance) private {
-        uint256 currentBalance = _gasTokenBalance[holder];
+        uint256 balanceBefore = _gasTokenBalance[holder];
         _gasTokenBalance[holder] = balance;
-        if (balance > currentBalance) {
-            _gasTokenBalancesSum += balance - currentBalance;
+        if (balance > balanceBefore) {
+            _gasTokenBalancesSum += balance - balanceBefore;
         } else {
-            _gasTokenBalancesSum -= currentBalance - balance;
+            _gasTokenBalancesSum -= balanceBefore - balance;
         }
     }
 
     function _flushGasTokenRefund() private {
-        if (address(this).balance > _gasTokenBalancesSum) {
+        if (address(this).balance - msg.value > _gasTokenBalancesSum) {
+            uint256 refund = address(this).balance - msg.value - _gasTokenBalancesSum;
             _setGasTokenBalance(
                 _lastGasTokenRefundReceiver,
-                _gasTokenBalance[_lastGasTokenRefundReceiver] + address(this).balance - _gasTokenBalancesSum
+                _gasTokenBalance[_lastGasTokenRefundReceiver] + refund
             );
         }
     }
