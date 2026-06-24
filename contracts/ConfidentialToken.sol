@@ -31,12 +31,12 @@ import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC2
 import {
     ERC20PermitUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { BITE, PublicKey } from "@skalenetwork/bite-solidity/BITE.sol";
 import { ConfidentialEIP3009 } from "./eip3009/ConfidentialEIP3009.sol";
 import { DecryptionBadFormat, ZeroAddress } from "./errors.sol";
+import { GasTokenManager } from "./GasTokenManager.sol";
 import { HistoricView } from "./HistoricView.sol";
 import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 
@@ -48,11 +48,10 @@ import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialT
 contract ConfidentialToken is
     ERC20PermitUpgradeable,
     ConfidentialEIP3009,
+    GasTokenManager,
     AccessManagedUpgradeable,
     IConfidentialToken
 {
-    using Address for address;
-    using Address for address payable;
     using Math for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
     using HistoricView for HistoricView.AuthStorage;
@@ -99,12 +98,6 @@ contract ConfidentialToken is
     /// @notice Encrypted with User's Public Key (U_Key) - Used for local viewing
     mapping(address holder => bytes encryptedBalance) private _userBalances;
 
-    mapping(address holder => uint256 gasToken) private _gasTokenBalance;
-
-    uint256 private _gasTokenBalancesSum;
-
-    address private _lastGasTokenRefundReceiver;
-
     mapping (address callbackSender => address gasPayer) private _gasPayers;
 
     mapping(address holder => uint256 blockNumber) private _lastChanged;
@@ -122,7 +115,6 @@ contract ConfidentialToken is
     error AccessViolation();
     error ActionNotRecognized();
     error InsufficientBalance();
-    error InsufficientGasToken(uint256 required, uint256 available);
     error InvalidPublicKey();
     error InvalidSaltForTransactionValue();
     error InvalidTransferId(uint256 transferId);
@@ -160,12 +152,6 @@ contract ConfidentialToken is
             ConfidentialToken.initialize(name_, symbol_, version_, initialAuthority);
         }
     }
-
-    /// @inheritdoc IConfidentialToken
-    receive() external payable override {
-        fundWithGasToken(msg.sender);
-    }
-
 
     /// @inheritdoc IBiteSupplicant
     function onDecrypt(
@@ -310,21 +296,6 @@ contract ConfidentialToken is
     }
 
     /// @inheritdoc IConfidentialToken
-    function retrieveGasToken(uint256 value, address receiver) external override {
-        // value is not a constant
-        // so no ability to save some gas here
-        // solhint-disable gas-strict-inequalities
-        require(
-            _getGasTokenBalance(msg.sender) >= value,
-            InsufficientGasToken(value, _getGasTokenBalance(msg.sender))
-        );
-        // solhint-enable gas-strict-inequalities
-        _setGasTokenBalance(msg.sender, _getGasTokenBalance(msg.sender) - value);
-        emit GasTokenWithdrawn(receiver, value);
-        payable(receiver).sendValue(value);
-    }
-
-    /// @inheritdoc IConfidentialToken
     function encryptedBalanceOf(address holder) external view override returns (bytes memory encryptedBalance) {
         require(_viewerIsRegistered(holder), NoViewerRegisteredForHolder(holder));
         return _userBalances[holder];
@@ -341,17 +312,6 @@ contract ConfidentialToken is
         returns (bytes memory encryptedValue)
     {
         return _encryptTEValueForHolder(holder, value);
-    }
-
-    /// @inheritdoc IConfidentialToken
-    function gasTokenBalanceOf(address holder) external view override returns (uint256 balance) {
-        uint256 refund = 0;
-        if (address(this).balance > _gasTokenBalancesSum) {
-            if (holder == _lastGasTokenRefundReceiver) {
-                refund = address(this).balance - _gasTokenBalancesSum;
-            }
-        }
-        return _gasTokenBalance[holder] + refund;
     }
 
     ///@inheritdoc IConfidentialToken
@@ -416,15 +376,6 @@ contract ConfidentialToken is
         plaintextArguments[1] = abi.encodePacked(historicViewer);
 
         _submitCTX(msg.sender, encryptedArguments, plaintextArguments);
-    }
-
-    /// @inheritdoc IConfidentialToken
-    function fundWithGasToken(address receiver) public payable override {
-        uint256 value = msg.value;
-        if (value > 0) {
-            _setGasTokenBalance(receiver, _getGasTokenBalance(receiver) + value);
-            emit GasTokenBalanceToppedUp(msg.sender, receiver, value);
-        }
     }
 
     /// @notice Transfers `value` tokens from `from` to `to` using allowance mechanism.
@@ -914,16 +865,6 @@ contract ConfidentialToken is
     )
         private
     {
-        // callbackFee is not a constant
-        // so no ability to save some gas here
-        // solhint-disable gas-strict-inequalities
-        require(
-            _getGasTokenBalance(gasPayer) >= callbackFee,
-            InsufficientGasToken(callbackFee, _getGasTokenBalance(gasPayer))
-        );
-        // solhint-enable gas-strict-inequalities
-        _setGasTokenBalance(gasPayer, _getGasTokenBalance(gasPayer) - callbackFee);
-
         // It's call to the precompiled contract that never reenters into this contract
         // slither-disable-next-line reentrancy-benign
         address payable callback = BITE.submitCTX(
@@ -934,37 +875,12 @@ contract ConfidentialToken is
         );
         require(_callbackSenders.add(callback), AccessViolation());
         _gasPayers[callback] = gasPayer;
-        callback.sendValue(callbackFee);
-    }
 
-    function _getGasTokenBalance(address holder) private returns (uint256 balance) {
-        _flushGasTokenRefund();
-        return _gasTokenBalance[holder];
-    }
-
-    function _setGasTokenBalance(address holder, uint256 balance) private {
-        uint256 balanceBefore = _gasTokenBalance[holder];
-        _gasTokenBalance[holder] = balance;
-        if (balance > balanceBefore) {
-            _gasTokenBalancesSum += balance - balanceBefore;
-        } else {
-            _gasTokenBalancesSum -= balanceBefore - balance;
-        }
-    }
-
-    function _flushGasTokenRefund() private {
-        if (address(this).balance - msg.value > _gasTokenBalancesSum) {
-            uint256 refund = address(this).balance - msg.value - _gasTokenBalancesSum;
-            _setGasTokenBalance(
-                _lastGasTokenRefundReceiver,
-                _gasTokenBalance[_lastGasTokenRefundReceiver] + refund
-            );
-        }
+        _sendGasToken(gasPayer, callback, callbackFee);
     }
 
     function _setUpGasTokenRefund(address callbackSender) private {
-        _flushGasTokenRefund();
-        _lastGasTokenRefundReceiver = _gasPayers[callbackSender];
+        _setLastGasTokenRefundReceiver(_gasPayers[callbackSender]);
         delete _gasPayers[callbackSender];
     }
 
