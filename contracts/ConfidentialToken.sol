@@ -924,6 +924,8 @@ contract ConfidentialToken is
         // solhint-enable gas-strict-inequalities
         _setGasTokenBalance(gasPayer, _getGasTokenBalance(gasPayer) - callbackFee);
 
+        // It's call to the precompiled contract that never reenters into this contract
+        // slither-disable-next-line reentrancy-benign
         address payable callback = BITE.submitCTX(
             submitCTXAddress,
             callbackFee / tx.gasprice,
