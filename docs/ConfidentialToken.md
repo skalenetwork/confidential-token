@@ -92,12 +92,6 @@ error ActionNotRecognized()
 error InsufficientBalance()
 ```
 
-### InsufficientGasToken
-
-```solidity
-error InsufficientGasToken(uint256 required, uint256 available)
-```
-
 ### InvalidPublicKey
 
 ```solidity
@@ -177,14 +171,6 @@ constructor(bool proxyMode, string name_, string symbol_, string version_, addre
 | symbol_ | string | Symbol of the token. Ignored when proxyMode is true. |
 | version_ | string | Version of the contract. Ignored when proxyMode is true. |
 | initialAuthority | address | Address of AccessManager initial authority. Ignored when proxyMode is true. |
-
-### receive
-
-Allows the contract to receive gas token to pay for callback execution
-
-```solidity
-receive() external payable
-```
 
 ### onDecrypt
 
@@ -428,21 +414,6 @@ function setEncryptTEAddress(address newAddress) external
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the EncryptTE precompiled contract |
 
-### retrieveGasToken
-
-Withdraws gas token from the caller's balance
-
-```solidity
-function retrieveGasToken(uint256 value, address receiver) external
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 |  |
-| receiver | address | Address to send the withdrawn gas token to |
-
 ### encryptedBalanceOf
 
 Gets the encrypted balance of a holder
@@ -487,26 +458,6 @@ function encryptValue(address holder, uint256 value) external view returns (byte
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | encryptedValue | bytes | TE-encrypted bytes ready to pass to `encryptedTransfer` or `encryptedTransferFrom` |
-
-### gasTokenBalanceOf
-
-Gets the gas token balance of a holder
-
-```solidity
-function gasTokenBalanceOf(address holder) external view returns (uint256 balance)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| holder | address | The address of the holder |
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| balance | uint256 | The gas token balance of the holder |
 
 ### canDecryptHistoricTransfer
 
@@ -567,20 +518,6 @@ function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address 
 | ---- | ---- | ----------- |
 | encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
 | historicViewer | address | Address of the viewer who will receive the decrypted transfer event if authorized |
-
-### fundWithGasToken
-
-Deposits gas token to any holder balance
-
-```solidity
-function fundWithGasToken(address receiver) public payable
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| receiver | address | The address of the receiver holder |
 
 ### transferFrom
 
