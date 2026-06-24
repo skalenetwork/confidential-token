@@ -109,6 +109,15 @@ describe("ConfidentialToken", () => {
         (await token.gasTokenBalanceOf(owner)).should.be.equal(0);
     });
 
+    it("retrieveGasToken reverts when withdrawing more than the available balance", async () => {
+        const { token, owner } = await withMintedTokens();
+
+        const balance = await token.gasTokenBalanceOf(owner);
+        await token.connect(owner).retrieveGasToken(balance + 1n, owner)
+            .should.be.revertedWithCustomError(token, "InsufficientGasToken")
+            .withArgs(balance + 1n, balance);
+    });
+
     it("should not return token balance", async () => {
         const { token } = await cleanMintableDeployment();
         const [owner] = await ethers.getSigners();
@@ -364,6 +373,34 @@ describe("ConfidentialToken", () => {
         decryptedBalance.should.be.equal(amount);
     });
 
+    it("encryptedTransferFrom reverts with ERC20InvalidSender when from is the zero address", async () => {
+        const [, spender, recipient] = await ethers.getSigners();
+        const { token } = await withMintedTokens();
+
+        // The sender guard is checked before the value is decoded, so any payload reverts.
+        await token.connect(spender).encryptedTransferFrom(ethers.ZeroAddress, recipient, "0x")
+            .should.be.revertedWithCustomError(token, "ERC20InvalidSender")
+            .withArgs(ethers.ZeroAddress);
+    });
+
+    it("encryptedTransferFrom reverts with ERC20InvalidReceiver when to is the zero address", async () => {
+        const [owner, spender] = await ethers.getSigners();
+        const { token } = await withMintedTokens();
+
+        await token.connect(spender).encryptedTransferFrom(owner, ethers.ZeroAddress, "0x")
+            .should.be.revertedWithCustomError(token, "ERC20InvalidReceiver")
+            .withArgs(ethers.ZeroAddress);
+    });
+
+    it("encryptedTransfer reverts with ERC20InvalidReceiver when to is the zero address", async () => {
+        const { token, owner } = await withMintedTokens();
+
+        // `from` is always msg.sender (non-zero), so only the receiver guard is reachable here.
+        await token.connect(owner).encryptedTransfer(ethers.ZeroAddress, "0x")
+            .should.be.revertedWithCustomError(token, "ERC20InvalidReceiver")
+            .withArgs(ethers.ZeroAddress);
+    });
+
     it("should be able to transferFrom with encrypted values", async () => {
         const amount = ethers.parseEther("1.0");
         const [owner, spender, recipient] = await ethers.getSigners();
@@ -597,6 +634,74 @@ describe("ConfidentialToken", () => {
         await bite.sendCallback();
         await bite.sendCallback()
             .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+    });
+
+    describe("precompile address setters", () => {
+        it("allows the owner to update the EncryptECIES address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setEncryptECIESAddress(newAddress)
+                .should.emit(token, "EncryptECIESAddressChanged").withArgs(newAddress);
+            (await token.encryptECIESAddress()).should.equal(newAddress);
+        });
+
+        it("allows the owner to update the EncryptTE address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setEncryptTEAddress(newAddress)
+                .should.emit(token, "EncryptTEAddressChanged").withArgs(newAddress);
+            (await token.encryptTEAddress()).should.equal(newAddress);
+        });
+
+        it("allows the owner to update the SubmitCTX address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setSubmitCTXAddress(newAddress)
+                .should.emit(token, "SubmitCTXAddressChanged").withArgs(newAddress);
+            (await token.submitCTXAddress()).should.equal(newAddress);
+        });
+
+        it("blocks unauthorized callers from setting EncryptECIES address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setEncryptECIESAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("blocks unauthorized callers from setting EncryptTE address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setEncryptTEAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("blocks unauthorized callers from setting SubmitCTX address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setSubmitCTXAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("reverts when setting EncryptECIES address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setEncryptECIESAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
+
+        it("reverts when setting EncryptTE address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setEncryptTEAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
+
+        it("reverts when setting SubmitCTX address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setSubmitCTXAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
     });
 
     describe("Re Encryption of Historical transfers", () => {
@@ -1247,6 +1352,50 @@ describe("ConfidentialToken", () => {
             await token.connect(owner).removeHistoricViewTransferId(viewer, 0);
         });
 
+        // The three removal entry points have no onlyRegisteredUser modifier, so no viewer
+        // registration is needed to reach the branches they exercise.
+
+        it("removeHistoricViewTransferId reverts for a transferId that does not exist yet", async () => {
+            const { token } = await cleanMintableDeployment();
+            const [owner, viewer] = await ethers.getSigners();
+
+            await token.connect(owner).removeHistoricViewTransferId(viewer, 9999)
+                .should.be.revertedWithCustomError(token, "InvalidTransferId");
+        });
+
+        it("removeHistoricViewAuth is a no-op (emits nothing) when nothing was authorized", async () => {
+            const { token } = await cleanMintableDeployment();
+            const [owner, viewer] = await ethers.getSigners();
+
+            await expect(token.connect(owner).removeHistoricViewAuth(viewer))
+                .to.not.emit(token, "HistoricViewPermissionsRevoked");
+        });
+
+        it("removeHistoricViewTimeRange is a no-op (emits nothing) when no time range was authorized", async () => {
+            const { token } = await cleanMintableDeployment();
+            const [owner, viewer] = await ethers.getSigners();
+
+            await expect(token.connect(owner).removeHistoricViewTimeRange(viewer))
+                .to.not.emit(token, "HistoricViewTimeRangeRevoked");
+        });
+
+        it("authorizeHistoricViewTransferId is idempotent: re-authorizing the same id emits nothing", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, viewer] = await ethers.getSigners();
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
+
+            const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
+
+            // First authorization emits the event...
+            await expect(token.connect(owner).authorizeHistoricViewTransferId(viewer, event.transferId))
+                .to.emit(token, "HistoricViewTransferIdAuthorized");
+            // ...re-authorizing the same id is a no-op and emits nothing.
+            await expect(token.connect(owner).authorizeHistoricViewTransferId(viewer, event.transferId))
+                .to.not.emit(token, "HistoricViewTransferIdAuthorized");
+        });
+
         // Automatic TransferValueEncryptedForRecipient on transfer
 
         it("should automatically emit TransferValueEncryptedForRecipient & Sender readable by the viewers when they have a registered viewer", async () => {
@@ -1628,6 +1777,78 @@ describe("ConfidentialToken", () => {
             await token.connect(attacker).encryptedTransfer(sink, zeroBalanceCt);
             await expect(bite.sendCallback())
                 .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
+        });
+    });
+
+    // Defensive callback-validation guards.
+    //
+    // In production the contract always builds well-formed encrypted arguments and BITE protocol is trusted, so the malformed-argument guards in
+    // _validateDecryptedArguments / _decodeBalance should never fire through the normal flow. We
+    // point submitCTXAddress at CorruptingSubmitCTXMock, which delivers attacker-chosen decrypted
+    // arguments through a legitimately registered CallbackSender (the only way to reach these
+    // guards), while forwarding the real plaintext arguments so routing is unchanged.
+    describe("malformed decrypted callback arguments", () => {
+        const coder = ethers.AbiCoder.defaultAbiCoder();
+        const bytesOfLength = (length: number) => ethers.hexlify(ethers.randomBytes(length));
+        const encodeBalance = (holder: string, value: bigint) =>
+            coder.encode(["address", "uint256"], [holder, value]);
+
+        // Each case delivers a different malformed shape to a real owner -> recipient transfer.
+        // A reverting callback rolls back token state, so all cases share one fixture and one
+        // deployed mock; only the gas-token fee for each queued transfer is consumed.
+        it("rejects every malformed decrypted-argument shape on the transfer callback", async () => {
+            const { token, owner } = await withMintedTokens();
+            const [, recipient] = await ethers.getSigners();
+            const validValue = encodeBalance(owner.address, ethers.parseEther("1"));
+
+            const mock = await (await ethers.getContractFactory("CorruptingSubmitCTXMock")).deploy();
+            await token.connect(owner).setSubmitCTXAddress(mock);
+
+            const cases: { label: string; args: string[]; error: string }[] = [
+                {
+                    label: "argument count is neither 2 nor 3",
+                    args: [bytesOfLength(64)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    // Length 2 implies mint or burn, which requires exactly one of from/to to be
+                    // zero. A genuine transfer has both non-zero, so the check rejects it.
+                    label: "2-argument payload on a real (non mint/burn) transfer",
+                    args: [bytesOfLength(64), bytesOfLength(64)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    label: "recipient balance argument has an invalid length",
+                    args: [bytesOfLength(64), bytesOfLength(32), bytesOfLength(64)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    label: "sender balance argument has an invalid length",
+                    args: [bytesOfLength(32), bytesOfLength(64), bytesOfLength(64)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    label: "value argument is not exactly 64 bytes",
+                    args: [bytesOfLength(64), bytesOfLength(64), bytesOfLength(32)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    // arg[0] is empty: _decodeBalance returns (address(0), 0), so the salt check
+                    // fails because the decoded holder (zero) does not match the expected `from`.
+                    // The value argument (arg[2]) is verified first and must be salted to `from`.
+                    label: "empty balance argument decodes to the zero address and fails the salt check",
+                    args: ["0x", validValue, validValue],
+                    error: "InvalidSaltForTransactionValue"
+                }
+            ];
+
+            for (const { args, error } of cases) {
+                await mock.setDecryptedArguments(args);
+                await token.connect(owner).transfer(recipient, ethers.parseEther("1"));
+                await mock.sendCallback()
+                        .should.be.revertedWithCustomError(token, error);
+
+            }
         });
     });
 });
