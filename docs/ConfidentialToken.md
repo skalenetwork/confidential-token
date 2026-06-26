@@ -1,8 +1,20 @@
 # Solidity API
 
+## Action
+
 ## ConfidentialToken
 
 Upgradeable ERC20-like token with encrypted balances
+
+### CTXInfo
+
+```solidity
+struct CTXInfo {
+  uint256 submittedBlockNumber;
+  address gasPayer;
+  Action action;
+}
+```
 
 ### TransferInfo
 
@@ -11,8 +23,7 @@ struct TransferInfo {
   address from;
   address to;
   address spender;
-  address gasPayer;
-  uint256 submittedBlockNumber;
+  bytes[] extraArguments;
 }
 ```
 
@@ -606,25 +617,25 @@ function __ConfidentialToken_init_unchained(string version_) internal
 ### _handleAction
 
 ```solidity
-function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal virtual
+function _handleAction(struct ConfidentialToken.CTXInfo ctxInfo, bytes[] decryptedArguments, bytes actionArgument) internal virtual
 ```
 
 ### _handleHistoricViewRequest
 
 ```solidity
-function _handleHistoricViewRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+function _handleHistoricViewRequest(struct ConfidentialToken.CTXInfo, bytes[] decryptedArguments, bytes historicViewArgument) internal
 ```
 
 ### _handleTransferRequest
 
 ```solidity
-function _handleTransferRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal returns (bool finalized, uint256 value)
+function _handleTransferRequest(struct ConfidentialToken.CTXInfo ctxInfo, bytes[] decryptedArguments, bytes transferArguments) internal returns (bool finalized, uint256 value)
 ```
 
 ### _reSubmitTransfer
 
 ```solidity
-function _reSubmitTransfer(struct ConfidentialToken.TransferInfo transferInfo, uint256 value, bytes[] plaintextArguments) internal
+function _reSubmitTransfer(struct ConfidentialToken.CTXInfo ctxInfo, struct ConfidentialToken.TransferInfo transferInfo, uint256 value) internal
 ```
 
 ### _decryptedUpdate
@@ -698,7 +709,7 @@ function _encryptedUpdate(address from, address to, address spender, address gas
 ### _encryptedUpdateExtended
 
 ```solidity
-function _encryptedUpdateExtended(address from, address to, address spender, address gasPayer, bytes encryptedValue, uint8 action, bytes[] extraPlaintextArguments) internal virtual
+function _encryptedUpdateExtended(address from, address to, address spender, address gasPayer, bytes encryptedValue, Action action, bytes[] extraPlaintextArguments) internal virtual
 ```
 
 ### _transferFrom
@@ -733,5 +744,11 @@ function _encryptedTransfer(address from, address to, bytes value) internal virt
 
 ```solidity
 function _encryptTEValueForHolder(address holder, uint256 value) internal view returns (bytes encryptedValue)
+```
+
+## _actionEquals
+
+```solidity
+function _actionEquals(Action a, Action b) internal pure returns (bool result)
 ```
 
