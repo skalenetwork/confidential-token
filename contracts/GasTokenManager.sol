@@ -101,7 +101,7 @@ contract GasTokenManager is IGasTokenManager {
     // Private
 
     function _flushGasTokenRefund() private {
-        if (address(this).balance - msg.value > _gasTokenBalancesSum) {
+        if (address(this).balance - msg.value > _gasTokenBalancesSum && _lastGasTokenRefundReceiver != address(0)) {
             uint256 refund = address(this).balance - msg.value - _gasTokenBalancesSum;
             _setGasTokenBalance(
                 _lastGasTokenRefundReceiver,

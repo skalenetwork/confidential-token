@@ -47,7 +47,7 @@ export const sendCallbackAndMakeRefund = async (bite: BiteMock) => {
     const tx = await bite.sendCallback();
     const receipt = await tx.wait();
     assert(receipt);
-    const ethSpent = receipt.gasUsed * receipt.effectiveGasPrice;
+    const ethSpent = receipt.gasUsed * receipt.gasPrice;
 
     // simulate gas token spending
     await setBalance(
