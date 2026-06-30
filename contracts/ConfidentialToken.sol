@@ -41,6 +41,7 @@ import { HistoricView } from "./HistoricView.sol";
 import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 
 
+/// @notice Encodes an action that should be performed in the onDecrypt call
 type Action is uint8;
 
 /// @title ConfidentialToken

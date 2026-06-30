@@ -2,6 +2,10 @@
 
 ## Action
 
+```solidity
+type Action is uint8;
+```
+
 ## ConfidentialToken
 
 Upgradeable ERC20-like token with encrypted balances
