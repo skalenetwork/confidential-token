@@ -50,9 +50,9 @@ contract GasTokenManager is IGasTokenManager {
     }
 
     /// @inheritdoc IGasTokenManager
-    function retrieveGasToken(uint256 value, address payable receiver) external override {
-        emit GasTokenWithdrawn(receiver, value);
-        _sendGasToken(msg.sender, receiver, value);
+    function retrieveGasToken(uint256 amount, address payable receiver) external override {
+        emit GasTokenWithdrawn(receiver, amount);
+        _sendGasToken(msg.sender, receiver, amount);
     }
 
     /// @inheritdoc IGasTokenManager

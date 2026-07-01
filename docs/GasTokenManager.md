@@ -23,14 +23,14 @@ receive() external payable
 Withdraws gas token from the caller's balance
 
 ```solidity
-function retrieveGasToken(uint256 value, address payable receiver) external
+function retrieveGasToken(uint256 amount, address payable receiver) external
 ```
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| value | uint256 |  |
+| amount | uint256 | Amount of gas token to withdraw |
 | receiver | address payable | Address to send the withdrawn gas token to |
 
 ### gasTokenBalanceOf
