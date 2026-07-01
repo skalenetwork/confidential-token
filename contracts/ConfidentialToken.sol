@@ -31,15 +31,18 @@ import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC2
 import {
     ERC20PermitUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { BITE, PublicKey } from "@skalenetwork/bite-solidity/BITE.sol";
 import { ConfidentialEIP3009 } from "./eip3009/ConfidentialEIP3009.sol";
 import { DecryptionBadFormat, ZeroAddress } from "./errors.sol";
+import { GasTokenManager } from "./GasTokenManager.sol";
 import { HistoricView } from "./HistoricView.sol";
 import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialToken.sol";
 
+
+/// @notice Encodes an action that should be performed in the onDecrypt call
+type Action is uint8;
 
 /// @title ConfidentialToken
 /// @author Dmytro Stebaiev
@@ -48,25 +51,29 @@ import { IBiteSupplicant, IConfidentialToken } from "./interfaces/IConfidentialT
 contract ConfidentialToken is
     ERC20PermitUpgradeable,
     ConfidentialEIP3009,
+    GasTokenManager,
     AccessManagedUpgradeable,
     IConfidentialToken
 {
-    using Address for address;
-    using Address for address payable;
     using Math for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
     using HistoricView for HistoricView.AuthStorage;
+
+    struct CTXInfo {
+        uint256 submittedBlockNumber;
+        address gasPayer;
+        Action action;
+    }
 
     struct TransferInfo {
         address from;
         address to;
         address spender;
-        address gasPayer;
-        uint256 submittedBlockNumber;
+        bytes[] extraArguments;
     }
 
-    uint8 private constant _TRANSFER_ACTION = 0;
-    uint8 private constant _HISTORIC_VIEW_ACTION = 1;
+    Action private constant _TRANSFER_ACTION = Action.wrap(0);
+    Action private constant _HISTORIC_VIEW_ACTION = Action.wrap(1);
 
     /// @notice Specifies amount of gas token to be sent to pay for callback execution
     uint256 public callbackFee;
@@ -99,8 +106,6 @@ contract ConfidentialToken is
     /// @notice Encrypted with User's Public Key (U_Key) - Used for local viewing
     mapping(address holder => bytes encryptedBalance) private _userBalances;
 
-    mapping(address holder => uint256 gasToken) private _gasTokenBalance;
-
     mapping(address holder => uint256 blockNumber) private _lastChanged;
 
     EnumerableSet.AddressSet private _callbackSenders;
@@ -116,7 +121,6 @@ contract ConfidentialToken is
     error AccessViolation();
     error ActionNotRecognized();
     error InsufficientBalance();
-    error InsufficientGasToken(uint256 required, uint256 available);
     error InvalidPublicKey();
     error InvalidSaltForTransactionValue();
     error InvalidTransferId(uint256 transferId);
@@ -155,20 +159,17 @@ contract ConfidentialToken is
         }
     }
 
-    /// @inheritdoc IConfidentialToken
-    receive() external payable override {
-        fundWithGasToken(msg.sender);
-    }
-
-
     /// @inheritdoc IBiteSupplicant
     function onDecrypt(
         bytes[] calldata decryptedArguments,
         bytes[] calldata plaintextArguments
     ) external override {
         require(_callbackSenders.remove(msg.sender), AccessViolation());
-        uint8 action = _parseAction(plaintextArguments);
-        _handleAction(action, decryptedArguments, plaintextArguments);
+        CTXInfo memory ctxInfo;
+        bytes memory actionArgument;
+        (ctxInfo, actionArgument) = _parsePlaintextArguments(plaintextArguments);
+        _setLastGasTokenRefundReceiver(ctxInfo.gasPayer);
+        _handleAction(ctxInfo, decryptedArguments, actionArgument);
     }
 
     /// @inheritdoc IConfidentialToken
@@ -303,21 +304,6 @@ contract ConfidentialToken is
     }
 
     /// @inheritdoc IConfidentialToken
-    function retrieveGasToken(uint256 value, address receiver) external override {
-        // value is not a constant
-        // so no ability to save some gas here
-        // solhint-disable gas-strict-inequalities
-        require(
-            _gasTokenBalance[msg.sender] >= value,
-            InsufficientGasToken(value, _gasTokenBalance[msg.sender])
-        );
-        // solhint-enable gas-strict-inequalities
-        _gasTokenBalance[msg.sender] -= value;
-        emit GasTokenWithdrawn(receiver, value);
-        payable(receiver).sendValue(value);
-    }
-
-    /// @inheritdoc IConfidentialToken
     function encryptedBalanceOf(address holder) external view override returns (bytes memory encryptedBalance) {
         require(_viewerIsRegistered(holder), NoViewerRegisteredForHolder(holder));
         return _userBalances[holder];
@@ -334,11 +320,6 @@ contract ConfidentialToken is
         returns (bytes memory encryptedValue)
     {
         return _encryptTEValueForHolder(holder, value);
-    }
-
-    /// @inheritdoc IConfidentialToken
-    function gasTokenBalanceOf(address holder) external view override returns (uint256 balance) {
-        return _gasTokenBalance[holder];
     }
 
     ///@inheritdoc IConfidentialToken
@@ -398,20 +379,9 @@ contract ConfidentialToken is
         bytes[] memory encryptedArguments = new bytes[](1);
         encryptedArguments[0] = encryptedTransferData;
 
-        bytes[] memory plaintextArguments = new bytes[](2);
-        plaintextArguments[0] = abi.encodePacked(_HISTORIC_VIEW_ACTION);
-        plaintextArguments[1] = abi.encodePacked(historicViewer);
+        bytes memory historicViewArguments = abi.encodePacked(historicViewer);
 
-        _submitCTX(msg.sender, encryptedArguments, plaintextArguments);
-    }
-
-    /// @inheritdoc IConfidentialToken
-    function fundWithGasToken(address receiver) public payable override {
-        uint256 value = msg.value;
-        if (value > 0) {
-            _gasTokenBalance[receiver] += value;
-            emit GasTokenBalanceToppedUp(msg.sender, receiver, value);
-        }
+        _submitCTX(msg.sender, _HISTORIC_VIEW_ACTION, encryptedArguments, historicViewArguments);
     }
 
     /// @notice Transfers `value` tokens from `from` to `to` using allowance mechanism.
@@ -505,27 +475,28 @@ contract ConfidentialToken is
     // slither-disable-end naming-convention
 
     function _handleAction(
-        uint8 action,
+        CTXInfo memory ctxInfo,
         bytes[] calldata decryptedArguments,
-        bytes[] calldata plaintextArguments
+        bytes memory actionArgument
     ) internal virtual {
-        if (action == _TRANSFER_ACTION) { // transfer likely more frequent
-            _handleTransferRequest(decryptedArguments, plaintextArguments);
-        } else if (action == _HISTORIC_VIEW_ACTION) {
-            _handleHistoricViewRequest(decryptedArguments, plaintextArguments);
+        if (ctxInfo.action == _TRANSFER_ACTION) { // transfer likely more frequent
+            _handleTransferRequest(ctxInfo, decryptedArguments, actionArgument);
+        } else if (ctxInfo.action == _HISTORIC_VIEW_ACTION) {
+            _handleHistoricViewRequest(ctxInfo, decryptedArguments, actionArgument);
         } else {
             revert ActionNotRecognized();
         }
     }
 
     function _handleHistoricViewRequest(
+        CTXInfo memory,
         bytes[] calldata decryptedArguments,
-        bytes[] calldata plaintextArguments
+        bytes memory historicViewArgument
     )
         internal
     {
-        require(plaintextArguments[1].length == 20, WrongPlaintextFormat());
-        address historicViewer = address(bytes20(plaintextArguments[1]));
+        require(historicViewArgument.length == 20, WrongPlaintextFormat());
+        address historicViewer = address(bytes20(historicViewArgument));
         require(_knownPublicKey(historicViewer), PublicKeyIsNotRegistered(historicViewer));
 
         (address from, address to) = _historicViewAuth.decodeIfAuthorized(
@@ -545,13 +516,14 @@ contract ConfidentialToken is
     }
 
     function _handleTransferRequest(
+        CTXInfo memory ctxInfo,
         bytes[] calldata decryptedArguments,
-        bytes[] calldata plaintextArguments
+        bytes memory transferArguments
     )
         internal
         returns (bool finalized, uint256 value)
     {
-        TransferInfo memory transferInfo = abi.decode(plaintextArguments[1], (TransferInfo));
+        TransferInfo memory transferInfo = abi.decode(transferArguments, (TransferInfo));
 
         _validateDecryptedArguments(decryptedArguments, transferInfo.from, transferInfo.to);
 
@@ -569,12 +541,12 @@ contract ConfidentialToken is
         (uint256 fromBalance, uint256 toBalance) = _decodeOriginalBalances(decryptedArguments, transferInfo, value);
 
         bool updatedFrom =
-            transferInfo.from != address(0) && _lastChanged[transferInfo.from] > transferInfo.submittedBlockNumber;
+            transferInfo.from != address(0) && _lastChanged[transferInfo.from] > ctxInfo.submittedBlockNumber;
         bool updatedTo =
-            transferInfo.to != address(0) && _lastChanged[transferInfo.to] > transferInfo.submittedBlockNumber;
+            transferInfo.to != address(0) && _lastChanged[transferInfo.to] > ctxInfo.submittedBlockNumber;
         if (updatedFrom || updatedTo) {
             // This MUST be kept always after decoding and verifying Balance (value)
-            _reSubmitTransfer(transferInfo, value, plaintextArguments);
+            _reSubmitTransfer(ctxInfo, transferInfo, value);
             return (false, value);
         }
 
@@ -590,9 +562,9 @@ contract ConfidentialToken is
     }
 
     function _reSubmitTransfer(
+        CTXInfo memory ctxInfo,
         TransferInfo memory transferInfo,
-        uint256 value,
-        bytes[] calldata plaintextArguments
+        uint256 value
     )
         internal
     {
@@ -609,17 +581,9 @@ contract ConfidentialToken is
         transferInfo.spender = address(0);
         // End of TODO
         bytes[] memory encryptedArguments = _encryptArguments(transferInfo.from, transferInfo.to, encryptedValue);
-        transferInfo.submittedBlockNumber = block.number;
-        uint256 numArgs = plaintextArguments.length;
-        bytes[] memory updatedPlaintextArguments = new bytes[](numArgs);
-        updatedPlaintextArguments[0] = plaintextArguments[0];
-        updatedPlaintextArguments[1] = abi.encode(transferInfo);
+        bytes memory transferArguments = abi.encode(transferInfo);
 
-        for (uint256 i = 2; i < numArgs; ++i) {
-            updatedPlaintextArguments[i] = plaintextArguments[i];
-        }
-
-        _submitCTX(transferInfo.gasPayer, encryptedArguments, updatedPlaintextArguments);
+        _submitCTX(ctxInfo.gasPayer, ctxInfo.action, encryptedArguments, transferArguments);
     }
 
     /// @notice Internal function to handle decrypted balance updates
@@ -762,7 +726,7 @@ contract ConfidentialToken is
         address spender,
         address gasPayer,
         bytes memory encryptedValue,
-        uint8 action,
+        Action action,
         bytes[] memory extraPlaintextArguments
     )
         internal
@@ -772,23 +736,14 @@ contract ConfidentialToken is
         // slither-disable-next-line incorrect-equality
         require(encryptedValue.length == BITE.TE_RETURN_SIZE_THRESHOLD + 33, ValueWasNotEncryptedCorrectly());
         bytes[] memory encryptedArguments = _encryptArguments(from, to, encryptedValue);
-        uint256 extraPlaintextArgumentsLength = extraPlaintextArguments.length;
-        bytes[] memory plaintextArguments = new bytes[](2 + extraPlaintextArgumentsLength);
-        plaintextArguments[0] = abi.encodePacked(action);
-
-        plaintextArguments[1] = abi.encode(TransferInfo({
+        bytes memory transferArguments = abi.encode(TransferInfo({
             from: from,
             to: to,
             spender: spender,
-            gasPayer: gasPayer,
-            submittedBlockNumber: block.number
+            extraArguments: extraPlaintextArguments
         }));
 
-        for (uint256 i = 0; i < extraPlaintextArgumentsLength; ++i) {
-            plaintextArguments[i + 2] = extraPlaintextArguments[i];
-        }
-
-        _submitCTX(gasPayer, encryptedArguments, plaintextArguments);
+        _submitCTX(gasPayer, action, encryptedArguments, transferArguments);
     }
 
     function _transferFrom(
@@ -896,21 +851,24 @@ contract ConfidentialToken is
 
     function _submitCTX(
         address gasPayer,
+        Action action,
         bytes[] memory encryptedArguments,
-        bytes[] memory plaintextArguments
+        bytes memory actionArgument
     )
         private
     {
-        // callbackFee is not a constant
-        // so no ability to save some gas here
-        // solhint-disable gas-strict-inequalities
-        require(
-            _gasTokenBalance[gasPayer] >= callbackFee,
-            InsufficientGasToken(callbackFee, _gasTokenBalance[gasPayer])
-        );
-        // solhint-enable gas-strict-inequalities
-        _gasTokenBalance[gasPayer] -= callbackFee;
+        CTXInfo memory ctxInfo = CTXInfo({
+            submittedBlockNumber: block.number,
+            gasPayer: gasPayer,
+            action: action
+        });
 
+        bytes[] memory plaintextArguments = new bytes[](2);
+        plaintextArguments[0] = abi.encode(ctxInfo);
+        plaintextArguments[1] = actionArgument;
+
+        // It's call to the precompiled contract that never reenters into this contract
+        // slither-disable-next-line reentrancy-benign
         address payable callback = BITE.submitCTX(
             submitCTXAddress,
             callbackFee / tx.gasprice,
@@ -918,7 +876,8 @@ contract ConfidentialToken is
             plaintextArguments
         );
         require(_callbackSenders.add(callback), AccessViolation());
-        callback.sendValue(callbackFee);
+
+        _sendGasToken(gasPayer, callback, callbackFee);
     }
 
     function _encryptArguments(
@@ -984,17 +943,16 @@ contract ConfidentialToken is
         return _isValidPublicKey(publicKeys[holder]);
     }
 
-    function _parseAction(
+    function _parsePlaintextArguments(
         bytes[] calldata plaintextArguments
     )
         private
         pure
-        returns (uint8 action)
+        returns (CTXInfo memory ctxInfo, bytes memory actionArgument)
     {
         // All actions require more than 1 plaintext argument in the array
         require(plaintextArguments.length > 1, WrongPlaintextFormat());
-        require(plaintextArguments[0].length == 1, WrongPlaintextFormat());
-        return uint8(bytes1(plaintextArguments[0]));
+        return (abi.decode(plaintextArguments[0], (CTXInfo)), plaintextArguments[1]);
     }
 
     function _isValidPublicKey(PublicKey memory publicKey) private pure returns (bool isValid) {
@@ -1067,4 +1025,12 @@ contract ConfidentialToken is
             DecryptionBadFormat()
         );
     }
+}
+
+using {
+    _actionEquals as ==
+} for Action global;
+
+function _actionEquals(Action a, Action b) pure returns (bool result) {
+    return Action.unwrap(a) == Action.unwrap(b);
 }

@@ -32,7 +32,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { ConfidentialToken, IConfidentialToken } from "./ConfidentialToken.sol";
+import { Action, ConfidentialToken, IConfidentialToken } from "./ConfidentialToken.sol";
 import { IConfidentialWrapper } from "./interfaces/IConfidentialWrapper.sol";
 
 
@@ -65,7 +65,7 @@ contract ConfidentialWrapper is
 {
     using SafeERC20 for IERC20;
 
-    uint8 private constant _WITHDRAW_TO_ACTION = 2;
+    Action private constant _WITHDRAW_TO_ACTION = Action.wrap(2);
 
     /// @notice Amount of tokens requested to be wrapped
     /// @dev Almost always equals to zero
@@ -232,19 +232,19 @@ contract ConfidentialWrapper is
     /// @notice Dispatches decrypted CTX actions for wrapper-specific flows.
     /// @dev Handles `_WITHDRAW_TO_ACTION` locally and delegates all other actions to
     /// the base ConfidentialToken logic.
-    /// @param action Action discriminator encoded in callback plaintext.
+    /// @param ctxInfo General information about the CTX
     /// @param decryptedArguments Decrypted callback arguments from BITE.
-    /// @param plaintextArguments Plaintext callback arguments used for routing.
+    /// @param actionArgument Encoded parameters for the action
     function _handleAction(
-        uint8 action,
+        CTXInfo memory ctxInfo,
         bytes[] calldata decryptedArguments,
-        bytes[] calldata plaintextArguments
+        bytes memory actionArgument
     ) internal override {
-        if (action == _WITHDRAW_TO_ACTION) {
-            _handleWithdrawToRequest(decryptedArguments, plaintextArguments);
+        if (ctxInfo.action == _WITHDRAW_TO_ACTION) {
+            _handleWithdrawToRequest(ctxInfo, decryptedArguments, actionArgument);
             return;
         }
-        super._handleAction(action, decryptedArguments, plaintextArguments);
+        super._handleAction(ctxInfo, decryptedArguments, actionArgument);
     }
 
     /// @notice Schedules an async burn that releases underlying to `to` on callback.
@@ -308,23 +308,26 @@ contract ConfidentialWrapper is
     /// @notice Finalizes a queued wrapper burn/withdraw callback.
     /// @dev Validates recipient plaintext argument, finalizes encrypted transfer
     /// accounting via `_handleTransferRequest`, then releases underlying.
+    /// @param ctxInfo General information about the CTX
     /// @param decryptedArguments Decrypted callback arguments from BITE.
-    /// @param plaintextArguments Plaintext callback arguments containing recipient.
+    /// @param withdrawToArgument Plaintext callback arguments containing recipient.
     function _handleWithdrawToRequest(
+        CTXInfo memory ctxInfo,
         bytes[] calldata decryptedArguments,
-        bytes[] calldata plaintextArguments
+        bytes memory withdrawToArgument
     )
         private
     {
-        require(plaintextArguments.length > 2, WrongPlaintextFormat());
-        require(plaintextArguments[2].length == 20, WrongPlaintextFormat());
+        TransferInfo memory transferInfo = abi.decode(withdrawToArgument, (TransferInfo));
+        require(transferInfo.extraArguments.length == 1, WrongPlaintextFormat());
+        require(transferInfo.extraArguments[0].length == 20, WrongPlaintextFormat());
 
-        (bool finalized, uint256 value) = _handleTransferRequest(decryptedArguments, plaintextArguments);
+        (bool finalized, uint256 value) = _handleTransferRequest(ctxInfo, decryptedArguments, withdrawToArgument);
         if (!finalized) {
             return;
         }
 
-        address recipient = address(bytes20(plaintextArguments[2]));
+        address recipient = address(bytes20(transferInfo.extraArguments[0]));
         underlying().safeTransfer(recipient, value);
     }
 }

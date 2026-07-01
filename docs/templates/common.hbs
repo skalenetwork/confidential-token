@@ -8,6 +8,12 @@
 ```
 {{/if}}
 
+{{#if underlyingType}}
+```solidity
+type {{name}} is {{underlyingType.name}};
+```
+{{/if}}
+
 {{#if natspec.dev}}
 **dev:** _{{{natspec.dev}}}_
 {{/if}}

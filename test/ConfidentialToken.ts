@@ -4,7 +4,7 @@ import { ethers, network } from "hardhat";
 import { cleanMintableDeployment, withMintedTokens } from "./tools/fixtures";
 import "chai/register-should";
 import { getPublicKey } from "./tools/cryptography";
-import { balanceOf } from "./tools/helpers";
+import { balanceOf, sendCallbackAndMakeRefund } from "./tools/helpers";
 import { expect } from "chai";
 import { BiteMock, MintableConfidentialToken } from "../typechain-types";
 import { Signer, TransactionResponse } from "ethers";
@@ -634,6 +634,26 @@ describe("ConfidentialToken", () => {
         await bite.sendCallback();
         await bite.sendCallback()
             .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+    });
+
+    it("should process refund after CTX execution", async () => {
+        const [owner] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        const gasTokenBalanceBeforeSubmit = await token.gasTokenBalanceOf(owner);
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner)
+        );
+
+        const gasTokenBalanceAfterSubmit = await token.gasTokenBalanceOf(owner);
+
+        expect(gasTokenBalanceAfterSubmit).to.be.equal(gasTokenBalanceBeforeSubmit - await token.callbackFee());
+
+        const refund = await sendCallbackAndMakeRefund(bite);
+        const gasTokenBalanceAfterRefund = await token.gasTokenBalanceOf(owner);
+
+        expect(gasTokenBalanceAfterRefund).to.be.equal(gasTokenBalanceAfterSubmit + refund);
     });
 
     describe("precompile address setters", () => {

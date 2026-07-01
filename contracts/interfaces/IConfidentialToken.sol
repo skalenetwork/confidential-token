@@ -42,17 +42,6 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param callbackSender Address of the CTX sender that triggered the resubmission
     event CTXResubmitted(address indexed callbackSender);
 
-    /// @notice Emitted when gas token balance is topped up
-    /// @param sender Address of the sender
-    /// @param receiver Address of the receiver
-    /// @param value Amount of gas token topped up
-    event GasTokenBalanceToppedUp(address indexed sender, address indexed receiver, uint256 indexed value);
-
-    /// @notice Emitted when gas token is withdrawn
-    /// @param receiver Address of the receiver
-    /// @param value Amount of gas token withdrawn
-    event GasTokenWithdrawn(address indexed receiver, uint256 indexed value);
-
     /// @notice Emitted when tokens (value omitted) are moved from one account (`from`) to another (`to`)
     /// @param from Address tokens are moved from
     /// @param to Address tokens are moved to
@@ -161,9 +150,6 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param newViewer Address of the new viewer
     event ViewerChanged(address indexed holder, address indexed newViewer);
 
-    /// @notice Allows the contract to receive gas token to pay for callback execution
-    receive() external payable;
-
     /// @notice Initializes the contract for proxy deployment.
     /// @param name_ Name of the token.
     /// @param symbol_ Symbol of the token.
@@ -175,10 +161,6 @@ interface IConfidentialToken is IBiteSupplicant {
         string calldata version_,
         address initialAuthority
     ) external;
-
-    /// @notice Deposits gas token to any holder balance
-    /// @param receiver The address of the receiver holder
-    function fundWithGasToken(address receiver) external payable;
 
     /// @notice Registers a view key for the message sender
     /// @dev Combination of registerPublicKey and setViewerAddress (payable version)
@@ -210,11 +192,6 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @notice Sets the address of the SubmitCTX precompiled contract
     /// @param newAddress New address of the SubmitCTX precompiled contract
     function setSubmitCTXAddress(address newAddress) external;
-
-    /// @notice Withdraws gas token from the caller's balance
-    /// @param amount Amount of gas token to withdraw
-    /// @param receiver Address to send the withdrawn gas token to
-    function retrieveGasToken(uint256 amount, address receiver) external;
 
     /// @notice Transfers tokens to another holder
     /// @param to The address of the recipient holder
@@ -306,9 +283,4 @@ interface IConfidentialToken is IBiteSupplicant {
     /// @param value The plaintext token amount to encrypt
     /// @return encryptedValue TE-encrypted bytes ready to pass to `encryptedTransfer` or `encryptedTransferFrom`
     function encryptValue(address holder, uint256 value) external view returns (bytes memory encryptedValue);
-
-    /// @notice Gets the gas token balance of a holder
-    /// @param holder The address of the holder
-    /// @return balance The gas token balance of the holder
-    function gasTokenBalanceOf(address holder) external view returns (uint256 balance);
 }

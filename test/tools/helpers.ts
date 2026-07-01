@@ -4,6 +4,7 @@ import { AddressLike } from "ethers";
 import { BiteMock } from "../../typechain-types";
 import { ethers } from "hardhat";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
+import { assert } from "chai";
 
 type EncryptedBalanceToken = {
     encryptedBalanceOf(holder: AddressLike): Promise<string>;
@@ -38,4 +39,27 @@ export const feedAccounts = async (addresses: AddressLike[]) => {
 export const nowPlusSeconds = async (seconds: number) => {
     const validAfter = (await ethers.provider.getBlock("latest"))!.timestamp + seconds;
     return validAfter;
+}
+
+export const sendCallbackAndMakeRefund = async (bite: BiteMock) => {
+    const callbackSender = await ethers.getContractAt("CallbackSender", await bite.getNextCallbackSender());
+
+    const tx = await bite.sendCallback();
+    const receipt = await tx.wait();
+    assert(receipt);
+    const ethSpent = receipt.gasUsed * receipt.gasPrice;
+
+    // simulate gas token spending
+    await setBalance(
+        await ethers.resolveAddress(callbackSender),
+        await ethers.provider.getBalance(callbackSender) - ethSpent
+    );
+
+    const supplicant = await callbackSender.SUPPLICANT();
+    const rest = await ethers.provider.getBalance(callbackSender);
+
+    await setBalance(await ethers.resolveAddress(callbackSender), 0n);
+    await setBalance(supplicant, rest + await ethers.provider.getBalance(supplicant));
+
+    return rest;
 }
