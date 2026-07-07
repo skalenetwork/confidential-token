@@ -63,3 +63,42 @@ export const sendCallbackAndMakeRefund = async (bite: BiteMock) => {
 
     return rest;
 }
+
+export const sendRevertingCallbackAndMakeRefund = async (bite: BiteMock) => {
+    const callbackSender = await ethers.getContractAt("CallbackSender", await bite.getNextCallbackSender());
+
+    // A callback that is going to revert would normally never even be sent: ethers
+    // estimates gas first and refuses to broadcast a transaction it can see will fail.
+    // Passing a fixed gas limit skips that estimation, so the transaction still lands
+    // in a block - just like a real reverted transaction does on a live network.
+    let receipt;
+    try {
+        const tx = await bite.sendCallback({ gasLimit: 10_000_000 });
+        receipt = await tx.wait();
+    } catch (error) {
+        // Hardhat still mines a transaction that reverts, exactly like a real
+        // network would, but throws instead of resolving normally. The mined
+        // transaction's hash is on the error, so the real receipt (status 0) can
+        // still be fetched directly from the provider.
+        const { transactionHash } = error as { transactionHash?: string };
+        assert(transactionHash, "expected a transaction hash on the revert error");
+        receipt = await ethers.provider.getTransactionReceipt(transactionHash);
+    }
+    assert(receipt);
+    assert.equal(receipt.status, 0, "expected the callback to revert");
+    const ethSpent = receipt.gasUsed * receipt.gasPrice;
+
+    // simulate gas token spending
+    await setBalance(
+        await ethers.resolveAddress(callbackSender),
+        await ethers.provider.getBalance(callbackSender) - ethSpent
+    );
+
+    const supplicant = await callbackSender.SUPPLICANT();
+    const rest = await ethers.provider.getBalance(callbackSender);
+
+    await setBalance(await ethers.resolveAddress(callbackSender), 0n);
+    await setBalance(supplicant, rest + await ethers.provider.getBalance(supplicant));
+
+    return rest;
+}
