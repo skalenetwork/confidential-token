@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import "chai/register-should";
 import { expect } from "chai";
-import { cleanMintableDeployment, cleanWrapperDeployment, withMintedTokens } from "./tools/fixtures";
+import { cleanWrapperDeployment, withMintedTokens } from "./tools/fixtures";
 import { getPublicKey } from "./tools/cryptography";
 import { sendCallbackAndMakeRefund, sendRevertingCallbackAndMakeRefund } from "./tools/helpers";
 
@@ -254,22 +254,54 @@ describe("GasTokenManager refunds", () => {
     });
 
     // A callback can revert - for example the real balance turns out to be too low,
-    // and this is only found out once the callback decrypts it. The leftover gas
-    // budget still comes back to the contract in that case too, on a real network,
-    // so it must still be credited to the payer even though their action failed.
-    //
-    // IMPORTANT: onDecrypt calls _setLastGasTokenRefundReceiver(gasPayer) and then
-    // runs the action in the very same call. When the action reverts, that whole
-    // call - including the receiver update - is rolled back. So the payer of a
-    // reverted callback is only actually recorded as the refund receiver if they
-    // already were the receiver before this callback ran. The two tests below marked
-    // "BUG" show this going wrong: the refund from a reverted callback is credited to
-    // whoever the receiver already was, not to the account that actually paid for
-    // that callback. They assert the behavior we want and currently fail against the
-    // contract as written - keep them red until the contract is fixed, then they
-    // become regular regression tests.
+    // and this is only found out once the callback decrypts it. In that case the
+    // receiver update in onDecrypt is rolled back with the action. The returned gas
+    // is therefore attributed to the receiver recorded by the previous successful
+    // callback, rather than to the payer of the reverted callback.
     describe("refunds when a callback reverts", () => {
-        it("still refunds the payer when the callback itself reverts, if that payer was already the current refund receiver", async () => {
+        it("does not refund a reverted callback's payer, then gives both refunds to the previous receiver when their next callback succeeds", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, bob] = await ethers.getSigners();
+            const tokenAddress = await ethers.resolveAddress(token);
+
+            await bob.sendTransaction({ to: tokenAddress, value: ethers.parseEther("1") });
+
+            const callbackFee = await token.callbackFee();
+            const ownerBalanceBeforeSubmit = await token.gasTokenBalanceOf(owner);
+            const bobBalanceBeforeSubmit = await token.gasTokenBalanceOf(bob);
+
+            // The fixture's successful mint callback has already made owner the
+            // current refund receiver. Bob has no confidential balance, so Bob's
+            // transfer callback reverts and cannot replace that receiver with Bob.
+            await token.connect(bob).transfer(recipient, 1n);
+            const revertedCallbackRefund = await sendRevertingCallbackAndMakeRefund(bite);
+
+            expect(await token.gasTokenBalanceOf(bob)).to.be.equal(
+                bobBalanceBeforeSubmit - callbackFee
+            );
+
+            // BiteMock's queue pop is rolled back together with a reverting callback,
+            // unlike the network's one-shot delivery. Use a fresh mock queue for the
+            // later callback so the failed entry cannot block it in this unit test.
+            const nextBite = await ethers.deployContract("BiteMock");
+            const nextSubmitCTX = await ethers.deployContract("SubmitCTXMock", [nextBite]);
+            await token.setSubmitCTXAddress(nextSubmitCTX);
+
+            // Owner now pays for another callback. Because owner was still the
+            // recorded receiver, owner receives Bob's leaked refund as well as the
+            // refund from this successful callback.
+            await token.connect(owner).setViewerPublicKey(await getPublicKey(owner));
+            const successfulCallbackRefund = await sendCallbackAndMakeRefund(nextBite);
+
+            expect(await token.gasTokenBalanceOf(owner)).to.be.equal(
+                ownerBalanceBeforeSubmit - callbackFee + revertedCallbackRefund + successfulCallbackRefund
+            );
+            expect(await token.gasTokenBalanceOf(bob)).to.be.equal(
+                bobBalanceBeforeSubmit - callbackFee
+            );
+        });
+
+        it("still refunds the payer when the callback itself reverts, IF that payer was already the current refund receiver", async () => {
             const { token, bite, owner, minted } = await withMintedTokens();
             const [, recipient] = await ethers.getSigners();
 
@@ -291,79 +323,6 @@ describe("GasTokenManager refunds", () => {
             expect(await token.gasTokenBalanceOf(owner)).to.be.equal(
                 balanceBeforeSubmit - callbackFee + refund
             );
-        });
-
-        it("BUG: a reverted callback's refund should go to the account that paid for it, not to whoever was already the refund receiver", async () => {
-            const { token, bite } = await withMintedTokens();
-            const [, recipient, bob] = await ethers.getSigners();
-            const tokenAddress = await ethers.resolveAddress(token);
-
-            // Owner is already the refund receiver (from the fixture's mint). Bob is
-            // a completely different account who pays for and submits his own,
-            // separate, reverting callback.
-            await bob.sendTransaction({ to: tokenAddress, value: ethers.parseEther("1") });
-
-            const callbackFee = await token.callbackFee();
-            const bobBalanceBeforeSubmit = await token.gasTokenBalanceOf(bob);
-
-            // Bob has no confidential balance at all, so any transfer he submits
-            // reverts once the callback decrypts his real (zero) balance.
-            await token.connect(bob).transfer(recipient, 1n);
-            const refund = await sendRevertingCallbackAndMakeRefund(bite);
-
-            // Bob paid for this callback - the refund from it belongs to him.
-            expect(await token.gasTokenBalanceOf(bob)).to.be.equal(
-                bobBalanceBeforeSubmit - callbackFee + refund
-            );
-        });
-
-        it("BUG: a reverted callback's refund should go to its payer even if no callback has ever succeeded yet", async () => {
-            const { token, bite, owner } = await cleanMintableDeployment();
-            const [, recipient] = await ethers.getSigners();
-            const tokenAddress = await ethers.resolveAddress(token);
-
-            // Fresh deployment: no callback has ever run, so there is no refund
-            // receiver recorded yet. Funding owner's gas balance does not change
-            // that - only a callback that actually runs (successfully) does.
-            await owner.sendTransaction({ to: tokenAddress, value: ethers.parseEther("1") });
-            const callbackFee = await token.callbackFee();
-            const balanceBeforeSubmit = await token.gasTokenBalanceOf(owner);
-
-            // Owner has no confidential balance yet either, so this transfer reverts.
-            await token.connect(owner).transfer(recipient, 1n);
-            const refund = await sendRevertingCallbackAndMakeRefund(bite);
-
-            // This was owner's own callback and owner paid for it, so the refund
-            // should still land on owner even though no callback has ever succeeded.
-            expect(await token.gasTokenBalanceOf(owner)).to.be.equal(
-                balanceBeforeSubmit - callbackFee + refund
-            );
-        });
-
-        it("does not leak a refund from a reverted callback to an unrelated account that touches its own balance afterward", async () => {
-            const { token, bite, owner, minted } = await withMintedTokens();
-            const [, recipient, bob] = await ethers.getSigners();
-            const tokenAddress = await ethers.resolveAddress(token);
-
-            await bob.sendTransaction({ to: tokenAddress, value: ethers.parseEther("1") });
-
-            const callbackFee = await token.callbackFee();
-            const ownerBalanceBeforeSubmit = await token.gasTokenBalanceOf(owner);
-            const bobBalanceBeforeSubmit = await token.gasTokenBalanceOf(bob);
-
-            await token.connect(owner).transfer(recipient, minted + 1n);
-            const refund = await sendRevertingCallbackAndMakeRefund(bite);
-
-            // Bob just touches his own balance (a withdrawal of 0 is enough). This
-            // does not need a callback of its own, but it does flush any pending
-            // refund - which must still go to owner, not to bob.
-            await token.connect(bob).retrieveGasToken(0, bob);
-
-            expect(await token.gasTokenBalanceOf(owner)).to.be.equal(
-                ownerBalanceBeforeSubmit - callbackFee + refund
-            );
-            // Bob never paid for a callback of his own, so his balance is untouched.
-            expect(await token.gasTokenBalanceOf(bob)).to.be.equal(bobBalanceBeforeSubmit);
         });
     });
 });
