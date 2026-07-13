@@ -1,8 +1,24 @@
 # Solidity API
 
+## Action
+
+```solidity
+type Action is uint8;
+```
+
 ## ConfidentialToken
 
 Upgradeable ERC20-like token with encrypted balances
+
+### CTXInfo
+
+```solidity
+struct CTXInfo {
+  uint256 submittedBlockNumber;
+  address gasPayer;
+  Action action;
+}
+```
 
 ### TransferInfo
 
@@ -11,8 +27,7 @@ struct TransferInfo {
   address from;
   address to;
   address spender;
-  address gasPayer;
-  uint256 submittedBlockNumber;
+  bytes[] extraArguments;
 }
 ```
 
@@ -90,12 +105,6 @@ error ActionNotRecognized()
 
 ```solidity
 error InsufficientBalance()
-```
-
-### InsufficientGasToken
-
-```solidity
-error InsufficientGasToken(uint256 required, uint256 available)
 ```
 
 ### InvalidPublicKey
@@ -177,14 +186,6 @@ constructor(bool proxyMode, string name_, string symbol_, string version_, addre
 | symbol_ | string | Symbol of the token. Ignored when proxyMode is true. |
 | version_ | string | Version of the contract. Ignored when proxyMode is true. |
 | initialAuthority | address | Address of AccessManager initial authority. Ignored when proxyMode is true. |
-
-### receive
-
-Allows the contract to receive gas token to pay for callback execution
-
-```solidity
-receive() external payable
-```
 
 ### onDecrypt
 
@@ -428,21 +429,6 @@ function setEncryptTEAddress(address newAddress) external
 | ---- | ---- | ----------- |
 | newAddress | address | New address of the EncryptTE precompiled contract |
 
-### retrieveGasToken
-
-Withdraws gas token from the caller's balance
-
-```solidity
-function retrieveGasToken(uint256 value, address receiver) external
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| value | uint256 |  |
-| receiver | address | Address to send the withdrawn gas token to |
-
 ### encryptedBalanceOf
 
 Gets the encrypted balance of a holder
@@ -487,26 +473,6 @@ function encryptValue(address holder, uint256 value) external view returns (byte
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | encryptedValue | bytes | TE-encrypted bytes ready to pass to `encryptedTransfer` or `encryptedTransferFrom` |
-
-### gasTokenBalanceOf
-
-Gets the gas token balance of a holder
-
-```solidity
-function gasTokenBalanceOf(address holder) external view returns (uint256 balance)
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| holder | address | The address of the holder |
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| balance | uint256 | The gas token balance of the holder |
 
 ### canDecryptHistoricTransfer
 
@@ -567,20 +533,6 @@ function requestDecryptHistoricTransferFor(bytes encryptedTransferData, address 
 | ---- | ---- | ----------- |
 | encryptedTransferData | bytes | TE-encrypted transfer payload emitted by the token |
 | historicViewer | address | Address of the viewer who will receive the decrypted transfer event if authorized |
-
-### fundWithGasToken
-
-Deposits gas token to any holder balance
-
-```solidity
-function fundWithGasToken(address receiver) public payable
-```
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| receiver | address | The address of the receiver holder |
 
 ### transferFrom
 
@@ -669,25 +621,25 @@ function __ConfidentialToken_init_unchained(string version_) internal
 ### _handleAction
 
 ```solidity
-function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal virtual
+function _handleAction(struct ConfidentialToken.CTXInfo ctxInfo, bytes[] decryptedArguments, bytes actionArgument) internal virtual
 ```
 
 ### _handleHistoricViewRequest
 
 ```solidity
-function _handleHistoricViewRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+function _handleHistoricViewRequest(struct ConfidentialToken.CTXInfo, bytes[] decryptedArguments, bytes historicViewArgument) internal
 ```
 
 ### _handleTransferRequest
 
 ```solidity
-function _handleTransferRequest(bytes[] decryptedArguments, bytes[] plaintextArguments) internal returns (bool finalized, uint256 value)
+function _handleTransferRequest(struct ConfidentialToken.CTXInfo ctxInfo, bytes[] decryptedArguments, bytes transferArguments) internal returns (bool finalized, uint256 value)
 ```
 
 ### _reSubmitTransfer
 
 ```solidity
-function _reSubmitTransfer(struct ConfidentialToken.TransferInfo transferInfo, uint256 value, bytes[] plaintextArguments) internal
+function _reSubmitTransfer(struct ConfidentialToken.CTXInfo ctxInfo, struct ConfidentialToken.TransferInfo transferInfo, uint256 value) internal
 ```
 
 ### _decryptedUpdate
@@ -761,7 +713,7 @@ function _encryptedUpdate(address from, address to, address spender, address gas
 ### _encryptedUpdateExtended
 
 ```solidity
-function _encryptedUpdateExtended(address from, address to, address spender, address gasPayer, bytes encryptedValue, uint8 action, bytes[] extraPlaintextArguments) internal virtual
+function _encryptedUpdateExtended(address from, address to, address spender, address gasPayer, bytes encryptedValue, Action action, bytes[] extraPlaintextArguments) internal virtual
 ```
 
 ### _transferFrom
@@ -796,5 +748,11 @@ function _encryptedTransfer(address from, address to, bytes value) internal virt
 
 ```solidity
 function _encryptTEValueForHolder(address holder, uint256 value) internal view returns (bytes encryptedValue)
+```
+
+## _actionEquals
+
+```solidity
+function _actionEquals(Action a, Action b) internal pure returns (bool result)
 ```
 
