@@ -28,6 +28,8 @@ struct TransferInfo {
   address to;
   address spender;
   bytes[] extraArguments;
+  uint256 fromCounter;
+  uint256 toCounter;
 }
 ```
 
