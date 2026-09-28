@@ -161,7 +161,7 @@ describe("ConfidentialWrapper", () => {
 
     it("withdrawTo: stale callback still routes underlying to the original account arg", async () => {
         // Deposit and withdrawTo are both queued before any callback fires.
-        // The deposit CTX runs first, bumping _lastChanged[owner].
+        // The deposit CTX runs first, changing the owner balance.
         // The withdrawTo CTX is now stale and must resubmit.
         // After resubmit, the recipient encoded in plaintextArguments[2] must be
         // honoured — it must not fall back to msg.sender or any other address.
@@ -181,7 +181,7 @@ describe("ConfidentialWrapper", () => {
         await token.connect(owner).depositFor(owner, amount);
         await token.connect(owner).withdrawTo(recipient, amount);
 
-        // CTX1: mint fires, owner gets cnf, _lastChanged[owner] is bumped.
+        // CTX1: mint fires, owner gets cnf, the owner balance counter is bumped.
         await expect(bite.sendCallback()).to.not.be.reverted;
 
         // CTX2: stale — resubmits; recipient address in plaintextArguments[2] must be preserved.
@@ -198,7 +198,7 @@ describe("ConfidentialWrapper", () => {
 
     it("withdrawTo: two sequential withdrawals to distinct recipients both finalize correctly", async () => {
         // Two withdrawTo calls are queued before any callback fires. The first CTX
-        // finalizes and bumps _lastChanged[owner], making the second stale.
+        // finalizes and bumps the owner balance counter, making the second stale.
         // After one resubmit the second CTX must deliver to its own recipient.
         const { token, underlyingToken, owner, bite, wrapped } = await withWrappedTokens();
         const [, recipient1, recipient2] = await ethers.getSigners();
@@ -207,7 +207,7 @@ describe("ConfidentialWrapper", () => {
         await token.connect(owner).withdrawTo(recipient1, half);
         await token.connect(owner).withdrawTo(recipient2, half);
 
-        // CTX1 finalizes: underlying goes to recipient1; _lastChanged[owner] is bumped.
+        // CTX1 finalizes: underlying goes to recipient1; the owner balance counter is bumped.
         await expect(bite.sendCallback()).to.not.be.reverted;
         (await underlyingToken.balanceOf(recipient1)).should.be.equal(half);
 
@@ -773,7 +773,7 @@ describe("ConfidentialWrapper", () => {
             (await token.totalSupply()).should.be.equal(aliceAmount);
             (await token.requestedMints(recipient)).should.be.equal(bobAmount - aliceAmount);
 
-            // Bob's CTX is now stale (recipient._lastChanged was bumped by alice's mint).
+            // Bob's CTX is now stale (the recipient balance counter was bumped by alice's mint).
             // It resubmits, then the resubmit hits trySub(bobAmount - aliceAmount, bobAmount) -> false -> OutdatedMint.
             await expect(bite.sendCallback()).to.emit(token, "CTXResubmitted");
             await expect(bite.sendCallback())
