@@ -60,7 +60,6 @@ contract ConfidentialToken is
     using HistoricView for HistoricView.AuthStorage;
 
     struct CTXInfo {
-        uint256 submittedBlockNumber;
         address gasPayer;
         Action action;
     }
@@ -868,7 +867,6 @@ contract ConfidentialToken is
         private
     {
         CTXInfo memory ctxInfo = CTXInfo({
-            submittedBlockNumber: block.number,
             gasPayer: gasPayer,
             action: action
         });

@@ -638,16 +638,16 @@ describe("ConfidentialToken", () => {
         await mine(1);
 
 
-        // Block N+1: (a) settles and sets _lastChanged[B] = N+1,
+        // Block N+1: (a) settles and changes B
         await bite.sendCallback({gasLimit});
-        // (b) sees B changed and resubmits as (b') with a snapshot of senderBalance = `minted` and submittedBlockNumber = N+1,
+        // (b) sees B changed and resubmits as (b') with a snapshot of the sender balance = `minted`
         const transferToB = await bite.sendCallback({gasLimit});
-        // (c) settles: senderBalance = 0, recipientC = minted, _lastChanged[S] = N+1
+        // (c) settles later in the same block: sender balance = 0, recipientC = `minted`
         await bite.sendCallback({gasLimit});
         await mine(1);
         await expect(transferToB).to.emit(token, "CTXResubmitted");
 
-        // Block E+1: (b') runs. But sender's balance was changed and thus snapshot is invalid.
+        // Block N+2: (b') runs. The sender balance changed after its snapshot was taken, so it must be resubmitted.
         const transferToB_1 = await bite.sendCallback({gasLimit});
         await mine(1);
         await network.provider.send("evm_setAutomine", [true]);

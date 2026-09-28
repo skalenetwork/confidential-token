@@ -14,7 +14,6 @@ Upgradeable ERC20-like token with encrypted balances
 
 ```solidity
 struct CTXInfo {
-  uint256 submittedBlockNumber;
   address gasPayer;
   Action action;
 }
