@@ -70,6 +70,9 @@ contract ConfidentialToken is
         address to;
         address spender;
         bytes[] extraArguments;
+        // Balance counters of `from` and `to` when their encrypted balances were read
+        uint256 fromCounter;
+        uint256 toCounter;
     }
 
     Action private constant _TRANSFER_ACTION = Action.wrap(0);
@@ -106,7 +109,9 @@ contract ConfidentialToken is
     /// @notice Encrypted with User's Public Key (U_Key) - Used for local viewing
     mapping(address holder => bytes encryptedBalance) private _userBalances;
 
-    mapping(address holder => uint256 blockNumber) private _lastChanged;
+    /// @notice Incremented on every write of the holder's balance
+    /// @dev Used to detect if a balance snapshot sent in a CTX is outdated
+    mapping(address holder => uint256 counter) private _balanceCounter;
 
     EnumerableSet.AddressSet private _callbackSenders;
 
@@ -541,9 +546,9 @@ contract ConfidentialToken is
         (uint256 fromBalance, uint256 toBalance) = _decodeOriginalBalances(decryptedArguments, transferInfo, value);
 
         bool updatedFrom =
-            transferInfo.from != address(0) && _lastChanged[transferInfo.from] > ctxInfo.submittedBlockNumber;
+            transferInfo.from != address(0) && _balanceCounter[transferInfo.from] != transferInfo.fromCounter;
         bool updatedTo =
-            transferInfo.to != address(0) && _lastChanged[transferInfo.to] > ctxInfo.submittedBlockNumber;
+            transferInfo.to != address(0) && _balanceCounter[transferInfo.to] != transferInfo.toCounter;
         if (updatedFrom || updatedTo) {
             // This MUST be kept always after decoding and verifying Balance (value)
             _reSubmitTransfer(ctxInfo, transferInfo, value);
@@ -581,6 +586,9 @@ contract ConfidentialToken is
         transferInfo.spender = address(0);
         // End of TODO
         bytes[] memory encryptedArguments = _encryptArguments(transferInfo.from, transferInfo.to, encryptedValue);
+        // Snapshot counters together with the balances re-read above
+        transferInfo.fromCounter = _balanceCounter[transferInfo.from];
+        transferInfo.toCounter = _balanceCounter[transferInfo.to];
         bytes memory transferArguments = abi.encode(transferInfo);
 
         _submitCTX(ctxInfo.gasPayer, ctxInfo.action, encryptedArguments, transferArguments);
@@ -740,7 +748,9 @@ contract ConfidentialToken is
             from: from,
             to: to,
             spender: spender,
-            extraArguments: extraPlaintextArguments
+            extraArguments: extraPlaintextArguments,
+            fromCounter: _balanceCounter[from],
+            toCounter: _balanceCounter[to]
         }));
 
         _submitCTX(gasPayer, action, encryptedArguments, transferArguments);
@@ -813,7 +823,7 @@ contract ConfidentialToken is
 
     function _setBalance(address holder, uint256 balance) private {
         _thresholdBalances[holder] = _encryptTEValueForHolder(holder, balance);
-        _lastChanged[holder] = block.number;
+        ++_balanceCounter[holder];
         if (_viewerIsRegistered(holder)) {
             PublicKey memory viewerPublicKey = _getViewKey(holder);
             _userBalances[holder] = BITE.encryptECIES(

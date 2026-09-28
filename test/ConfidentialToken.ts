@@ -604,6 +604,119 @@ describe("ConfidentialToken", () => {
         (await balanceOf(token, bite, user2)).should.be.equal(amount);
     });
 
+    it("should not allow double spending when a CTX is resubmitted in the same block as a conflicting CTX", async () => {
+        const [sender, recipientB, recipientC] = await ethers.getSigners();
+        const { token, bite, minted } = await withMintedTokens();
+        const viewPublicKey = await getPublicKey(sender);
+        const callbackFee = await token.callbackFee();
+
+        // Setup viewer public keys and fund recipients with gas tokens
+        await token.connect(sender).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+        await token.fundWithGasToken(recipientB, {value: callbackFee * 2n});
+        await token.connect(recipientB).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+        await token.fundWithGasToken(recipientC, {value: callbackFee});
+        await token.connect(recipientC).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+
+        (await balanceOf(token, bite, sender)).should.be.equal(minted);
+        (await token.totalSupply()).should.be.equal(minted);
+
+        // With automine off Hardhat defaults every tx without an explicit gasLimit to the block gas limit
+        const gasLimit = 8_000_000;
+        await network.provider.send("evm_setAutomine", [false]);
+
+        /* BATCH 1 - All in same block N*/
+        // (a) marks B as changed
+        await token.connect(recipientB).transfer(recipientB, 0, {gasLimit});
+        // (b) will be resubmitted
+        await token.connect(sender).transfer(recipientB, minted, {gasLimit});
+        // (c) spends the same balance
+        await token.connect(sender).transfer(recipientC, minted, {gasLimit});
+
+        await mine(1);
+
+
+        // Block N+1: (a) settles and sets _lastChanged[B] = N+1,
+        await bite.sendCallback({gasLimit});
+        // (b) sees B changed and resubmits as (b') with a snapshot of senderBalance = `minted` and submittedBlockNumber = N+1,
+        const transferToB = await bite.sendCallback({gasLimit});
+        // (c) settles: senderBalance = 0, recipientC = minted, _lastChanged[S] = N+1
+        await bite.sendCallback({gasLimit});
+        await mine(1);
+        await expect(transferToB).to.emit(token, "CTXResubmitted");
+
+        // Block E+1: (b') runs. But sender's balance was changed and thus snapshot is invalid.
+        const transferToB_1 = await bite.sendCallback({gasLimit});
+        await mine(1);
+        await network.provider.send("evm_setAutomine", [true]);
+
+        (await balanceOf(token, bite, sender)).should.be.equal(0n);
+        (await balanceOf(token, bite, recipientC)).should.be.equal(minted);
+        (await balanceOf(token, bite, recipientB)).should.be.equal(0n);
+        (await token.totalSupply()).should.be.equal(minted);
+
+        await expect(transferToB_1).to.emit(token, "CTXResubmitted");
+
+        await expect(bite.sendCallback({gasLimit})).to.be.revertedWithCustomError(token, "InsufficientBalance()");
+
+        (await balanceOf(token, bite, sender)).should.be.equal(0n);
+        (await balanceOf(token, bite, recipientC)).should.be.equal(minted);
+        (await balanceOf(token, bite, recipientB)).should.be.equal(0n);
+        (await token.totalSupply()).should.be.equal(minted);
+    });
+
+    it("should not resubmit a transfer submitted after its balances were changed in the same block", async () => {
+        const [sender, recipientB, recipientC] = await ethers.getSigners();
+        const { token, bite, minted } = await withMintedTokens();
+        const viewPublicKey = await getPublicKey(sender);
+        const callbackFee = await token.callbackFee();
+
+        // Setup viewer public keys and fund recipients with gas tokens
+        await token.connect(sender).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+        await token.fundWithGasToken(recipientB, {value: callbackFee * 2n});
+        await token.connect(recipientB).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+        await token.fundWithGasToken(recipientC, {value: callbackFee});
+        await token.connect(recipientC).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+
+        // (a) will mark B as changed
+        await token.connect(recipientB).transfer(recipientB, 0);
+
+        // With automine off Hardhat defaults every tx without an explicit gasLimit to the block gas limit
+        const gasLimit = 8_000_000;
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // Block N: CTXs run before regular transactions, so (a) settles first and changes B.
+        // Only then the sender submits (b) and (c), so their snapshots already include the change
+        await bite.sendCallback({gasLimit});
+        // (b) is submitted first
+        await token.connect(sender).transfer(recipientB, minted, {gasLimit});
+        // (c) spends the same balance
+        await token.connect(sender).transfer(recipientC, minted, {gasLimit});
+        await mine(1);
+
+        // Block N+1: (b) snapshot is still valid and settles. (c) sees the sender changed and is resubmitted.
+        const transferToB = await bite.sendCallback({gasLimit});
+        const transferToC = await bite.sendCallback({gasLimit});
+        await mine(1);
+        await network.provider.send("evm_setAutomine", [true]);
+
+        await expect(transferToB).to.not.emit(token, "CTXResubmitted");
+        await expect(transferToC).to.emit(token, "CTXResubmitted");
+
+        // (c') runs with the updated sender balance
+        await expect(bite.sendCallback({gasLimit})).to.be.revertedWithCustomError(token, "InsufficientBalance()");
+
+        (await balanceOf(token, bite, sender)).should.be.equal(0n);
+        (await balanceOf(token, bite, recipientB)).should.be.equal(minted);
+        (await balanceOf(token, bite, recipientC)).should.be.equal(0n);
+        (await token.totalSupply()).should.be.equal(minted);
+    });
+
     it("should not allow hacker to transferFrom without allowance", async () => {
         const amount = ethers.parseEther("1.0");
         const [alice, bob, hacker] = await ethers.getSigners();
