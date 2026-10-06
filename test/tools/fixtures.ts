@@ -1,5 +1,6 @@
 import {
-    loadFixture
+    loadFixture,
+    setCode
 } from "@nomicfoundation/hardhat-network-helpers";
 import { ethers } from "hardhat";
 import { HDNodeWallet, Wallet } from "ethers";
@@ -25,6 +26,21 @@ const deployBiteMocks = async () => {
     const encryptTE = await encryptTEFactory.deploy(bite);
     const submitCTXFactory = await ethers.getContractFactory("SubmitCTXMock");
     const submitCTX = await submitCTXFactory.deploy(bite);
+
+    // Set precompiles at predefined addresses
+    await setCode(
+        "0x000000000000000000000000000000000000001c", // ENCRYPT_ECIES_ADDRESS
+        await ethers.provider.getCode(encryptECIES)
+    );
+    await setCode(
+        "0x000000000000000000000000000000000000001d", // ENCRYPT_TE_ADDRESS
+        await ethers.provider.getCode(encryptTE)
+    );
+    await setCode(
+        "0x000000000000000000000000000000000000001b", // SUBMIT_CTX_ADDRESS
+        await ethers.provider.getCode(submitCTX)
+    );
+
     return {
         bite,
         encryptECIES,
@@ -53,9 +69,6 @@ const deployMintableFixture = async () => {
     const mintableConfidentialToken = deployedContracts.MintableConfidentialToken as MintableConfidentialToken;
 
     const mocks = await deployBiteMocks();
-    await mintableConfidentialToken.setEncryptECIESAddress(mocks.encryptECIES);
-    await mintableConfidentialToken.setEncryptTEAddress(mocks.encryptTE);
-    await mintableConfidentialToken.setSubmitCTXAddress(mocks.submitCTX);
     await mintableConfidentialToken.setCallbackFee(ethers.parseEther("0.003"));
 
     return {
@@ -100,9 +113,6 @@ const deployWrapperFixture = async () => {
     });
 
     const mocks = await deployBiteMocks();
-    await contracts.ConfidentialWrapper.setEncryptECIESAddress(mocks.encryptECIES);
-    await contracts.ConfidentialWrapper.setEncryptTEAddress(mocks.encryptTE);
-    await contracts.ConfidentialWrapper.setSubmitCTXAddress(mocks.submitCTX);
     await contracts.ConfidentialWrapper.setCallbackFee(ethers.parseEther("0.003"));
 
     return {
@@ -144,25 +154,25 @@ const eip3009Fixture = async () => {
     const minted = ethers.parseEther("1000");
     const gasTokenBalance = ethers.parseEther("1.0");
     const context = await deployMintableFixture();
+
     await context.owner.sendTransaction({
         to: await ethers.resolveAddress(context.token),
         value: gasTokenBalance
     });
     await context.token.mint(context.owner, minted);
     await context.bite.sendCallback();
-
     await feedAccounts([alice, bob, charlie]);
     for (const user of [alice, bob, charlie]) {
         await context.token.connect(user).fundWithGasToken(user, { value: ethers.parseEther("3") });
     }
-    await context.token.connect(alice).setViewerPublicKey(await getPublicKey(alice));
-    await context.bite.sendCallback();
-    await context.token.connect(bob).setViewerPublicKey(await getPublicKey(bob));
-    await context.bite.sendCallback();
-    await context.token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
-    await context.bite.sendCallback();
+
+    // Start: Time consuming section under coverage. Avoid unnecessary registrations and callbacks
     await context.token.transfer(alice, 10e6);
     await context.bite.sendCallback();
+
+    await context.token.connect(alice).setViewerPublicKey(await getPublicKey(alice));
+    await context.bite.sendCallback();
+    // End: Time consuming section under coverage
 
     return { ...context, alice, bob, charlie, minted };
 };

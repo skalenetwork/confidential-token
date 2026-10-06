@@ -7,6 +7,7 @@ import { expect } from "chai";
 import { BiteMock, ConfidentialToken } from "../typechain-types";
 import { withEIP3009Setup } from "./tools/fixtures";
 import { balanceOf, nowPlusSeconds } from "./tools/helpers";
+import { getPublicKey } from "./tools/cryptography";
 
 const ENCRYPTED_TRANSFER_WITH_AUTHORIZATION_TYPEHASH = ethers.id(
     "TransferWithAuthorization(address from,address to,bytes value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
@@ -25,12 +26,6 @@ describe("ConfidentialEIP3009", () => {
     let charlie: HDNodeWallet;
     let nonce: string;
     const initialBalance = 10e6;
-
-    before(async function() {
-        // warmup the fixture with larger timeout. This runs only once and is loaded in all following tests
-        this.timeout(60_000);
-        await withEIP3009Setup();
-    });
 
     beforeEach(async () => {
         ({ bite, token, alice, bob, charlie } = await withEIP3009Setup());
@@ -72,6 +67,8 @@ describe("ConfidentialEIP3009", () => {
         });
 
         it("executes a transfer when a valid authorization is given", async () => {
+            await token.connect(bob).setViewerPublicKey(await getPublicKey(bob));
+            await bite.sendCallback();
             const { from, to, value, validAfter, validBefore } = transferParams;
             const encryptedValue = await token.encryptValue(from, value);
             // create an authorization to transfer money from Alice to Bob and sign
@@ -429,6 +426,8 @@ describe("ConfidentialEIP3009", () => {
         });
 
         it("executes a transfer when a valid authorization is submitted by the payee", async () => {
+            await token.connect(charlie).setViewerPublicKey(await getPublicKey(charlie));
+            await bite.sendCallback();
             const { from, to, value, validAfter, validBefore } = receiveParams;
             const encryptedValue = await token.encryptValue(from, value);
 
@@ -494,7 +493,6 @@ describe("ConfidentialEIP3009", () => {
 
             // check initial balance
             expect(await balanceOf(token, bite, from)).to.equal(10e6);
-            expect(await balanceOf(token, bite, to)).to.equal(0);
 
             expect(await token.authorizationState(from, nonce)).to.be.eql(false);
 

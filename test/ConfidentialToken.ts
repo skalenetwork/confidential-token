@@ -4,7 +4,7 @@ import { ethers, network } from "hardhat";
 import { cleanMintableDeployment, withMintedTokens } from "./tools/fixtures";
 import "chai/register-should";
 import { getPublicKey } from "./tools/cryptography";
-import { balanceOf } from "./tools/helpers";
+import { balanceOf, sendCallbackAndMakeRefund } from "./tools/helpers";
 import { expect } from "chai";
 import { BiteMock, MintableConfidentialToken } from "../typechain-types";
 import { Signer, TransactionResponse } from "ethers";
@@ -107,6 +107,15 @@ describe("ConfidentialToken", () => {
         (await token.retrieveGasToken(initialBalance - callbackFee, owner))
             .should.changeEtherBalance(owner, initialBalance - callbackFee);
         (await token.gasTokenBalanceOf(owner)).should.be.equal(0);
+    });
+
+    it("retrieveGasToken reverts when withdrawing more than the available balance", async () => {
+        const { token, owner } = await withMintedTokens();
+
+        const balance = await token.gasTokenBalanceOf(owner);
+        await token.connect(owner).retrieveGasToken(balance + 1n, owner)
+            .should.be.revertedWithCustomError(token, "InsufficientGasToken")
+            .withArgs(balance + 1n, balance);
     });
 
     it("should not return token balance", async () => {
@@ -364,6 +373,34 @@ describe("ConfidentialToken", () => {
         decryptedBalance.should.be.equal(amount);
     });
 
+    it("encryptedTransferFrom reverts with ERC20InvalidSender when from is the zero address", async () => {
+        const [, spender, recipient] = await ethers.getSigners();
+        const { token } = await withMintedTokens();
+
+        // The sender guard is checked before the value is decoded, so any payload reverts.
+        await token.connect(spender).encryptedTransferFrom(ethers.ZeroAddress, recipient, "0x")
+            .should.be.revertedWithCustomError(token, "ERC20InvalidSender")
+            .withArgs(ethers.ZeroAddress);
+    });
+
+    it("encryptedTransferFrom reverts with ERC20InvalidReceiver when to is the zero address", async () => {
+        const [owner, spender] = await ethers.getSigners();
+        const { token } = await withMintedTokens();
+
+        await token.connect(spender).encryptedTransferFrom(owner, ethers.ZeroAddress, "0x")
+            .should.be.revertedWithCustomError(token, "ERC20InvalidReceiver")
+            .withArgs(ethers.ZeroAddress);
+    });
+
+    it("encryptedTransfer reverts with ERC20InvalidReceiver when to is the zero address", async () => {
+        const { token, owner } = await withMintedTokens();
+
+        // `from` is always msg.sender (non-zero), so only the receiver guard is reachable here.
+        await token.connect(owner).encryptedTransfer(ethers.ZeroAddress, "0x")
+            .should.be.revertedWithCustomError(token, "ERC20InvalidReceiver")
+            .withArgs(ethers.ZeroAddress);
+    });
+
     it("should be able to transferFrom with encrypted values", async () => {
         const amount = ethers.parseEther("1.0");
         const [owner, spender, recipient] = await ethers.getSigners();
@@ -567,6 +604,119 @@ describe("ConfidentialToken", () => {
         (await balanceOf(token, bite, user2)).should.be.equal(amount);
     });
 
+    it("should not allow double spending when a CTX is resubmitted in the same block as a conflicting CTX", async () => {
+        const [sender, recipientB, recipientC] = await ethers.getSigners();
+        const { token, bite, minted } = await withMintedTokens();
+        const viewPublicKey = await getPublicKey(sender);
+        const callbackFee = await token.callbackFee();
+
+        // Setup viewer public keys and fund recipients with gas tokens
+        await token.connect(sender).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+        await token.fundWithGasToken(recipientB, {value: callbackFee * 2n});
+        await token.connect(recipientB).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+        await token.fundWithGasToken(recipientC, {value: callbackFee});
+        await token.connect(recipientC).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+
+        (await balanceOf(token, bite, sender)).should.be.equal(minted);
+        (await token.totalSupply()).should.be.equal(minted);
+
+        // With automine off Hardhat defaults every tx without an explicit gasLimit to the block gas limit
+        const gasLimit = 8_000_000;
+        await network.provider.send("evm_setAutomine", [false]);
+
+        /* BATCH 1 - All in same block N*/
+        // (a) marks B as changed
+        await token.connect(recipientB).transfer(recipientB, 0, {gasLimit});
+        // (b) will be resubmitted
+        await token.connect(sender).transfer(recipientB, minted, {gasLimit});
+        // (c) spends the same balance
+        await token.connect(sender).transfer(recipientC, minted, {gasLimit});
+
+        await mine(1);
+
+
+        // Block N+1: (a) settles and changes B
+        await bite.sendCallback({gasLimit});
+        // (b) sees B changed and resubmits as (b') with a snapshot of the sender balance = `minted`
+        const transferToB = await bite.sendCallback({gasLimit});
+        // (c) settles later in the same block: sender balance = 0, recipientC = `minted`
+        await bite.sendCallback({gasLimit});
+        await mine(1);
+        await expect(transferToB).to.emit(token, "CTXResubmitted");
+
+        // Block N+2: (b') runs. The sender balance changed after its snapshot was taken, so it must be resubmitted.
+        const transferToB_1 = await bite.sendCallback({gasLimit});
+        await mine(1);
+        await network.provider.send("evm_setAutomine", [true]);
+
+        (await balanceOf(token, bite, sender)).should.be.equal(0n);
+        (await balanceOf(token, bite, recipientC)).should.be.equal(minted);
+        (await balanceOf(token, bite, recipientB)).should.be.equal(0n);
+        (await token.totalSupply()).should.be.equal(minted);
+
+        await expect(transferToB_1).to.emit(token, "CTXResubmitted");
+
+        await expect(bite.sendCallback({gasLimit})).to.be.revertedWithCustomError(token, "InsufficientBalance()");
+
+        (await balanceOf(token, bite, sender)).should.be.equal(0n);
+        (await balanceOf(token, bite, recipientC)).should.be.equal(minted);
+        (await balanceOf(token, bite, recipientB)).should.be.equal(0n);
+        (await token.totalSupply()).should.be.equal(minted);
+    });
+
+    it("should not resubmit a transfer submitted after its balances were changed in the same block", async () => {
+        const [sender, recipientB, recipientC] = await ethers.getSigners();
+        const { token, bite, minted } = await withMintedTokens();
+        const viewPublicKey = await getPublicKey(sender);
+        const callbackFee = await token.callbackFee();
+
+        // Setup viewer public keys and fund recipients with gas tokens
+        await token.connect(sender).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+        await token.fundWithGasToken(recipientB, {value: callbackFee * 2n});
+        await token.connect(recipientB).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+        await token.fundWithGasToken(recipientC, {value: callbackFee});
+        await token.connect(recipientC).setViewerPublicKey(viewPublicKey);
+        await bite.sendCallback();
+
+        // (a) will mark B as changed
+        await token.connect(recipientB).transfer(recipientB, 0);
+
+        // With automine off Hardhat defaults every tx without an explicit gasLimit to the block gas limit
+        const gasLimit = 8_000_000;
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // Block N: CTXs run before regular transactions, so (a) settles first and changes B.
+        // Only then the sender submits (b) and (c), so their snapshots already include the change
+        await bite.sendCallback({gasLimit});
+        // (b) is submitted first
+        await token.connect(sender).transfer(recipientB, minted, {gasLimit});
+        // (c) spends the same balance
+        await token.connect(sender).transfer(recipientC, minted, {gasLimit});
+        await mine(1);
+
+        // Block N+1: (b) snapshot is still valid and settles. (c) sees the sender changed and is resubmitted.
+        const transferToB = await bite.sendCallback({gasLimit});
+        const transferToC = await bite.sendCallback({gasLimit});
+        await mine(1);
+        await network.provider.send("evm_setAutomine", [true]);
+
+        await expect(transferToB).to.not.emit(token, "CTXResubmitted");
+        await expect(transferToC).to.emit(token, "CTXResubmitted");
+
+        // (c') runs with the updated sender balance
+        await expect(bite.sendCallback({gasLimit})).to.be.revertedWithCustomError(token, "InsufficientBalance()");
+
+        (await balanceOf(token, bite, sender)).should.be.equal(0n);
+        (await balanceOf(token, bite, recipientB)).should.be.equal(minted);
+        (await balanceOf(token, bite, recipientC)).should.be.equal(0n);
+        (await token.totalSupply()).should.be.equal(minted);
+    });
+
     it("should not allow hacker to transferFrom without allowance", async () => {
         const amount = ethers.parseEther("1.0");
         const [alice, bob, hacker] = await ethers.getSigners();
@@ -597,6 +747,94 @@ describe("ConfidentialToken", () => {
         await bite.sendCallback();
         await bite.sendCallback()
             .should.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
+    });
+
+    it("should process refund after CTX execution", async () => {
+        const [owner] = await ethers.getSigners();
+        const { token, bite } = await withMintedTokens();
+
+        const gasTokenBalanceBeforeSubmit = await token.gasTokenBalanceOf(owner);
+
+        await token.connect(owner).setViewerPublicKey(
+            await getPublicKey(owner)
+        );
+
+        const gasTokenBalanceAfterSubmit = await token.gasTokenBalanceOf(owner);
+
+        expect(gasTokenBalanceAfterSubmit).to.be.equal(gasTokenBalanceBeforeSubmit - await token.callbackFee());
+
+        const refund = await sendCallbackAndMakeRefund(bite);
+        const gasTokenBalanceAfterRefund = await token.gasTokenBalanceOf(owner);
+
+        expect(gasTokenBalanceAfterRefund).to.be.equal(gasTokenBalanceAfterSubmit + refund);
+    });
+
+    describe("precompile address setters", () => {
+        it("allows the owner to update the EncryptECIES address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setEncryptECIESAddress(newAddress)
+                .should.emit(token, "EncryptECIESAddressChanged").withArgs(newAddress);
+            (await token.encryptECIESAddress()).should.equal(newAddress);
+        });
+
+        it("allows the owner to update the EncryptTE address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setEncryptTEAddress(newAddress)
+                .should.emit(token, "EncryptTEAddressChanged").withArgs(newAddress);
+            (await token.encryptTEAddress()).should.equal(newAddress);
+        });
+
+        it("allows the owner to update the SubmitCTX address", async () => {
+            const { token } = await cleanMintableDeployment();
+            const newAddress = ethers.Wallet.createRandom().address;
+            await token.setSubmitCTXAddress(newAddress)
+                .should.emit(token, "SubmitCTXAddressChanged").withArgs(newAddress);
+            (await token.submitCTXAddress()).should.equal(newAddress);
+        });
+
+        it("blocks unauthorized callers from setting EncryptECIES address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setEncryptECIESAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("blocks unauthorized callers from setting EncryptTE address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setEncryptTEAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("blocks unauthorized callers from setting SubmitCTX address", async () => {
+            const [, unauthorized] = await ethers.getSigners();
+            const { token } = await cleanMintableDeployment();
+            await token.connect(unauthorized).setSubmitCTXAddress(ethers.Wallet.createRandom().address)
+                .should.be.revertedWithCustomError(token, "AccessManagedUnauthorized")
+                .withArgs(unauthorized);
+        });
+
+        it("reverts when setting EncryptECIES address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setEncryptECIESAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
+
+        it("reverts when setting EncryptTE address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setEncryptTEAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
+
+        it("reverts when setting SubmitCTX address to zero", async () => {
+            const { token } = await cleanMintableDeployment();
+            await token.setSubmitCTXAddress(ethers.ZeroAddress)
+                .should.be.revertedWithCustomError(token, "ZeroAddress");
+        });
     });
 
     describe("Re Encryption of Historical transfers", () => {
@@ -1247,6 +1485,50 @@ describe("ConfidentialToken", () => {
             await token.connect(owner).removeHistoricViewTransferId(viewer, 0);
         });
 
+        // The three removal entry points have no onlyRegisteredUser modifier, so no viewer
+        // registration is needed to reach the branches they exercise.
+
+        it("removeHistoricViewTransferId reverts for a transferId that does not exist yet", async () => {
+            const { token } = await cleanMintableDeployment();
+            const [owner, viewer] = await ethers.getSigners();
+
+            await token.connect(owner).removeHistoricViewTransferId(viewer, 9999)
+                .should.be.revertedWithCustomError(token, "InvalidTransferId");
+        });
+
+        it("removeHistoricViewAuth is a no-op (emits nothing) when nothing was authorized", async () => {
+            const { token } = await cleanMintableDeployment();
+            const [owner, viewer] = await ethers.getSigners();
+
+            await expect(token.connect(owner).removeHistoricViewAuth(viewer))
+                .to.not.emit(token, "HistoricViewPermissionsRevoked");
+        });
+
+        it("removeHistoricViewTimeRange is a no-op (emits nothing) when no time range was authorized", async () => {
+            const { token } = await cleanMintableDeployment();
+            const [owner, viewer] = await ethers.getSigners();
+
+            await expect(token.connect(owner).removeHistoricViewTimeRange(viewer))
+                .to.not.emit(token, "HistoricViewTimeRangeRevoked");
+        });
+
+        it("authorizeHistoricViewTransferId is idempotent: re-authorizing the same id emits nothing", async () => {
+            const { token, bite, owner } = await withMintedTokens();
+            const [, recipient, viewer] = await ethers.getSigners();
+            await registerViewer(token, bite, owner, owner);
+            await registerViewer(token, bite, recipient, recipient);
+            await registerViewer(token, bite, viewer, viewer);
+
+            const event = await performTransferAndCapture(token, bite, owner, recipient, transferAmount);
+
+            // First authorization emits the event...
+            await expect(token.connect(owner).authorizeHistoricViewTransferId(viewer, event.transferId))
+                .to.emit(token, "HistoricViewTransferIdAuthorized");
+            // ...re-authorizing the same id is a no-op and emits nothing.
+            await expect(token.connect(owner).authorizeHistoricViewTransferId(viewer, event.transferId))
+                .to.not.emit(token, "HistoricViewTransferIdAuthorized");
+        });
+
         // Automatic TransferValueEncryptedForRecipient on transfer
 
         it("should automatically emit TransferValueEncryptedForRecipient & Sender readable by the viewers when they have a registered viewer", async () => {
@@ -1628,6 +1910,78 @@ describe("ConfidentialToken", () => {
             await token.connect(attacker).encryptedTransfer(sink, zeroBalanceCt);
             await expect(bite.sendCallback())
                 .to.be.revertedWithCustomError(token, "InvalidSaltForTransactionValue");
+        });
+    });
+
+    // Defensive callback-validation guards.
+    //
+    // In production the contract always builds well-formed encrypted arguments and BITE protocol is trusted, so the malformed-argument guards in
+    // _validateDecryptedArguments / _decodeBalance should never fire through the normal flow. We
+    // point submitCTXAddress at CorruptingSubmitCTXMock, which delivers attacker-chosen decrypted
+    // arguments through a legitimately registered CallbackSender (the only way to reach these
+    // guards), while forwarding the real plaintext arguments so routing is unchanged.
+    describe("malformed decrypted callback arguments", () => {
+        const coder = ethers.AbiCoder.defaultAbiCoder();
+        const bytesOfLength = (length: number) => ethers.hexlify(ethers.randomBytes(length));
+        const encodeBalance = (holder: string, value: bigint) =>
+            coder.encode(["address", "uint256"], [holder, value]);
+
+        // Each case delivers a different malformed shape to a real owner -> recipient transfer.
+        // A reverting callback rolls back token state, so all cases share one fixture and one
+        // deployed mock; only the gas-token fee for each queued transfer is consumed.
+        it("rejects every malformed decrypted-argument shape on the transfer callback", async () => {
+            const { token, owner } = await withMintedTokens();
+            const [, recipient] = await ethers.getSigners();
+            const validValue = encodeBalance(owner.address, ethers.parseEther("1"));
+
+            const mock = await (await ethers.getContractFactory("CorruptingSubmitCTXMock")).deploy();
+            await token.connect(owner).setSubmitCTXAddress(mock);
+
+            const cases: { label: string; args: string[]; error: string }[] = [
+                {
+                    label: "argument count is neither 2 nor 3",
+                    args: [bytesOfLength(64)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    // Length 2 implies mint or burn, which requires exactly one of from/to to be
+                    // zero. A genuine transfer has both non-zero, so the check rejects it.
+                    label: "2-argument payload on a real (non mint/burn) transfer",
+                    args: [bytesOfLength(64), bytesOfLength(64)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    label: "recipient balance argument has an invalid length",
+                    args: [bytesOfLength(64), bytesOfLength(32), bytesOfLength(64)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    label: "sender balance argument has an invalid length",
+                    args: [bytesOfLength(32), bytesOfLength(64), bytesOfLength(64)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    label: "value argument is not exactly 64 bytes",
+                    args: [bytesOfLength(64), bytesOfLength(64), bytesOfLength(32)],
+                    error: "DecryptionBadFormat"
+                },
+                {
+                    // arg[0] is empty: _decodeBalance returns (address(0), 0), so the salt check
+                    // fails because the decoded holder (zero) does not match the expected `from`.
+                    // The value argument (arg[2]) is verified first and must be salted to `from`.
+                    label: "empty balance argument decodes to the zero address and fails the salt check",
+                    args: ["0x", validValue, validValue],
+                    error: "InvalidSaltForTransactionValue"
+                }
+            ];
+
+            for (const { args, error } of cases) {
+                await mock.setDecryptedArguments(args);
+                await token.connect(owner).transfer(recipient, ethers.parseEther("1"));
+                await mock.sendCallback()
+                        .should.be.revertedWithCustomError(token, error);
+
+            }
         });
     });
 });

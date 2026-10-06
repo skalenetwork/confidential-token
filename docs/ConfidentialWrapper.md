@@ -233,7 +233,7 @@ function __ConfidentialWrapper_init(contract IERC20Metadata underlyingToken, str
 Dispatches decrypted CTX actions for wrapper-specific flows.
 
 ```solidity
-function _handleAction(uint8 action, bytes[] decryptedArguments, bytes[] plaintextArguments) internal
+function _handleAction(struct ConfidentialToken.CTXInfo ctxInfo, bytes[] decryptedArguments, bytes actionArgument) internal
 ```
 
 **dev:** _Handles `_WITHDRAW_TO_ACTION` locally and delegates all other actions to
@@ -243,9 +243,9 @@ the base ConfidentialToken logic._
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| action | uint8 | Action discriminator encoded in callback plaintext. |
+| ctxInfo | struct ConfidentialToken.CTXInfo | General information about the CTX |
 | decryptedArguments | bytes[] | Decrypted callback arguments from BITE. |
-| plaintextArguments | bytes[] | Plaintext callback arguments used for routing. |
+| actionArgument | bytes | Encoded parameters for the action |
 
 ### _burnTo
 

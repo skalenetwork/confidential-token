@@ -29,6 +29,10 @@ Confidential Token implements privacy-preserving token functionality while maint
 - **SKALE Integration**: Requires SKALE's precompiled contracts and BITE protocol for threshold encryption and secure computations.
 - **Historic Transfer Decryption**: Token holders can grant viewers selective access to decrypt past transfers, either by time range or by specific transfer ID. To/From addresses involved in the transfer always have permission to request re-encryption of past transfers.
 
+## Developer Notes
+
+See [DEVELOPERS.md](DEVELOPERS.md) for practical how-to guides, including how to encode and encrypt transfer values for use with `encryptedTransfer` and `encryptedTransferFrom`.
+
 ## Core Contracts
 
 #### [ConfidentialToken.sol](contracts/ConfidentialToken.sol)
@@ -53,6 +57,8 @@ The main contract implementing the confidential token functionality. It extends 
 - `encryptedTransferFrom(from, to, value)`: Transfer tokens on behalf of another using an encrypted value (bytes)
 - `encryptedBalanceOf(holder)`: Get the encrypted balance representation (must be decrypted off-chain)
 - `gasTokenBalanceOf(holder)`: Get the gas token balance for callback funding
+
+
 
 **Historic Transfer Decryption:**
 
