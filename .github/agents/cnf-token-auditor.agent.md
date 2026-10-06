@@ -103,7 +103,7 @@ Focus for inherited: whether they route into overridden `_update`, whether they 
 ### Phase 5 — ConfidentialToken internal machinery
 `_handleHistoricViewRequest`, `_handleTransferRequest`, `_decryptedUpdate`, `_onUpdate`, `_update`, `_updateWithGasPayer`, `_encryptedUpdate`, `_transferFrom`, `_encryptedTransferFrom`, `_encryptedTransfer`, `_setBalance`, `_encryptArguments`, `_getEncryptedBalance`, `_getViewKey`, `_viewerIsRegistered`, `_knownPublicKey`, `_isValidPublicKey`, `_decodeBalance`, `_publicKeyToAddress`, `_validateDecryptedArguments`
 
-Focus: stale balance detection (`_lastChanged`), callback resubmission, balance/supply conservation, event confidentiality, viewer key correctness, malformed decrypted arguments, zero address mint/burn.
+Focus: stale balance detection (`_balanceCounter` vs the `fromCounter`/`toCounter` snapshot in `TransferInfo`), callback resubmission, balance/supply conservation, event confidentiality, viewer key correctness, malformed decrypted arguments, zero address mint/burn.
 
 ### Phase 6 — MintableConfidentialToken
 `constructor`, `mint`

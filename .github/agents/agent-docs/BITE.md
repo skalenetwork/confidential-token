@@ -2,7 +2,7 @@
 
 <!-- cspell:words ciphertext ECIES -->
 
-This document is written for a Solidity audit agent reviewing contracts that import `@skalenetwork/bite-solidity`. It describes how a BITE-enabled SKALE chain differs from Ethereum, what Conditional Transactions (CTXs) are, and the invariants an auditor must keep in mind when reasoning about confidentiality, reentrancy, gas accounting, and the callback trust boundary.
+This document is written for a Solidity audit agent reviewing contracts that import and use `@skalenetwork/bite-solidity`. It describes how a BITE-enabled SKALE chain differs from Ethereum, what Conditional Transactions (CTXs) are, and the invariants an auditor must keep in mind when reasoning about security.
 
 ---
 
@@ -12,11 +12,11 @@ SKALE chains are EVM-compatible, but several runtime assumptions that hold on Et
 
 ### 1.1 Chain-level differences (SKALE, independent of BITE)
 
-- **Gas price is fixed by the chain configuration.** `tx.gasprice` is effectively constant on SKALE (legacy transactions at the configured price). Patterns like `msg.value / tx.gasprice` to derive a gas budget are reliable in the common case, but are **unsafe if a caller submits an EIP-1559 (TYPE2) transaction** where `tx.gasprice` resolves differently, or if the chain configuration changes. Flag contracts that rely on this without either pinning the gas price or restricting the transaction type.
+- **Gas price is fixed by the chain configuration.** `tx.gasprice` is effectively constant on SKALE  chains, even for Type-2 transactions. Patterns like `msg.value / tx.gasprice` to derive a gas budget are reliable in the common case.
 
-- **EVM version pinned to `istanbul`** for any contract touching BITE precompiles. Later EVM versions (e.g. those emitting `PUSH0`) will not execute correctly against the current SKALE runtime for contracts using these precompiles. Audit flag: Solidity ≥0.8.20 without `evmVersion: "istanbul"` in the build config.
+- **EVM version pinned to `istanbul`** for any contract touching BITE precompiles. Later EVM versions (e.g. those emitting `PUSH0`) will not execute correctly against the current SKALE runtime for contracts using these precompiles. Audit flag: Solidity ≥0.8.20 without `evmVersion: "istanbul"` in the build config. Note that this is being updated actively, and might no longer hold true in future updates. Flag it if relevant, but leave it for the person reviewing the audit to check the actual version (you may ask, but safe default is `istanbul`).
 
-- **Block timestamps and `block.number`** behave qualitatively like Ethereum, but SKALE chains have different block times. Time-based locks should be reviewed against the specific chain's cadence rather than Ethereum's ~12s. SKALE block mining time can be sub-second, and block-finality of 1. Block timestamps are strictly incremental.
+- **Block timestamps and `block.number`** behave qualitatively like Ethereum, but SKALE chains have block time of under 1 second sometimes, and instant finality. This means that block.timestamp can be = in two subsequent blocks when rounded to seconds.
 
 ### 1.2 BITE-specific differences
 
@@ -93,7 +93,7 @@ This section is the core of what an auditor needs to understand. A CTX is a **tw
 
 ### 4.1 Transaction 1 — Submission
 
-Caller (EOA or contract) invokes a user-facing function on the supplicant contract (call it `requestReveal(...)`):
+Caller (EOA or contract) invokes a user-facing function on the supplicant contract (call it `requestReveal(...)` for example):
 
 ```solidity
 function requestReveal(bytes calldata someEncryptedInput) external payable {
@@ -113,7 +113,7 @@ function requestReveal(bytes calldata someEncryptedInput) external payable {
         plaintextArgs
     );
 
-    _canCallOnDecrypt[ctxSender] = true;  // authorize exactly this ctxSender
+    _canCallOnDecrypt[ctxSender] = true;  // authorize exactly this ctxSender generated (unique)
     ctxSender.sendValue(msg.value);       // fund the callback
 }
 ```
@@ -129,6 +129,8 @@ Step-by-step semantics during this transaction:
 ### 4.2 Between transactions — BITE network work
 
 The network observes the CTX, performs threshold decryption of each `encryptedArgument` off-chain (requires a threshold of honest nodes cooperating), and constructs a system transaction that will invoke `onDecrypt` on the supplicant from `ctxSender`.
+
+>> NOTE: TE encryption performed by smart-contract (i.e smart-contract calls TEEncrypt precompile) can ONLY be decrypted by a CTX created by the SAME smart-contract. This is enforced by protocol. So smart-contract 1 cannot decrypt data encrypted by smart-contract 2, and vice-versa. Users, when encrypting the value of-chain using the TE public key, can use bite-ts library and pick an authorized address to decrypt, and thus the value is no longer decryptable by any other account.
 
 This happens in a later block. The guarantees are as follows:
 - CTXs are scheduled for the **next block** (N+1).
@@ -152,7 +154,7 @@ function onDecrypt(
     // (1) Authenticate msg.sender against the whitelist populated in submitCTX.
     require(_canCallOnDecrypt[msg.sender], AccessDenied());
 
-    // (2) One-shot: prevent replay if the system ever re-delivers.
+    // (2) One-shot: prevent replay if the system ever re-delivers (should never happen, but also frees up memory).
     _canCallOnDecrypt[msg.sender] = false;
 
     // (3) Dispatch: if one contract multiplexes several CTX flows,
@@ -163,35 +165,35 @@ function onDecrypt(
 
 NOTE: This pattern does not clear senders from failed transactions. This is considered safe because it is considered *impossible* to get the key for such address to re-sign a transaction. The state is changed to `false` on successful ones to minimize used storage.
 
+NOTE2: The remaining gas on the `ctxSender` is automaticaly sent (through protocol, without tx) to the smart-contract, even if the CTX reverts. It is important to have this in mind, because smart-contracts that handle their own native balance should expect this behaviour when allowing CTXs.
+
 
 ### 4.5 Reentrancy and state consistency
 
 - `submitCTX` is a `call` to a system precompile. The precompile is trusted and performs no external calls back into user contracts. **Reentrancy from the precompile itself is not possible.**
-- However, `onDecrypt` runs in a **later transaction** with arbitrary contract state evolved in between. Anything a normal tx can do (price changes, role changes, pauses, upgrades) can have happened between submission and callback. Treat the callback as a fresh, adversarially-scheduled tx with respect to every state variable that is not explicitly snapshotted into `plaintextArguments`, storage keyed on `ctxSender`, or the encrypted payload.
-- Multiple CTXs can be in flight simultaneously. `onDecrypt` may be interleaved and is not guaranteed to match the submission order. Per-CTX state should be keyed on `ctxSender`, not on globals.
-- `onDecrypt` itself may call `submitCTX` (self-referential CTX chains). This means a callback can submit further CTXs whose callbacks will fire later. Audit for unbounded recursion / gas griefing and for correct termination conditions.
+- However, `onDecrypt` runs in a **later transaction** with arbitrary contract state evolved in between. Anything a normal tx can do (price changes, role changes, pauses, upgrades) can have happened between submission and callback. Treat the callback as a fresh, adversarially-scheduled tx with respect to every state variable that is not explicitly snapshotted into `plaintextArguments`, storage keyed on `ctxSender`, or the encrypted payload. Overall, it's recommended that most state-changes are performed in the callback execution context, and not split between the schedule and the callback execution.
+- Keep in mind that when passing storage data from Block N, encrypted to a CTX to be executed at block N+1, that state may no longer be valid. (Ex: 2 CTX include the current balance of Bob, encryped. in CTX 1, balance is valid and updated, so CTX2 value which carries the now stale value of block N is no longer valid)
+- `onDecrypt` context itself may call `submitCTX`. This means a callback can submit further CTXs whose callbacks will fire later. Always check for unbounded recursion / gas griefing, for correct termination conditions, etc.
 
 ### 4.6 Gas accounting inside `onDecrypt`
 
-The callback is executed with exactly `GAS_LIMIT` gas (the value passed to `submitCTX`). If `onDecrypt` runs out of gas, the callback reverts, and (depending on chain behavior and the refund policy) the CTX may be dropped.
+The callback is executed with exactly `GAS_LIMIT` gas (the value passed to `submitCTX`). If `onDecrypt` runs out of gas, the callback reverts. It is never dropped, executes untill out of gas, and is allways included in a block with the network's fixed price.
 
 ### 4.7 What can go wrong with the plaintext once it is inside `onDecrypt`
 
-The plaintext exists in memory for the duration of the callback. Audit for:
+The plaintext (decrypted arguments) exists in memory for the duration of the callback. Audit for:
 
 - Writing plaintext to storage (makes it world-readable forever).
 - Emitting plaintext in events (events are public).
 - Don't trust passing plaintext to other (arbitrary) contracts in non-view functions.
-- Verify re-encryption of said sensitive texts (usually via ECIES), and what Public Key is used
-
-A correctly-written supplicant either (a) re-encrypts the plaintext under ECIES for a specific viewer and stores the ECIES ciphertext, or (b) uses the plaintext to drive a single decision (e.g. "did this bidder offer >= reserve?") and discards it without persistence.
+- Verify re-encryption of said sensitive texts (either via ECIES or TE) - who can now decrypt them?
 
 ---
 
 ## 5. Consensus and block-rule behavior of CTXs
 
-- SKALE networks have a fixed block limit.
+- SKALE networks have a fixed block gas limit, much higher than Ethereum.
 - CTXs, once scheduled, are saved to be executed in the first available block after the one they're scheduled in. They take priority over regular transactions, thus if there are pending CTXs for a given block, other transactions are put on hold until a block has space for them.
 - We can assume execution context (trace) of CTXs (onDecrypt) is hidden, only saved storage/events are revealed as usual.
 - CTXs are executed in the exact same order they are scheduled.
-- For each CTX, a random address is generated to be the sender of such CTX. This address is known upon CTX scheduling, and should be topped up with gas enough to pay for the CTX, otherwise it fails (CTX may not appear in the block)
+- For each CTX, a random address is generated to be the sender of such CTX. This address is known upon CTX scheduling, and should be topped up with gas enough to pay for the CTX, otherwise it fails (CTX may not appear in the block). It will refund the remaining gas to the target contract (even if a revert occurs).
